@@ -9,38 +9,188 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as RegisterRouteImport } from './routes/register'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as JoinRoomRouteImport } from './routes/join-room'
+import { Route as CreateRoomRouteImport } from './routes/create-room'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MafiaGameIdRouteImport } from './routes/mafia.$gameId'
+import { Route as LobbyRoomIdRouteImport } from './routes/lobby.$roomId'
 
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RegisterRoute = RegisterRouteImport.update({
+  id: '/register',
+  path: '/register',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LoginRoute = LoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const JoinRoomRoute = JoinRoomRouteImport.update({
+  id: '/join-room',
+  path: '/join-room',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreateRoomRoute = CreateRoomRouteImport.update({
+  id: '/create-room',
+  path: '/create-room',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MafiaGameIdRoute = MafiaGameIdRouteImport.update({
+  id: '/mafia/$gameId',
+  path: '/mafia/$gameId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LobbyRoomIdRoute = LobbyRoomIdRouteImport.update({
+  id: '/lobby/$roomId',
+  path: '/lobby/$roomId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/create-room': typeof CreateRoomRoute
+  '/join-room': typeof JoinRoomRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
+  '/lobby/$roomId': typeof LobbyRoomIdRoute
+  '/mafia/$gameId': typeof MafiaGameIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/create-room': typeof CreateRoomRoute
+  '/join-room': typeof JoinRoomRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
+  '/lobby/$roomId': typeof LobbyRoomIdRoute
+  '/mafia/$gameId': typeof MafiaGameIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/create-room': typeof CreateRoomRoute
+  '/join-room': typeof JoinRoomRoute
+  '/login': typeof LoginRoute
+  '/profile': typeof ProfileRoute
+  '/register': typeof RegisterRoute
+  '/settings': typeof SettingsRoute
+  '/lobby/$roomId': typeof LobbyRoomIdRoute
+  '/mafia/$gameId': typeof MafiaGameIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/create-room'
+    | '/join-room'
+    | '/login'
+    | '/profile'
+    | '/register'
+    | '/settings'
+    | '/lobby/$roomId'
+    | '/mafia/$gameId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/create-room'
+    | '/join-room'
+    | '/login'
+    | '/profile'
+    | '/register'
+    | '/settings'
+    | '/lobby/$roomId'
+    | '/mafia/$gameId'
+  id:
+    | '__root__'
+    | '/'
+    | '/create-room'
+    | '/join-room'
+    | '/login'
+    | '/profile'
+    | '/register'
+    | '/settings'
+    | '/lobby/$roomId'
+    | '/mafia/$gameId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CreateRoomRoute: typeof CreateRoomRoute
+  JoinRoomRoute: typeof JoinRoomRoute
+  LoginRoute: typeof LoginRoute
+  ProfileRoute: typeof ProfileRoute
+  RegisterRoute: typeof RegisterRoute
+  SettingsRoute: typeof SettingsRoute
+  LobbyRoomIdRoute: typeof LobbyRoomIdRoute
+  MafiaGameIdRoute: typeof MafiaGameIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/register': {
+      id: '/register'
+      path: '/register'
+      fullPath: '/register'
+      preLoaderRoute: typeof RegisterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/join-room': {
+      id: '/join-room'
+      path: '/join-room'
+      fullPath: '/join-room'
+      preLoaderRoute: typeof JoinRoomRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/create-room': {
+      id: '/create-room'
+      path: '/create-room'
+      fullPath: '/create-room'
+      preLoaderRoute: typeof CreateRoomRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,22 +198,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mafia/$gameId': {
+      id: '/mafia/$gameId'
+      path: '/mafia/$gameId'
+      fullPath: '/mafia/$gameId'
+      preLoaderRoute: typeof MafiaGameIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lobby/$roomId': {
+      id: '/lobby/$roomId'
+      path: '/lobby/$roomId'
+      fullPath: '/lobby/$roomId'
+      preLoaderRoute: typeof LobbyRoomIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CreateRoomRoute: CreateRoomRoute,
+  JoinRoomRoute: JoinRoomRoute,
+  LoginRoute: LoginRoute,
+  ProfileRoute: ProfileRoute,
+  RegisterRoute: RegisterRoute,
+  SettingsRoute: SettingsRoute,
+  LobbyRoomIdRoute: LobbyRoomIdRoute,
+  MafiaGameIdRoute: MafiaGameIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
