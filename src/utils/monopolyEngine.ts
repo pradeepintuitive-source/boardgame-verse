@@ -329,10 +329,11 @@ function applyCard(state: MonopolyState, id: string, deck: "chance" | "chest", i
     }
     case "repairs": {
       let total = 0;
+      const act = card.action;
       Object.values(next.properties).forEach((pr) => {
         if (pr.ownerId === id) {
-          if (pr.houses === 5) total += card.action.perHotel;
-          else total += pr.houses * card.action.perHouse;
+          if (pr.houses === 5) total += act.perHotel;
+          else total += pr.houses * act.perHouse;
         }
       });
       if (total > 0) next = pay(next, id, total, "bank");
