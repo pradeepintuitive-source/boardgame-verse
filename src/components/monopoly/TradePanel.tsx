@@ -137,7 +137,7 @@ export function TradePanel({ state, meId, partnerId, existingOffer, onClose, onP
             <NeonButton
               variant="cyan"
               onClick={() =>
-                onPropose({
+                onPropose?.({
                   fromId: meId,
                   toId: partnerId,
                   fromProps: myProps,
