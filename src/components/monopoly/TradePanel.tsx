@@ -53,7 +53,7 @@ interface Props {
   partnerId: string;
   existingOffer?: TradeOffer | null;
   onClose: () => void;
-  onPropose: (offer: Omit<TradeOffer, "id" | "status">) => void;
+  onPropose?: (offer: Omit<TradeOffer, "id" | "status">) => void;
   onAccept?: () => void;
   onDecline?: () => void;
 }

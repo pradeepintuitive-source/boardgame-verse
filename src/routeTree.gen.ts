@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as JoinRoomRouteImport } from './routes/join-room'
 import { Route as CreateRoomRouteImport } from './routes/create-room'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as MonopolyGameIdRouteImport } from './routes/monopoly.$gameId'
 import { Route as MafiaGameIdRouteImport } from './routes/mafia.$gameId'
 import { Route as LobbyRoomIdRouteImport } from './routes/lobby.$roomId'
 
@@ -54,6 +55,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MonopolyGameIdRoute = MonopolyGameIdRouteImport.update({
+  id: '/monopoly/$gameId',
+  path: '/monopoly/$gameId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const MafiaGameIdRoute = MafiaGameIdRouteImport.update({
   id: '/mafia/$gameId',
   path: '/mafia/$gameId',
@@ -75,6 +81,7 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/lobby/$roomId': typeof LobbyRoomIdRoute
   '/mafia/$gameId': typeof MafiaGameIdRoute
+  '/monopoly/$gameId': typeof MonopolyGameIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/lobby/$roomId': typeof LobbyRoomIdRoute
   '/mafia/$gameId': typeof MafiaGameIdRoute
+  '/monopoly/$gameId': typeof MonopolyGameIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -98,6 +106,7 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/lobby/$roomId': typeof LobbyRoomIdRoute
   '/mafia/$gameId': typeof MafiaGameIdRoute
+  '/monopoly/$gameId': typeof MonopolyGameIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -111,6 +120,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/lobby/$roomId'
     | '/mafia/$gameId'
+    | '/monopoly/$gameId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -122,6 +132,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/lobby/$roomId'
     | '/mafia/$gameId'
+    | '/monopoly/$gameId'
   id:
     | '__root__'
     | '/'
@@ -133,6 +144,7 @@ export interface FileRouteTypes {
     | '/settings'
     | '/lobby/$roomId'
     | '/mafia/$gameId'
+    | '/monopoly/$gameId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -145,6 +157,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   LobbyRoomIdRoute: typeof LobbyRoomIdRoute
   MafiaGameIdRoute: typeof MafiaGameIdRoute
+  MonopolyGameIdRoute: typeof MonopolyGameIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -198,6 +211,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/monopoly/$gameId': {
+      id: '/monopoly/$gameId'
+      path: '/monopoly/$gameId'
+      fullPath: '/monopoly/$gameId'
+      preLoaderRoute: typeof MonopolyGameIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/mafia/$gameId': {
       id: '/mafia/$gameId'
       path: '/mafia/$gameId'
@@ -225,6 +245,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   LobbyRoomIdRoute: LobbyRoomIdRoute,
   MafiaGameIdRoute: MafiaGameIdRoute,
+  MonopolyGameIdRoute: MonopolyGameIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
