@@ -10,6 +10,8 @@ import { useLobbyStore } from "../store/lobbyStore";
 import { useAuthStore } from "../store/authStore";
 import { useGameStore } from "../store/gameStore";
 import { initMafiaGame } from "../utils/mafiaEngine";
+import { useMonopolyStore } from "../store/monopolyStore";
+import { initMonopolyGame } from "../utils/monopolyEngine";
 
 export const Route = createFileRoute("/lobby/$roomId")({
   head: () => ({
@@ -25,6 +27,7 @@ function LobbyPage() {
   const { addAI, removePlayer, toggleReady } = useLobbyStore();
   const user = useAuthStore((s) => s.user);
   const setMafia = useGameStore((s) => s.setMafia);
+  const setMonopoly = useMonopolyStore((s) => s.setGame);
 
   const [copied, setCopied] = useState(false);
 
@@ -42,7 +45,8 @@ function LobbyPage() {
   }
 
   const isHost = user?.id === room.hostId;
-  const allReady = room.players.every((p) => p.ready) && room.players.length >= 3;
+  const minPlayers = room.gameType === "monopoly" ? 2 : 3;
+  const allReady = room.players.every((p) => p.ready) && room.players.length >= minPlayers;
 
   const copy = async () => {
     await navigator.clipboard.writeText(room.code);
@@ -51,11 +55,14 @@ function LobbyPage() {
   };
 
   const start = () => {
-    if (room.gameType !== "mafia") return;
     const gameId = room.id;
-    const state = initMafiaGame(gameId, room.players);
-    setMafia(gameId, state);
-    navigate({ to: "/mafia/$gameId", params: { gameId } });
+    if (room.gameType === "mafia") {
+      setMafia(gameId, initMafiaGame(gameId, room.players));
+      navigate({ to: "/mafia/$gameId", params: { gameId } });
+    } else if (room.gameType === "monopoly") {
+      setMonopoly(gameId, initMonopolyGame(gameId, room.players));
+      navigate({ to: "/monopoly/$gameId", params: { gameId } });
+    }
   };
 
   return (
@@ -165,11 +172,11 @@ function LobbyPage() {
                 </NeonButton>
                 <NeonButton
                   size="md"
-                  disabled={!allReady || room.gameType !== "mafia"}
+                  disabled={!allReady}
                   onClick={start}
                   className="w-full"
                 >
-                  {room.gameType === "mafia" ? (allReady ? "Start Match" : `Need ${Math.max(0, 3 - room.players.length)} more`) : "Game coming soon"}
+                  {allReady ? "Start Match" : `Need ${Math.max(0, minPlayers - room.players.length)} more`}
                 </NeonButton>
               </div>
             )}
