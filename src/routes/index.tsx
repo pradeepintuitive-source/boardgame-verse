@@ -78,7 +78,7 @@ function Index() {
               duration="EST. 90 MIN"
               image={monopolyArt}
               accent="cyan"
-              badge="Coming Soon"
+              badge="Available"
               offset
               to="/create-room?game=monopoly"
             />
