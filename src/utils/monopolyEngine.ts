@@ -503,6 +503,39 @@ export function useJailCard(state: MonopolyState): MonopolyState {
   return next;
 }
 
+/* ---------- Bank Manager (manual overrides for pass-and-play) ---------- */
+
+export function bankAdjust(state: MonopolyState, playerId: string, delta: number): MonopolyState {
+  const p = state.players.find((x) => x.id === playerId);
+  if (!p) return state;
+  const newCash = Math.max(0, p.cash + delta);
+  const next = updatePlayer(state, playerId, { cash: newCash });
+  log(
+    next,
+    delta >= 0
+      ? `Bank paid ${p.username} $${delta}.`
+      : `${p.username} paid bank $${-delta}.`,
+    "money",
+  );
+  return next;
+}
+
+export function bankTransfer(
+  state: MonopolyState,
+  fromId: string,
+  toId: string,
+  amount: number,
+): MonopolyState {
+  if (amount <= 0 || fromId === toId) return state;
+  const from = state.players.find((x) => x.id === fromId);
+  const to = state.players.find((x) => x.id === toId);
+  if (!from || !to || from.cash < amount) return state;
+  let next = updatePlayer(state, fromId, { cash: from.cash - amount });
+  next = updatePlayer(next, toId, { cash: to.cash + amount });
+  log(next, `${from.username} transferred $${amount} to ${to.username}.`, "money");
+  return next;
+}
+
 /* ---------- Turn ---------- */
 
 export function endTurn(state: MonopolyState): MonopolyState {

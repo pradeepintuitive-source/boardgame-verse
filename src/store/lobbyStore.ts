@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { GameType, Player, Room } from "../models";
 import { pickAvatarColor, roomCode, uid } from "../utils/ids";
 
@@ -25,7 +26,9 @@ interface LobbyState {
 
 const aiNames = ["NEO-7", "VEX-2", "CIPHER", "ORACLE", "WRAITH", "PHANTOM", "RAVEN", "ECHO"];
 
-export const useLobbyStore = create<LobbyState>((set, get) => ({
+export const useLobbyStore = create<LobbyState>()(
+  persist(
+    (set, get) => ({
   rooms: {},
   createRoom: (i) => {
     const id = uid("room");
@@ -124,4 +127,7 @@ export const useLobbyStore = create<LobbyState>((set, get) => ({
     }));
   },
   getRoom: (roomId) => get().rooms[roomId],
-}));
+    }),
+    { name: "gh-lobby" },
+  ),
+);
