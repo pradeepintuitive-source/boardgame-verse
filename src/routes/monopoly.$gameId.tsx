@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence } from "framer-motion";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Trophy } from "lucide-react";
+import { Trophy, Banknote } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { ChatDrawer } from "../components/chat/ChatDrawer";
@@ -12,11 +12,14 @@ import { PropertyCard } from "../components/monopoly/PropertyCard";
 import { AuctionPanel } from "../components/monopoly/AuctionPanel";
 import { TradePanel } from "../components/monopoly/TradePanel";
 import { EventLog } from "../components/monopoly/EventLog";
+import { BankManager } from "../components/monopoly/BankManager";
 import { useMonopolyStore } from "../store/monopolyStore";
 import { useAuthStore } from "../store/authStore";
 import {
   aiAuctionStep,
   aiStep,
+  bankAdjust,
+  bankTransfer,
   buildHouse,
   buyPending,
   currentPlayer,
@@ -53,6 +56,7 @@ function MonopolyPage() {
 
   const [openTile, setOpenTile] = useState<number | null>(null);
   const [tradePartner, setTradePartner] = useState<string | null>(null);
+  const [bankOpen, setBankOpen] = useState(false);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // AI driver — runs whenever it's an AI's turn or AI auction bidder
@@ -82,10 +86,14 @@ function MonopolyPage() {
     };
   }, [state, gameId, setGame]);
 
-  const me = useMemo(
-    () => state?.players.find((p) => p.id === user?.id) ?? state?.players[0],
-    [state, user],
-  );
+  // Pass-and-play: the "me" view always follows whoever's turn it is, as long as
+  // they're a human. The auth user is only used as a fallback identity.
+  const me = useMemo(() => {
+    if (!state) return undefined;
+    const cur = state.players[state.currentPlayerIndex];
+    if (cur && !cur.isAI && !cur.bankrupt) return cur;
+    return state.players.find((p) => p.id === user?.id) ?? state.players.find((p) => !p.isAI) ?? state.players[0];
+  }, [state, user]);
 
   if (!state || !me) {
     return (
@@ -100,7 +108,8 @@ function MonopolyPage() {
     );
   }
 
-  const isMyTurn = currentPlayer(state).id === me.id && !me.bankrupt;
+  const cur = currentPlayer(state);
+  const isMyTurn = !cur.isAI && !cur.bankrupt && cur.id === me.id;
   const apply = (fn: (s: typeof state) => typeof state) => setGame(gameId, fn(state));
 
   return (
@@ -114,9 +123,14 @@ function MonopolyPage() {
             </div>
             <h1 className="font-display text-4xl md:text-5xl italic uppercase neon-text-glow">Monopoly</h1>
           </div>
-          <NeonButton variant="ghost" size="sm" onClick={() => navigate({ to: "/" })}>
-            Exit
-          </NeonButton>
+          <div className="flex gap-2">
+            <NeonButton variant="ghost" size="sm" onClick={() => setBankOpen(true)}>
+              <Banknote className="inline size-4 mr-1" /> Bank
+            </NeonButton>
+            <NeonButton variant="ghost" size="sm" onClick={() => navigate({ to: "/" })}>
+              Exit
+            </NeonButton>
+          </div>
         </header>
 
         <div className="grid xl:grid-cols-[280px_minmax(0,1fr)_320px] gap-4">
@@ -234,6 +248,15 @@ function MonopolyPage() {
             onClose={() => apply((s) => resolveTrade(s, false))}
             onAccept={() => apply((s) => resolveTrade(s, true))}
             onDecline={() => apply((s) => resolveTrade(s, false))}
+          />
+        )}
+
+        {bankOpen && (
+          <BankManager
+            state={state}
+            onClose={() => setBankOpen(false)}
+            onAdjust={(pid, delta) => apply((s) => bankAdjust(s, pid, delta))}
+            onTransfer={(from, to, amt) => apply((s) => bankTransfer(s, from, to, amt))}
           />
         )}
       </AnimatePresence>
