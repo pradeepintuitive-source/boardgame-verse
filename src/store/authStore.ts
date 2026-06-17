@@ -5,6 +5,7 @@ import { pickAvatarColor, uid } from "../utils/ids";
 
 interface AuthState {
   user: User | null;
+  setUser: (user: User | null) => void;
   loginGuest: (username: string) => void;
   login: (username: string, _password: string) => Promise<void>;
   register: (username: string, email: string, _password: string) => Promise<void>;
@@ -16,6 +17,7 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       user: null,
+      setUser: (user) => set({ user }),
       loginGuest: (username) =>
         set({
           user: {
