@@ -25,11 +25,9 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const { user, setUser, clear } = useAuthStore((s) => ({
-    user: s.user,
-    setUser: s.setUser,
-    clear: s.logout,
-  }));
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const clear = useAuthStore((s) => s.logout);
   const [loading, setLoading] = useState(true);
 
   // Rehydrate from token on mount
