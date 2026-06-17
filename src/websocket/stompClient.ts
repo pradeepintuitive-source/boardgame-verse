@@ -1,5 +1,5 @@
 import { Client, type IFrame, type StompSubscription } from "@stomp/stompjs";
-import SockJS from "sockjs-client";
+import SockJS from "sockjs-client/dist/sockjs";
 import { tokenStore } from "../services/api";
 
 /**
@@ -46,7 +46,7 @@ class GameHubStompClient {
     this.client = new Client({
       // Spring Boot /ws SockJS endpoint when http(s); raw ws(s) brokerURL otherwise.
       ...(isHttp
-        ? { webSocketFactory: () => new SockJS(url) as unknown as WebSocket }
+        ? { webSocketFactory: () => new SockJS(url, undefined, { transports: ["websocket", "xhr-streaming", "xhr-polling"] }) as unknown as WebSocket }
         : { brokerURL: url }),
       reconnectDelay: 2500,
       heartbeatIncoming: 10_000,

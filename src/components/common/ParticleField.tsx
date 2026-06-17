@@ -6,10 +6,10 @@ export function ParticleField({ count = 14 }: { count?: number }) {
     () =>
       Array.from({ length: count }, (_, i) => ({
         id: i,
-        left: Math.random() * 100,
-        top: 60 + Math.random() * 40,
-        delay: Math.random() * 8,
-        duration: 8 + Math.random() * 10,
+        left: ((i * 37 + 11) % 100) + ((i % 5) * 0.13),
+        top: 60 + ((i * 19 + 7) % 40),
+        delay: ((i * 23) % 80) / 10,
+        duration: 8 + ((i * 17) % 100) / 10,
         color: i % 3 === 0 ? "bg-accent-pink" : "bg-accent-cyan",
       })),
     [count],
