@@ -11,6 +11,10 @@ export default defineConfig({
     define: {
       global: "globalThis",
     },
+    server: {
+      // Default dev port for this app. Override by setting process.env.PORT.
+      port: Number(process.env.PORT ?? 4173),
+    },
   },
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
