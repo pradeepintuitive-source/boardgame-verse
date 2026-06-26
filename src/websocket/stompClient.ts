@@ -48,17 +48,21 @@ class GameHubStompClient {
       ...(isHttp
         ? {
             webSocketFactory: () =>
-              new SockJS(url, undefined, {
-                transports: ["websocket", "xhr-streaming", "xhr-polling"],
-                transportOptions: {
-                  "xhr-streaming": {
-                    headers: { "ngrok-skip-browser-warning": "true" },
+              new SockJS(
+                url,
+                undefined,
+                {
+                  transports: ["websocket", "xhr-streaming", "xhr-polling"],
+                  transportOptions: {
+                    "xhr-streaming": {
+                      headers: { "ngrok-skip-browser-warning": "true" },
+                    },
+                    "xhr-polling": {
+                      headers: { "ngrok-skip-browser-warning": "true" },
+                    },
                   },
-                  "xhr-polling": {
-                    headers: { "ngrok-skip-browser-warning": "true" },
-                  },
-                },
-              }) as unknown as WebSocket,
+                } as any,
+              ) as unknown as WebSocket,
           }
         : { brokerURL: url }),
       reconnectDelay: 2500,
