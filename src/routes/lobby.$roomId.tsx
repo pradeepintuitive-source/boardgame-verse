@@ -6,6 +6,7 @@ import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { Avatar } from "../components/common/Avatar";
 import { ChatDrawer } from "../components/chat/ChatDrawer";
+import { ConnectionIndicator } from "../components/common/ConnectionIndicator";
 import { useLobbyStore } from "../store/lobbyStore";
 import { useAuthStore } from "../store/authStore";
 import { useGameStore } from "../store/gameStore";
@@ -80,6 +81,9 @@ function LobbyPage() {
               <span className="inline-flex items-center gap-1.5">{room.isPrivate ? <><Lock className="size-3" /> Private</> : "Public"}</span>
               <span>·</span>
               <span>{room.players.length}/{room.maxPlayers} Seats</span>
+            </div>
+            <div className="mt-3">
+              <ConnectionIndicator />
             </div>
           </div>
           <button
