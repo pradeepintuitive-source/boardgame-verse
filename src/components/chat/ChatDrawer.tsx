@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useChatStore } from "../../store/chatStore";
 import { useAuthStore } from "../../store/authStore";
 import { Avatar } from "../common/Avatar";
+import { ConnectionIndicator } from "../common/ConnectionIndicator";
 
 export function ChatDrawer({ roomId }: { roomId: string }) {
   const { drawerOpen, toggleDrawer, messages, send, unread } = useChatStore();
@@ -55,6 +56,9 @@ export function ChatDrawer({ roomId }: { roomId: string }) {
                   Live Channel
                 </div>
                 <div className="font-display text-2xl italic uppercase">Chat</div>
+                <div className="mt-2">
+                  <ConnectionIndicator compact />
+                </div>
               </div>
               <button onClick={toggleDrawer} className="p-2 hover:text-accent-cyan transition-colors">
                 <X className="size-5" />
