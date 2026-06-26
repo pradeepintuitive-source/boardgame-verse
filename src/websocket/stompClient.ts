@@ -46,7 +46,20 @@ class GameHubStompClient {
     this.client = new Client({
       // Spring Boot /ws SockJS endpoint when http(s); raw ws(s) brokerURL otherwise.
       ...(isHttp
-        ? { webSocketFactory: () => new SockJS(url, undefined, { transports: ["websocket", "xhr-streaming", "xhr-polling"] }) as unknown as WebSocket }
+        ? {
+            webSocketFactory: () =>
+              new SockJS(url, undefined, {
+                transports: ["websocket", "xhr-streaming", "xhr-polling"],
+                transportOptions: {
+                  "xhr-streaming": {
+                    headers: { "ngrok-skip-browser-warning": "true" },
+                  },
+                  "xhr-polling": {
+                    headers: { "ngrok-skip-browser-warning": "true" },
+                  },
+                },
+              }) as unknown as WebSocket,
+          }
         : { brokerURL: url }),
       reconnectDelay: 2500,
       heartbeatIncoming: 10_000,
