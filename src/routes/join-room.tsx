@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { useAuthStore } from "../store/authStore";
+import { useAuth } from "../providers/AuthProvider";
 import { useLobbyStore } from "../store/lobbyStore";
 import { pickAvatarColor, uid } from "../utils/ids";
 
@@ -16,20 +17,26 @@ export const Route = createFileRoute("/join-room")({
 function JoinRoomPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
-  const loginGuest = useAuthStore((s) => s.loginGuest);
+  const { loginGuest } = useAuth();
   const joinByCode = useLobbyStore((s) => s.joinByCode);
   const [code, setCode] = useState("");
   const [name, setName] = useState(user?.username ?? "");
   const [err, setErr] = useState<string | null>(null);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
     let me = user;
     if (!me) {
       const guest = name.trim() || `Guest${Math.floor(Math.random() * 9999)}`;
-      loginGuest(guest);
-      me = { id: uid("usr"), username: guest, avatarColor: pickAvatarColor(guest), isGuest: true };
+      try {
+        await loginGuest(guest);
+      } catch {
+        /* backend unavailable, use local id below */
+      }
+      me =
+        useAuthStore.getState().user ??
+        { id: uid("usr"), username: guest, avatarColor: pickAvatarColor(guest), isGuest: true };
     }
     const room = joinByCode(code.trim(), { id: me.id, username: me.username, avatarColor: me.avatarColor });
     if (!room) {
