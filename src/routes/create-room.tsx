@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { useAuthStore } from "../store/authStore";
+import { useAuth } from "../providers/AuthProvider";
 import { useLobbyStore } from "../store/lobbyStore";
 import { pickAvatarColor, uid } from "../utils/ids";
 import type { GameType } from "../models";
@@ -21,7 +22,7 @@ function CreateRoomPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
   const user = useAuthStore((s) => s.user);
-  const loginGuest = useAuthStore((s) => s.loginGuest);
+  const { loginGuest } = useAuth();
   const createRoom = useLobbyStore((s) => s.createRoom);
 
   const [name, setName] = useState("My Game Room");
@@ -31,13 +32,19 @@ function CreateRoomPage() {
   const [isPrivate, setPrivate] = useState(false);
   const [isLan, setLan] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     let me = user;
     if (!me) {
       const guest = `Host${Math.floor(Math.random() * 9999)}`;
-      loginGuest(guest);
-      me = { id: uid("usr"), username: guest, avatarColor: pickAvatarColor(guest), isGuest: true };
+      try {
+        await loginGuest(guest);
+      } catch {
+        /* fall back to local id if backend guest fails */
+      }
+      me =
+        useAuthStore.getState().user ??
+        { id: uid("usr"), username: guest, avatarColor: pickAvatarColor(guest), isGuest: true };
     }
     const room = createRoom({
       name,
