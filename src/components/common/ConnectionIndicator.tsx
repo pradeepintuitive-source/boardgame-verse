@@ -2,6 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Wifi, WifiOff, Loader2 } from "lucide-react";
 import { useConnectionStore } from "../../store/connectionStore";
 import { stomp } from "../../websocket/stompClient";
+import { useAuthStore } from "../../store/authStore";
 
 /**
  * Compact STOMP/WebSocket connection status indicator.
@@ -15,8 +16,13 @@ export function ConnectionIndicator({
   compact?: boolean;
   className?: string;
 }) {
+  const user = useAuthStore((s) => s.user);
   const connected = useConnectionStore((s) => s.connected);
   const reconnecting = useConnectionStore((s) => s.reconnecting);
+
+  // Don't advertise realtime status on unauthenticated screens — STOMP only
+  // connects after login, so the indicator would just show a stale OFFLINE.
+  if (!user) return null;
 
   const status: "online" | "reconnecting" | "offline" = reconnecting
     ? "reconnecting"
