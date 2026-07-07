@@ -52,16 +52,16 @@ class GameHubStompClient {
                 url,
                 undefined,
                 {
-                  transports: ["websocket", "xhr-streaming", "xhr-polling"],
+                  // xhr-streaming uses EventSource under the hood and cannot
+                  // carry custom headers, so ngrok's warning page breaks it.
+                  // Restrict fallbacks to xhr-polling which honours headers.
+                  transports: ["websocket", "xhr-polling"],
                   transportOptions: {
-                    "xhr-streaming": {
-                      headers: { "ngrok-skip-browser-warning": "true" },
-                    },
                     "xhr-polling": {
                       headers: { "ngrok-skip-browser-warning": "true" },
                     },
                   },
-                } as any,
+                } as unknown as undefined,
               ) as unknown as WebSocket,
           }
         : { brokerURL: url }),
@@ -82,7 +82,11 @@ class GameHubStompClient {
         this.subs.clear();
         entries.forEach(([dest, { handler }]) => this.subscribe(dest, handler));
       },
-      onWebSocketClose: () => this.emit(false, true),
+      onWebSocketClose: () => {
+        // Only signal "reconnecting" while the client is still trying to
+        // reconnect. A user-initiated disconnect() flips active=false first.
+        this.emit(false, this.client?.active === true);
+      },
       onStompError: (frame) => {
         console.error("[stomp] broker error", frame.headers["message"]);
         this.emit(false, true);

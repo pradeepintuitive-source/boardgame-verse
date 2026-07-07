@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
-import { useAuthStore } from "../store/authStore";
+import { useAuth } from "../providers/AuthProvider";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/login")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const { login, loginGuest } = useAuthStore();
+  const { login, loginGuest } = useAuth();
   const [username, setU] = useState("");
   const [password, setP] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,15 +25,23 @@ function LoginPage() {
     e.preventDefault();
     if (!username.trim()) return;
     setLoading(true);
-    await login(username.trim(), password);
-    setLoading(false);
-    navigate({ to: "/" });
+    try {
+      await login(username.trim(), password);
+      navigate({ to: "/" });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const guest = () => {
+  const guest = async () => {
     const name = username.trim() || `Guest${Math.floor(Math.random() * 9999)}`;
-    loginGuest(name);
-    navigate({ to: "/" });
+    setLoading(true);
+    try {
+      await loginGuest(name);
+      navigate({ to: "/" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

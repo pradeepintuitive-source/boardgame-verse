@@ -10,6 +10,9 @@ import {
 import { authApi } from "../services/auth";
 import { setUnauthorizedHandler, tokenStore } from "../services/api";
 import { useAuthStore } from "../store/authStore";
+import { useLobbyStore } from "../store/lobbyStore";
+import { useMonopolyStore } from "../store/monopolyStore";
+import { useGameStore } from "../store/gameStore";
 import { stomp } from "../websocket/stompClient";
 import type { User } from "../models";
 
@@ -92,6 +95,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     await authApi.logout();
     clear();
+    // Wipe cached local game state so a different user doesn't inherit it.
+    useLobbyStore.setState({ rooms: {} });
+    useMonopolyStore.setState({ games: {} });
+    useGameStore.setState({ mafia: {} });
   }, [clear]);
 
   const value = useMemo<AuthContextValue>(

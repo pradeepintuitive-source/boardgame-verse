@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
-import { useAuthStore } from "../store/authStore";
+import { useAuth } from "../providers/AuthProvider";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -16,7 +16,7 @@ export const Route = createFileRoute("/register")({
 
 function RegisterPage() {
   const navigate = useNavigate();
-  const { register } = useAuthStore();
+  const { register } = useAuth();
   const [u, setU] = useState("");
   const [e, setE] = useState("");
   const [p, setP] = useState("");
