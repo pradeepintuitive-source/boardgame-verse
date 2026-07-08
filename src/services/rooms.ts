@@ -62,17 +62,17 @@ function normalizeRoom(raw: RawRoom): Room {
 
 export const roomsApi = {
   list: async (gameType?: GameType): Promise<Room[]> => {
-    const { data } = await api.get<RawRoom[]>("/api/rooms", {
+    const { data } = await api.get<RawRoom[]>("rooms", {
       params: gameType ? { gameType: gameType.toUpperCase() } : undefined,
     });
     return data.map(normalizeRoom);
   },
   get: async (roomId: string): Promise<Room> => {
-    const { data } = await api.get<RawRoom>(`/api/rooms/${roomId}`);
+    const { data } = await api.get<RawRoom>(`rooms/${roomId}`);
     return normalizeRoom(data);
   },
   create: async (req: CreateRoomRequest): Promise<Room> => {
-    const { data } = await api.post<RawRoom>("/api/rooms", {
+    const { data } = await api.post<RawRoom>("rooms", {
       gameType: req.gameType.toUpperCase(),
       roomType: req.isLan ? "LAN" : "ONLINE",
       visibility: req.isPrivate ? "PRIVATE" : "PUBLIC",
@@ -81,28 +81,28 @@ export const roomsApi = {
     return normalizeRoom(data);
   },
   join: async (roomId: string): Promise<Room> => {
-    const { data } = await api.post<RawRoom>(`/api/rooms/${roomId}/join`);
+    const { data } = await api.post<RawRoom>(`rooms/${roomId}/join`);
     return normalizeRoom(data);
   },
   joinByCode: async (code: string): Promise<Room> => {
-    const { data } = await api.post<RawRoom>(`/api/rooms/join`, { roomCode: code });
+    const { data } = await api.post<RawRoom>(`rooms/join`, { roomCode: code });
     return normalizeRoom(data);
   },
   leave: async (roomId: string): Promise<void> => {
-    await api.post(`/api/rooms/${roomId}/leave`);
+    await api.post(`rooms/${roomId}/leave`);
   },
   ready: async (roomId: string, ready: boolean): Promise<void> => {
-    await api.post(`/api/rooms/${roomId}/ready`, { ready });
+    await api.post(`rooms/${roomId}/ready`, { ready });
   },
   addBot: async (roomId: string): Promise<Room> => {
-    const { data } = await api.post<RawRoom>(`/api/rooms/${roomId}/add-bot`);
+    const { data } = await api.post<RawRoom>(`rooms/${roomId}/add-bot`);
     return normalizeRoom(data);
   },
   kick: async (roomId: string, playerId: string): Promise<void> => {
-    await api.post(`/api/rooms/${roomId}/kick`, { playerId });
+    await api.post(`rooms/${roomId}/kick`, { playerId });
   },
   start: async (roomId: string): Promise<{ gameId: string }> => {
-    const { data } = await api.post<{ gameId: string }>(`/api/rooms/${roomId}/start`);
+    const { data } = await api.post<{ gameId: string }>(`rooms/${roomId}/start`);
     return data;
   },
 };

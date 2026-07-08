@@ -69,7 +69,7 @@ function persist(res: AuthResponse) {
 
 export const authApi = {
   async login(username: string, password: string): Promise<AuthResponse> {
-    const { data } = await api.post<RawAuthResponse>("/api/auth/login", {
+    const { data } = await api.post<RawAuthResponse>("auth/login", {
       username,
       password,
     });
@@ -79,7 +79,7 @@ export const authApi = {
   },
 
   async register(username: string, email: string, password: string): Promise<AuthResponse> {
-    const { data } = await api.post<RawAuthResponse>("/api/auth/register", {
+    const { data } = await api.post<RawAuthResponse>("auth/register", {
       username,
       email,
       password,
@@ -90,7 +90,7 @@ export const authApi = {
   },
 
   async guest(username: string): Promise<AuthResponse> {
-    const { data } = await api.post<RawAuthResponse>("/api/auth/guest", {
+    const { data } = await api.post<RawAuthResponse>("auth/guest", {
       username,
     });
     const res = normalize(data);
@@ -99,14 +99,14 @@ export const authApi = {
   },
 
   async me(): Promise<User> {
-    const { data } = await api.get<RawMeResponse>("/api/auth/me");
+    const { data } = await api.get<RawMeResponse>("auth/me");
     return normalizeMe(data);
   },
 
   async refresh(): Promise<AuthResponse | null> {
     const refreshToken = tokenStore.getRefresh();
     if (!refreshToken) return null;
-    const { data } = await api.post<RawAuthResponse>("/api/auth/refresh", {
+    const { data } = await api.post<RawAuthResponse>("auth/refresh", {
       refreshToken,
     });
     const res = normalize(data);
@@ -116,7 +116,7 @@ export const authApi = {
 
   async logout(): Promise<void> {
     try {
-      await api.post("/api/auth/logout");
+      await api.post("auth/logout");
     } catch {
       /* ignore — clear local state regardless */
     }
