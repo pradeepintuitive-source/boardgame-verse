@@ -22,6 +22,19 @@ interface RawAuthResponse extends Partial<AuthResponse> {
   id?: string;
   email?: string;
   avatarColor?: string;
+  isGuest?: boolean;
+  guest?: boolean;
+  user?: User;
+}
+
+interface RawMeResponse {
+  id?: string;
+  userId?: string;
+  username?: string;
+  email?: string;
+  avatarColor?: string;
+  isGuest?: boolean;
+  guest?: boolean;
 }
 
 function normalize(raw: RawAuthResponse): AuthResponse {
@@ -34,9 +47,19 @@ function normalize(raw: RawAuthResponse): AuthResponse {
       username: raw.username ?? "",
       email: raw.email,
       avatarColor: raw.avatarColor ?? "#7c3aed",
-      isGuest: false,
+      isGuest: raw.isGuest ?? raw.guest ?? false,
     } as User);
   return { accessToken, refreshToken, user };
+}
+
+function normalizeMe(raw: RawMeResponse): User {
+  return {
+    id: raw.id ?? raw.userId ?? "",
+    username: raw.username ?? "",
+    email: raw.email,
+    avatarColor: raw.avatarColor ?? "#7c3aed",
+    isGuest: raw.isGuest ?? raw.guest ?? false,
+  };
 }
 
 function persist(res: AuthResponse) {
@@ -76,8 +99,8 @@ export const authApi = {
   },
 
   async me(): Promise<User> {
-    const { data } = await api.get<User>("/api/auth/me");
-    return data;
+    const { data } = await api.get<RawMeResponse>("/api/auth/me");
+    return normalizeMe(data);
   },
 
   async refresh(): Promise<AuthResponse | null> {
