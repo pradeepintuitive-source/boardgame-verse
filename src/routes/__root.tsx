@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "../providers/AuthProvider";
+import { Toaster } from "../components/ui/sonner";
 import "@fontsource/anton/400.css";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/700.css";
@@ -127,6 +128,7 @@ function RootComponent() {
       <AuthProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
+        <Toaster position="top-right" richColors closeButton />
       </AuthProvider>
     </QueryClientProvider>
   );
