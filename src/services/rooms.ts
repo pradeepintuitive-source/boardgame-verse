@@ -1,4 +1,4 @@
-import { api } from "./api";
+import { api, API_BASE_URL } from "./api";
 import { pickAvatarColor } from "../utils/ids";
 import type { GameType, Player, Room } from "../models";
 
@@ -62,6 +62,7 @@ function normalizeRoom(raw: RawRoom): Room {
 
 export const roomsApi = {
   list: async (gameType?: GameType): Promise<Room[]> => {
+    
     const { data } = await api.get<RawRoom[]>("rooms", {
       params: gameType ? { gameType: gameType.toUpperCase() } : undefined,
     });
@@ -72,12 +73,16 @@ export const roomsApi = {
     return normalizeRoom(data);
   },
   create: async (req: CreateRoomRequest): Promise<Room> => {
+      console.log("roomsApi.create called");
+  console.log("API Base URL:", API_BASE_URL);
+  console.log("Request:", req);
     const { data } = await api.post<RawRoom>("rooms", {
       gameType: req.gameType.toUpperCase(),
       roomType: req.isLan ? "LAN" : "ONLINE",
       visibility: req.isPrivate ? "PRIVATE" : "PUBLIC",
       maxPlayers: req.maxPlayers,
     });
+    console.log(api.defaults.baseURL + "/api/rooms");
     return normalizeRoom(data);
   },
   join: async (roomId: string): Promise<Room> => {

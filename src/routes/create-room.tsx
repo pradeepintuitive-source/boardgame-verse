@@ -44,15 +44,18 @@ function CreateRoomPage() {
         const guest = `Host${Math.floor(Math.random() * 9999)}`;
         await auth.loginGuest(guest);
       }
+console.log("Before mutate");
 
-      const room = await createRoomMutation.mutateAsync({
-        name,
-        gameType,
-        maxPlayers,
-        aiPlayerCount: ai,
-        isPrivate,
-        isLan,
-      });
+const room = await createRoomMutation.mutateAsync({
+  name,
+  gameType,
+  maxPlayers,
+  aiPlayerCount: ai,
+  isPrivate,
+  isLan,
+});
+
+console.log("After mutate", room);
       upsertRoom(room);
       navigate({ to: "/lobby/$roomId", params: { roomId: room.id } });
     } catch {
