@@ -3,7 +3,6 @@ import { useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { useAuth } from "../providers/AuthProvider";
-import { useLobbyStore } from "../store/lobbyStore";
 import { useCreateRoom } from "../hooks/useRooms";
 import type { GameType } from "../models";
 
@@ -25,7 +24,6 @@ function CreateRoomPage() {
   const search = Route.useSearch();
   const auth = useAuth();
   const createRoomMutation = useCreateRoom();
-  const upsertRoom = useLobbyStore((s) => s.upsertRoom);
 
   const [name, setName] = useState("My Game Room");
   const [gameType, setGameType] = useState<GameType>(search.game ?? "mafia");
@@ -56,7 +54,6 @@ function CreateRoomPage() {
       });
 
       console.log("After mutate", room);
-      upsertRoom(room);
       console.log("Navigating to lobby", room.id, room.code);
       navigate({ to: "/lobby/$roomId", params: { roomId: room.id } });
     } catch (error) {
@@ -71,7 +68,7 @@ function CreateRoomPage() {
     <AppShell>
       <div className="min-h-screen px-6 pt-32 pb-20 max-w-2xl mx-auto">
         <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-2">
-          Deployment <span className="text-white/60 ml-2">debug instrumentation active</span>
+          Pradeep <span className="text-white/60 ml-2">debug instrumentation active</span>
         </div>
         <h1 className="font-display text-5xl italic uppercase mb-8">Create Room</h1>
 

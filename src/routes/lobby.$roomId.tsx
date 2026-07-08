@@ -27,20 +27,13 @@ export const Route = createFileRoute("/lobby/$roomId")({
 function LobbyPage() {
   const { roomId } = Route.useParams();
   const navigate = useNavigate();
-  const localRoom = useLobbyStore((s) => s.rooms[roomId]);
-  const { addAI, removePlayer, toggleReady, upsertRoom } = useLobbyStore();
+  const { addAI, removePlayer, toggleReady } = useLobbyStore();
   const user = useAuthStore((s) => s.user);
   const setMafia = useGameStore((s) => s.setMafia);
   const setMonopoly = useMonopolyStore((s) => s.setGame);
   const roomQuery = useRoom(roomId);
 
-  useEffect(() => {
-    if (roomQuery.data) {
-      upsertRoom(roomQuery.data);
-    }
-  }, [roomQuery.data, upsertRoom]);
-
-  const room = localRoom ?? roomQuery.data;
+  const room = roomQuery.data;
   const [copied, setCopied] = useState(false);
 
   if (!room) {
