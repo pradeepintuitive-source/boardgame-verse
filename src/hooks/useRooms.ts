@@ -1,0 +1,62 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { roomsApi, type CreateRoomRequest } from "../services/rooms";
+import type { GameType } from "../models";
+
+const KEY = (gameType?: GameType) => ["rooms", gameType ?? "all"] as const;
+
+export function useRooms(gameType?: GameType) {
+  return useQuery({
+    queryKey: KEY(gameType),
+    queryFn: () => roomsApi.list(gameType),
+    staleTime: 5_000,
+  });
+}
+
+export function useRoom(roomId: string | undefined) {
+  return useQuery({
+    queryKey: ["room", roomId],
+    queryFn: () => roomsApi.get(roomId!),
+    enabled: !!roomId,
+  });
+}
+
+export function useCreateRoom() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (req: CreateRoomRequest) => roomsApi.create(req),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rooms"] }),
+  });
+}
+
+export function useJoinRoomByCode() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (code: string) => roomsApi.joinByCode(code),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rooms"] }),
+  });
+}
+
+export function useStartGame() {
+  return useMutation({
+    mutationFn: (roomId: string) => roomsApi.start(roomId),
+  });
+}
+
+export function useLeaveRoom() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (roomId: string) => roomsApi.leave(roomId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["rooms"] }),
+  });
+}
+
+export function useToggleReady() {
+  return useMutation({
+    mutationFn: ({ roomId, ready }: { roomId: string; ready: boolean }) =>
+      roomsApi.ready(roomId, ready),
+  });
+}
+
+export function useAddBot() {
+  return useMutation({ mutationFn: (roomId: string) => roomsApi.addBot(roomId) });
+}
