@@ -131,6 +131,16 @@ api.interceptors.response.use(
       if (wrapped.details && wrapped.details.length > 0) {
         console.info("[api]", r.config.url, wrapped.message, wrapped.details);
       }
+      const method = (r.config.method ?? "get").toLowerCase();
+      const silent = r.config.headers?.["X-Silent-Toast"] === "true";
+      if (
+        !silent &&
+        method !== "get" &&
+        wrapped.message &&
+        wrapped.message.toLowerCase() !== "ok"
+      ) {
+        toast.success(wrapped.message);
+      }
       r.data = wrapped.data as never;
     }
     return r;
