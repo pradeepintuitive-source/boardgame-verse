@@ -37,6 +37,7 @@ function CreateRoomPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Submit clicked");
     setLoading(true);
     try {
       if (!auth.user) {
