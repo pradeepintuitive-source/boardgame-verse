@@ -44,21 +44,23 @@ function CreateRoomPage() {
         const guest = `Host${Math.floor(Math.random() * 9999)}`;
         await auth.loginGuest(guest);
       }
-console.log("Before mutate");
+      console.log("Before mutate");
 
-const room = await createRoomMutation.mutateAsync({
-  name,
-  gameType,
-  maxPlayers,
-  aiPlayerCount: ai,
-  isPrivate,
-  isLan,
-});
+      const room = await createRoomMutation.mutateAsync({
+        name,
+        gameType,
+        maxPlayers,
+        aiPlayerCount: ai,
+        isPrivate,
+        isLan,
+      });
 
-console.log("After mutate", room);
+      console.log("After mutate", room);
       upsertRoom(room);
+      console.log("Navigating to lobby", room.id, room.code);
       navigate({ to: "/lobby/$roomId", params: { roomId: room.id } });
-    } catch {
+    } catch (error) {
+      console.error("Create room failed", error);
       // Error toast is already shown by api interceptor.
     } finally {
       setLoading(false);
@@ -69,7 +71,7 @@ console.log("After mutate", room);
     <AppShell>
       <div className="min-h-screen px-6 pt-32 pb-20 max-w-2xl mx-auto">
         <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-2">
-          Deployment
+          Deployment <span className="text-white/60 ml-2">debug instrumentation active</span>
         </div>
         <h1 className="font-display text-5xl italic uppercase mb-8">Create Room</h1>
 
