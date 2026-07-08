@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "https://giuseppina-proctological-malachi.ngrok-free.dev/api/$1" },
+    { "source": "/ws/(.*)", "destination": "https://giuseppina-proctological-malachi.ngrok-free.dev/ws/$1" }
+  ]
+}
