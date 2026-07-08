@@ -14,7 +14,7 @@ export const Route = createFileRoute("/create-room")({
       { name: "description", content: "Spin up a new GameHub room." },
     ],
   }),
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { game?: GameType } => ({
     game: (s.game as GameType | undefined) ?? "mafia",
   }),
   component: CreateRoomPage,
@@ -28,7 +28,7 @@ function CreateRoomPage() {
   const createRoom = useLobbyStore((s) => s.createRoom);
 
   const [name, setName] = useState("My Game Room");
-  const [gameType, setGameType] = useState<GameType>(search.game);
+  const [gameType, setGameType] = useState<GameType>(search.game ?? "mafia");
   const [maxPlayers, setMax] = useState(8);
   const [ai, setAi] = useState(3);
   const [isPrivate, setPrivate] = useState(false);
