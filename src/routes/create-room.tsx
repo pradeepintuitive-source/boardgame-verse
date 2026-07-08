@@ -2,9 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
-import { useAuthStore } from "../store/authStore";
+import { useAuth } from "../providers/AuthProvider";
 import { useLobbyStore } from "../store/lobbyStore";
-import { pickAvatarColor, uid } from "../utils/ids";
+import { useCreateRoom } from "../hooks/useRooms";
 import type { GameType } from "../models";
 
 export const Route = createFileRoute("/create-room")({
@@ -23,9 +23,9 @@ export const Route = createFileRoute("/create-room")({
 function CreateRoomPage() {
   const navigate = useNavigate();
   const search = Route.useSearch();
-  const user = useAuthStore((s) => s.user);
-  const loginGuest = useAuthStore((s) => s.loginGuest);
-  const createRoom = useLobbyStore((s) => s.createRoom);
+  const auth = useAuth();
+  const createRoomMutation = useCreateRoom();
+  const upsertRoom = useLobbyStore((s) => s.upsertRoom);
 
   const [name, setName] = useState("My Game Room");
   const [gameType, setGameType] = useState<GameType>(search.game ?? "mafia");
@@ -33,27 +33,32 @@ function CreateRoomPage() {
   const [ai, setAi] = useState(3);
   const [isPrivate, setPrivate] = useState(false);
   const [isLan, setLan] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    let me = user;
-    if (!me) {
-      const guest = `Host${Math.floor(Math.random() * 9999)}`;
-      loginGuest(guest);
-      me = { id: uid("usr"), username: guest, avatarColor: pickAvatarColor(guest), isGuest: true };
+    setLoading(true);
+    try {
+      if (!auth.user) {
+        const guest = `Host${Math.floor(Math.random() * 9999)}`;
+        await auth.loginGuest(guest);
+      }
+
+      const room = await createRoomMutation.mutateAsync({
+        name,
+        gameType,
+        maxPlayers,
+        aiPlayerCount: ai,
+        isPrivate,
+        isLan,
+      });
+      upsertRoom(room);
+      navigate({ to: "/lobby/$roomId", params: { roomId: room.id } });
+    } catch {
+      // Error toast is already shown by api interceptor.
+    } finally {
+      setLoading(false);
     }
-    const room = createRoom({
-      name,
-      gameType,
-      maxPlayers,
-      aiPlayerCount: ai,
-      isPrivate,
-      isLan,
-      hostId: me.id,
-      hostName: me.username,
-      hostColor: me.avatarColor,
-    });
-    navigate({ to: "/lobby/$roomId", params: { roomId: room.id } });
   };
 
   return (
@@ -156,8 +161,8 @@ function CreateRoomPage() {
           </div>
 
           <div className="flex gap-3 pt-2">
-            <NeonButton type="submit" className="flex-1">
-              Create Room
+            <NeonButton type="submit" disabled={loading} className="flex-1">
+              {loading ? "Creating..." : "Create Room"}
             </NeonButton>
             <NeonButton type="button" variant="ghost" onClick={() => navigate({ to: "/" })}>
               Cancel

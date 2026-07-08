@@ -2,9 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
-import { useAuthStore } from "../store/authStore";
+import { useAuth } from "../providers/AuthProvider";
 import { useLobbyStore } from "../store/lobbyStore";
-import { pickAvatarColor, uid } from "../utils/ids";
+import { useJoinRoomByCode } from "../hooks/useRooms";
 
 export const Route = createFileRoute("/join-room")({
   head: () => ({
@@ -18,32 +18,33 @@ export const Route = createFileRoute("/join-room")({
 
 function JoinRoomPage() {
   const navigate = useNavigate();
-  const user = useAuthStore((s) => s.user);
-  const loginGuest = useAuthStore((s) => s.loginGuest);
-  const joinByCode = useLobbyStore((s) => s.joinByCode);
+  const { user, loginGuest } = useAuth();
+  const joinByCode = useJoinRoomByCode();
+  const upsertRoom = useLobbyStore((s) => s.upsertRoom);
   const [code, setCode] = useState("");
   const [name, setName] = useState(user?.username ?? "");
-  const [err, setErr] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErr(null);
-    let me = user;
-    if (!me) {
-      const guest = name.trim() || `Guest${Math.floor(Math.random() * 9999)}`;
-      loginGuest(guest);
-      me = { id: uid("usr"), username: guest, avatarColor: pickAvatarColor(guest), isGuest: true };
+    setErrorMessage(null);
+    setLoading(true);
+
+    try {
+      if (!user) {
+        const guest = name.trim() || `Guest${Math.floor(Math.random() * 9999)}`;
+        await loginGuest(guest);
+      }
+
+      const room = await joinByCode.mutateAsync(code.trim());
+      upsertRoom(room);
+      navigate({ to: "/lobby/$roomId", params: { roomId: room.id } });
+    } catch {
+      setErrorMessage("Unable to join this room. Please verify the code and try again.");
+    } finally {
+      setLoading(false);
     }
-    const room = joinByCode(code.trim(), {
-      id: me.id,
-      username: me.username,
-      avatarColor: me.avatarColor,
-    });
-    if (!room) {
-      setErr("Room not found or full.");
-      return;
-    }
-    navigate({ to: "/lobby/$roomId", params: { roomId: room.id } });
   };
 
   return (
@@ -81,10 +82,10 @@ function JoinRoomPage() {
               required
             />
           </label>
-          {err && <p className="text-destructive text-xs font-mono mb-3">{err}</p>}
+          {errorMessage && <p className="text-destructive text-xs font-mono mb-3">{errorMessage}</p>}
 
-          <NeonButton type="submit" className="w-full mt-6">
-            Join Game
+          <NeonButton type="submit" disabled={loading} className="w-full mt-6">
+            {loading ? "Joining..." : "Join Game"}
           </NeonButton>
         </form>
       </div>

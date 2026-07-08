@@ -22,6 +22,7 @@ interface LobbyState {
   removePlayer: (roomId: string, playerId: string) => void;
   toggleReady: (roomId: string, playerId: string) => void;
   getRoom: (roomId: string) => Room | undefined;
+  upsertRoom: (room: Room) => void;
 }
 
 const aiNames = ["NEO-7", "VEX-2", "CIPHER", "ORACLE", "WRAITH", "PHANTOM", "RAVEN", "ECHO"];
@@ -125,6 +126,7 @@ export const useLobbyStore = create<LobbyState>()(
         }));
       },
       getRoom: (roomId) => get().rooms[roomId],
+      upsertRoom: (room) => set((s) => ({ rooms: { ...s.rooms, [room.id]: room } })),
     }),
     { name: "gh-lobby" },
   ),

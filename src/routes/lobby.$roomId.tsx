@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { Copy, Crown, UserPlus, X, Bot, Wifi, Lock } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { Avatar } from "../components/common/Avatar";
@@ -12,6 +12,7 @@ import { useGameStore } from "../store/gameStore";
 import { initMafiaGame } from "../utils/mafiaEngine";
 import { useMonopolyStore } from "../store/monopolyStore";
 import { initMonopolyGame } from "../utils/monopolyEngine";
+import { useRoom } from "../hooks/useRooms";
 
 export const Route = createFileRoute("/lobby/$roomId")({
   head: () => ({
@@ -26,12 +27,20 @@ export const Route = createFileRoute("/lobby/$roomId")({
 function LobbyPage() {
   const { roomId } = Route.useParams();
   const navigate = useNavigate();
-  const room = useLobbyStore((s) => s.rooms[roomId]);
-  const { addAI, removePlayer, toggleReady } = useLobbyStore();
+  const localRoom = useLobbyStore((s) => s.rooms[roomId]);
+  const { addAI, removePlayer, toggleReady, upsertRoom } = useLobbyStore();
   const user = useAuthStore((s) => s.user);
   const setMafia = useGameStore((s) => s.setMafia);
   const setMonopoly = useMonopolyStore((s) => s.setGame);
+  const roomQuery = useRoom(roomId);
 
+  useEffect(() => {
+    if (roomQuery.data) {
+      upsertRoom(roomQuery.data);
+    }
+  }, [roomQuery.data, upsertRoom]);
+
+  const room = localRoom ?? roomQuery.data;
   const [copied, setCopied] = useState(false);
 
   if (!room) {
@@ -39,7 +48,9 @@ function LobbyPage() {
       <AppShell>
         <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
           <div>
-            <p className="text-white/60 mb-6 font-mono">This room no longer exists.</p>
+            <p className="text-white/60 mb-6 font-mono">
+              {roomQuery.isLoading ? "Loading room…" : "This room no longer exists."}
+            </p>
             <NeonButton onClick={() => navigate({ to: "/" })}>Back Home</NeonButton>
           </div>
         </div>
