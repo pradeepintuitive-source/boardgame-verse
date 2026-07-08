@@ -13,6 +13,9 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AuthProvider } from "../providers/AuthProvider";
 import { Toaster } from "../components/ui/sonner";
+import { ErrorBoundary } from "../components/common/ErrorBoundary";
+import { useStompStatusToasts } from "../hooks/useStompStatusToasts";
+import { useConnectionStore } from "../store/connectionStore";
 import "@fontsource/anton/400.css";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/700.css";
@@ -126,10 +129,24 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <Toaster position="top-right" richColors closeButton />
+        <RootInner />
       </AuthProvider>
     </QueryClientProvider>
+  );
+}
+
+function RootInner() {
+  const initConn = useConnectionStore((s) => s.init);
+  useEffect(() => {
+    initConn();
+  }, [initConn]);
+  useStompStatusToasts();
+
+  return (
+    <ErrorBoundary>
+      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+      <Outlet />
+      <Toaster position="top-right" richColors closeButton />
+    </ErrorBoundary>
   );
 }
