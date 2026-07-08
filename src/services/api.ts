@@ -1,8 +1,17 @@
 import axios, { AxiosError } from "axios";
+import { toast } from "sonner";
 
 /**
  * Axios instance for REST calls to the GameHub Spring Boot backend.
  * Base URL is configurable via VITE_API_URL.
+ *
+ * Backend response contract:
+ *   Success: { timestamp, status, message, data, details, path }
+ *   Error:   { timestamp, status, error, message, details, path }
+ *
+ * A response interceptor unwraps `response.data.data` so all service call
+ * sites can keep using `response.data` as the payload. Errors are
+ * normalized into `ApiError` and surfaced via toast.
  */
 export const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "/api";
 
@@ -45,6 +54,59 @@ export const api = axios.create({
   },
 });
 
+// -----------------------------------------------------------------------------
+// Response contract
+// -----------------------------------------------------------------------------
+
+export interface ApiResponse<T> {
+  timestamp: string;
+  status: number;
+  message: string;
+  data: T;
+  details?: string[];
+  path: string;
+}
+
+export interface ErrorResponse {
+  timestamp: string;
+  status: number;
+  error: string;
+  message: string;
+  details?: string[];
+  path: string;
+}
+
+export class ApiError extends Error {
+  status: number;
+  error: string;
+  details: string[];
+  path?: string;
+  constructor(init: {
+    message: string;
+    status: number;
+    error?: string;
+    details?: string[];
+    path?: string;
+  }) {
+    super(init.message);
+    this.name = "ApiError";
+    this.status = init.status;
+    this.error = init.error ?? "Error";
+    this.details = init.details ?? [];
+    this.path = init.path;
+  }
+}
+
+function isApiResponse(body: unknown): body is ApiResponse<unknown> {
+  return (
+    !!body &&
+    typeof body === "object" &&
+    "status" in (body as Record<string, unknown>) &&
+    "data" in (body as Record<string, unknown>) &&
+    "path" in (body as Record<string, unknown>)
+  );
+}
+
 // Attach bearer token on every request
 api.interceptors.request.use((config) => {
   const token = tokenStore.get();
@@ -61,22 +123,82 @@ export function setUnauthorizedHandler(cb: () => void) {
 }
 
 api.interceptors.response.use(
-  (r) => r,
+  (r) => {
+    // Unwrap ApiResponse<T> so services can keep reading `response.data`
+    // as the payload. Void endpoints yield `null`.
+    if (isApiResponse(r.data)) {
+      const wrapped = r.data as ApiResponse<unknown>;
+      if (wrapped.details && wrapped.details.length > 0) {
+        console.info("[api]", r.config.url, wrapped.message, wrapped.details);
+      }
+      const method = (r.config.method ?? "get").toLowerCase();
+      const silent = r.config.headers?.["X-Silent-Toast"] === "true";
+      if (
+        !silent &&
+        method !== "get" &&
+        wrapped.message &&
+        wrapped.message.toLowerCase() !== "ok"
+      ) {
+        toast.success(wrapped.message);
+      }
+      r.data = wrapped.data as never;
+    }
+    return r;
+  },
   (err: AxiosError) => {
     const status = err.response?.status;
+    const body = err.response?.data as Partial<ErrorResponse> | undefined;
+    const message =
+      body?.message ?? body?.error ?? err.message ?? "Request failed";
+    const details = body?.details ?? [];
+
     if (status === 401) {
       tokenStore.clear();
       onUnauthorized?.();
     }
-    console.warn("[api]", status, err.message);
-    return Promise.reject(err);
+
+    console.warn("[api]", status, message, details);
+
+    const apiError = new ApiError({
+      message,
+      status: status ?? 0,
+      error: body?.error,
+      details,
+      path: body?.path,
+    });
+
+    // Global toast — silence 401s (handled by auth flow) and network aborts.
+    if (status && status !== 401) {
+      toast.error(body?.error ?? "Request failed", {
+        description:
+          details.length > 0 ? details.join("\n") : message,
+      });
+    } else if (!err.response) {
+      toast.error("Network error", { description: err.message });
+    }
+
+    return Promise.reject(apiError);
   },
 );
 
 export function apiErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    return err.details.length > 0
+      ? `${err.message}: ${err.details.join(", ")}`
+      : err.message;
+  }
   if (axios.isAxiosError(err)) {
-    const data = err.response?.data as { message?: string; error?: string } | undefined;
+    const data = err.response?.data as Partial<ErrorResponse> | undefined;
     return data?.message ?? data?.error ?? err.message;
   }
   return err instanceof Error ? err.message : "Unknown error";
+}
+
+export function apiErrorDetails(err: unknown): string[] {
+  if (err instanceof ApiError) return err.details;
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as Partial<ErrorResponse> | undefined;
+    return data?.details ?? [];
+  }
+  return [];
 }
