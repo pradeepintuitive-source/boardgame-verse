@@ -51,9 +51,14 @@ export function useLeaveRoom() {
 }
 
 export function useToggleReady() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ roomId, ready }: { roomId: string; ready: boolean }) =>
       roomsApi.ready(roomId, ready),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ["room", vars.roomId] });
+      qc.invalidateQueries({ queryKey: ["rooms"] });
+    },
   });
 }
 
