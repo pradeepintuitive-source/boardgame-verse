@@ -7,6 +7,7 @@ interface RawPlayerSummary {
   userId: string;
   displayName: string;
   connected: boolean;
+  ready: boolean;
   aiControlled: boolean;
   aiType?: string;
   aiDifficulty?: string;
@@ -42,7 +43,7 @@ function normalizeRoom(raw: RawRoom): Room {
     avatarColor: pickAvatarColor(player.displayName),
     isHost: player.userId === raw.hostUserId,
     isAI: player.aiControlled,
-    ready: player.connected,
+    ready: player.ready,
   }));
 
   return {
