@@ -1,6 +1,16 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://giuseppina-proctological-malachi.ngrok-free.dev/api/$1" },
-    { "source": "/ws/(.*)", "destination": "https://giuseppina-proctological-malachi.ngrok-free.dev/ws/$1" }
+    {
+      "source": "/api/(.*)",
+      "destination": "https://api.pradeepkulal.click/api/$1"
+    },
+    {
+      "source": "/ws",
+      "destination": "https://api.pradeepkulal.click/ws"
+    },
+    {
+      "source": "/ws/(.*)",
+      "destination": "https://api.pradeepkulal.click/ws/$1"
+    }
   ]
 }

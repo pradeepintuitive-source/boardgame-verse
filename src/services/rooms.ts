@@ -39,6 +39,7 @@ export interface CreateRoomRequest {
 function normalizeRoom(raw: RawRoom): Room {
   const players: Player[] = raw.players.map((player) => ({
     id: player.id,
+    userId: player.userId,
     username: player.displayName,
     avatarColor: pickAvatarColor(player.displayName),
     isHost: player.userId === raw.hostUserId,

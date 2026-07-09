@@ -98,7 +98,7 @@ function LobbyPage() {
     }
   };
 
-  const me = room.players.find((p) => p.id === user?.id);
+  const me = room.players.find((p) => p.userId === user?.id);
   const myReady = !!me?.ready;
   const handleToggleReady = () => {
     if (!me) return;

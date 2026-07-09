@@ -10,6 +10,7 @@ export interface User {
 
 export interface Player {
   id: string;
+  userId: string;
   username: string;
   avatarColor: string;
   isHost: boolean;
