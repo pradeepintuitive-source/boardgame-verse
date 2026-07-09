@@ -68,7 +68,7 @@ function CreateRoomPage() {
     <AppShell>
       <div className="min-h-screen px-6 pt-32 pb-20 max-w-2xl mx-auto">
         <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-2">
-          Pradeep Kulal <span className="text-white/60 ml-2">debug instrumentation active</span>
+          Pradeep Kulal 123 <span className="text-white/60 ml-2">debug instrumentation active</span>
         </div>
         <h1 className="font-display text-5xl italic uppercase mb-8">Create Room</h1>
 
