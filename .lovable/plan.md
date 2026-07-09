@@ -1,77 +1,67 @@
-# Monopoly Game — Implementation Plan
+## Goal
 
-Add a complete, **offline-capable** Monopoly experience that mirrors the existing Mafia architecture (Zustand store + pure engine + Arcade Director UI). No network calls; all state lives client-side so a single device or LAN host can run a full match.
+1. Add a Ready / Not-Ready toggle for every player (including host) in the lobby.
+2. Make the lobby auto-refresh in real time when players join/leave or toggle ready — no manual refresh.
+3. Provide backend prompt changes required to support this over STOMP/WebSocket.
 
-## Scope
+---
 
-- Full classic 40-tile board (US edition: 22 streets, 4 railroads, 2 utilities, taxes, chance/community chest, jail, free parking, go).
-- 2–6 players (humans + AI seats from existing lobby).
-- Dice roll, movement, rent, purchase, build houses/hotels, mortgage.
-- Property card modal, owned-properties panel per player.
-- Trading window (multi-asset: properties + cash + get-out-of-jail cards).
-- Auction window when a player declines to buy.
-- Chance / Community Chest decks (shuffled, drawn, reshuffled).
-- Jail mechanics (roll doubles / pay $50 / use card).
-- Bankruptcy + win condition (last solvent player).
-- AI turn logic (buy if affordable + ROI heuristic, accept fair trades, bid up to property value in auctions).
-- Game log panel (reuses moderator-style component pattern).
-- Chat drawer reused as-is.
+## Frontend Changes
 
-## Files to Create
+### 1. `src/routes/lobby.$roomId.tsx`
+- Wire a proper Ready toggle button for the current user (shown for host too, not just non-host).
+  - Label switches between `READY` / `NOT READY` based on `p.ready`.
+  - Highlighted state uses accent-cyan when ready.
+- On click call `useToggleReady().mutate({ roomId, ready: !currentReady })`.
+- Subscribe to the room topic and invalidate the `["room", roomId]` query on any event so the UI refreshes when someone joins/leaves/readies:
+  - `useStompSubscription(Topics.room(roomId), () => qc.invalidateQueries({ queryKey: ["room", roomId] }))`
+  - Also invalidate `["rooms"]` list for the browse screen.
+- Ensure `useConnectionStore().init()` is called (once, in AppShell) so the STOMP socket is live in the lobby.
 
-```text
-src/models/monopoly.ts                    # types: Tile, PropertyDef, MonopolyPlayer, MonopolyState, TradeOffer, Auction
-src/data/monopolyBoard.ts                 # 40-tile board definition + color groups + prices/rents
-src/data/monopolyCards.ts                 # Chance + Community Chest card decks
-src/utils/monopolyEngine.ts               # pure reducers: rollDice, movePlayer, resolveLanding,
-                                          # buyProperty, payRent, startAuction, settleAuction,
-                                          # proposeTrade, acceptTrade, build, mortgage, jail logic,
-                                          # bankrupt, checkWinner, aiTakeTurn
-src/store/monopolyStore.ts                # Zustand store mirroring gameStore shape, persisted via
-                                          # zustand/middleware so a refresh resumes local games
-src/components/monopoly/Board.tsx         # CSS-grid 11x11 board, neon arcade styling
-src/components/monopoly/Tile.tsx          # single tile (corner / edge variants, owner color bar)
-src/components/monopoly/Token.tsx         # animated player token (framer-motion layoutId hop)
-src/components/monopoly/Dice.tsx          # 3D-ish dice roll animation
-src/components/monopoly/PropertyCard.tsx  # title-deed modal with rent ladder + build/mortgage actions
-src/components/monopoly/PlayerPanel.tsx   # per-player sidebar: cash, properties, jail status
-src/components/monopoly/ActionBar.tsx     # contextual buttons: Roll / Buy / Auction / End Turn / Trade
-src/components/monopoly/TradePanel.tsx    # two-column trade builder + accept/decline
-src/components/monopoly/AuctionPanel.tsx  # live bidding modal with timer + AI bids
-src/components/monopoly/EventLog.tsx      # scrollable narration feed
-src/components/monopoly/CardDrawModal.tsx # Chance/CC card reveal animation
-src/routes/monopoly.$gameId.tsx           # page assembling Board + panels + modals
-```
+### 2. `src/hooks/useRooms.ts`
+- In `useToggleReady`, on success invalidate `["room", roomId]` (currently it does not) so the local user gets an immediate optimistic refresh even before the WS echo.
+- Optional: optimistic update of the `["room", roomId]` cache flipping just the current player's `ready` flag.
 
-## Files to Edit
+### 3. `src/routes/lobby.$roomId.tsx` — polling fallback
+- Add `refetchInterval: 3000` on `useRoom` while the WS is not connected (read `useConnectionStore`) so joins still surface if the backend WS is down.
 
-- `src/routes/lobby.$roomId.tsx` — allow `gameType === "monopoly"` to start; route to `/monopoly/$gameId`, init engine via `initMonopolyGame`.
-- `src/routes/index.tsx` — flip Monopoly card badge from "Coming Soon" to "Available".
-- `src/store/lobbyStore.ts` — adjust default `maxPlayers` / min players for monopoly (2–6, min 2).
-- `src/routeTree.gen.ts` — auto-regenerated by Vite plugin (no manual edits, just noted).
+No changes to game engines, stores, or unrelated screens.
 
-## Architecture Notes (technical)
+---
 
-- **Pure engine, no side effects** — `monopolyEngine.ts` exports functions `(state, action) => newState`. The store calls them, persists, and triggers AI follow-ups via `setTimeout` for visible pacing.
-- **Offline-first** — store uses `zustand/middleware/persist` (localStorage key `gh-monopoly`). STOMP client stays available but is _not_ required; `stompClient` already no-ops without `VITE_STOMP_URL`, so local play works fully disconnected.
-- **AI scheduling** — after each human action, store checks `currentPlayer.isAI` and runs `aiTakeTurn` until control returns to a human or the game ends.
-- **Board layout** — CSS grid `grid-template: repeat(11, 1fr) / repeat(11, 1fr)`; corners span 1 cell, edges share remaining 9. Tokens positioned absolutely with `layoutId` for framer-motion smooth hops.
-- **Trading** — local two-player modal (human → human or human → AI). AI accepts when `valueReceived >= valueGiven * 0.95` using a simple property-value heuristic (price + monopoly bonus + houses).
-- **Auction** — turn-based bids, each AI bids up to `propertyPrice * (0.6 + monopolyBonus)` with random jitter; 8-second per-bid timer.
-- **Win condition** — last non-bankrupt player; partial bankruptcies transfer assets to creditor.
+## Backend Prompt (paste into your Spring Boot backend chat)
 
-## Out of Scope (deferred)
+> **Realtime lobby updates over STOMP**
+>
+> Context: Frontend already subscribes to `/topic/rooms/{roomId}` and sends to `/app/rooms/{roomId}/ready`. It expects the backend to broadcast the full updated `Room` DTO whenever the room membership or ready state changes so clients don't need to refetch.
+>
+> Please implement:
+>
+> 1. **Ready toggle endpoint**
+>    - STOMP: `@MessageMapping("/rooms/{roomId}/ready")` accepting `{ "ready": boolean }` from the authenticated principal.
+>    - REST equivalent already exists at `POST /api/rooms/{roomId}/ready` — keep both, share the service method.
+>    - Update the `RoomPlayer.connected` (or dedicated `ready`) column for that user in that room.
+>
+> 2. **Broadcast on every mutation** — after any of these succeed:
+>    - `POST /api/rooms` (create)
+>    - `POST /api/rooms/{id}/join` and `/rooms/join` (join by code)
+>    - `POST /api/rooms/{id}/leave`
+>    - `POST /api/rooms/{id}/ready`
+>    - `POST /api/rooms/{id}/add-bot`
+>    - `POST /api/rooms/{id}/kick`
+>    - `POST /api/rooms/{id}/start`
+>
+>    Publish the updated `RoomDto` (same shape returned by `GET /api/rooms/{id}`) to `/topic/rooms/{roomId}` using `SimpMessagingTemplate.convertAndSend`.
+>
+> 3. **Presence disconnect** — on WebSocket `SessionDisconnectEvent`, mark that user's `connected=false` in every room they occupy and broadcast the updated room.
+>
+> 4. **Auth on STOMP** — reuse the JWT already provided as `?token=` query param on the SockJS handshake and via `Authorization` STOMP header (already wired on the client).
+>
+> Deliverables: `LobbyBroadcaster` component wrapping `SimpMessagingTemplate`, service-layer hooks in `RoomService` after each mutation, and a `WebSocketEventListener` for disconnect handling. No payload schema changes — reuse existing `RoomDto`.
 
-- Online multiplayer sync over STOMP (engine is ready; wiring deferred).
-- Custom house rules (free parking pot, snake-eyes bonus) — leave hooks but default off.
-- Mobile portrait board (will be playable but small; full responsive polish later).
+---
 
-## Acceptance
-
-- Create a Monopoly room from `/`, add AI seats, start match.
-- Roll, land, buy, decline → auction triggers, AI bids.
-- Build houses after owning a color group; mortgage works.
-- Trade modal opens, AI evaluates and responds.
-- Bankrupting all opponents shows a winner screen.
-- Reloading the page resumes the same game state.
-- Works with browser offline (DevTools → Network → Offline).
+## Technical Notes
+- STOMP subscription already exists via `useStompSubscription` and `Topics.room`.
+- React Query cache invalidation is the simplest sync path — no need to merge deltas manually.
+- If backend is not yet updated, the 3s polling fallback keeps behavior acceptable.
