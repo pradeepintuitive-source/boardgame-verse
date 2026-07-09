@@ -47,7 +47,7 @@ function Index() {
             GameHub
           </motion.h1>
           <p className="text-accent-cyan/60 font-mono text-xs md:text-sm tracking-[0.4em] uppercase mb-12">
-            Digital Classics &bull; Premium Board Gaming
+            Digital Classics Pradeep &bull; Premium Board Gaming
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             <Link to="/create-room">
