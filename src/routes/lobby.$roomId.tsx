@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
 import { Copy, Crown, UserPlus, X, Bot, Wifi, Lock } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { Avatar } from "../components/common/Avatar";
@@ -12,7 +13,10 @@ import { useGameStore } from "../store/gameStore";
 import { initMafiaGame } from "../utils/mafiaEngine";
 import { useMonopolyStore } from "../store/monopolyStore";
 import { initMonopolyGame } from "../utils/monopolyEngine";
-import { useRoom } from "../hooks/useRooms";
+import { useRoom, useToggleReady } from "../hooks/useRooms";
+import { useStompSubscription } from "../hooks/useStompSubscription";
+import { Topics } from "../websocket/topics";
+import { useConnectionStore } from "../store/connectionStore";
 
 export const Route = createFileRoute("/lobby/$roomId")({
   head: () => ({
@@ -27,11 +31,33 @@ export const Route = createFileRoute("/lobby/$roomId")({
 function LobbyPage() {
   const { roomId } = Route.useParams();
   const navigate = useNavigate();
-  const { addAI, removePlayer, toggleReady } = useLobbyStore();
+  const { addAI, removePlayer } = useLobbyStore();
   const user = useAuthStore((s) => s.user);
   const setMafia = useGameStore((s) => s.setMafia);
   const setMonopoly = useMonopolyStore((s) => s.setGame);
+  const wsConnected = useConnectionStore((s) => s.connected);
   const roomQuery = useRoom(roomId);
+  const qc = useQueryClient();
+  const toggleReadyMut = useToggleReady();
+
+  // Live-sync: refresh the room whenever the server broadcasts a change.
+  useStompSubscription(
+    roomId ? Topics.room(roomId) : null,
+    () => {
+      qc.invalidateQueries({ queryKey: ["room", roomId] });
+      qc.invalidateQueries({ queryKey: ["rooms"] });
+    },
+    !!roomId,
+  );
+
+  // Polling fallback while the socket isn't connected so joins still surface.
+  useEffect(() => {
+    if (wsConnected || !roomId) return;
+    const t = setInterval(() => {
+      qc.invalidateQueries({ queryKey: ["room", roomId] });
+    }, 3000);
+    return () => clearInterval(t);
+  }, [wsConnected, roomId, qc]);
 
   const room = roomQuery.data;
   const [copied, setCopied] = useState(false);
@@ -70,6 +96,13 @@ function LobbyPage() {
       setMonopoly(gameId, initMonopolyGame(gameId, room.players));
       navigate({ to: "/monopoly/$gameId", params: { gameId } });
     }
+  };
+
+  const me = room.players.find((p) => p.id === user?.id);
+  const myReady = !!me?.ready;
+  const handleToggleReady = () => {
+    if (!me) return;
+    toggleReadyMut.mutate({ roomId: room.id, ready: !myReady });
   };
 
   return (
@@ -158,12 +191,17 @@ function LobbyPage() {
                         <X className="size-4" />
                       </button>
                     )}
-                    {p.id === user?.id && !p.isHost && (
+                    {p.id === user?.id && (
                       <button
-                        onClick={() => toggleReady(room.id, p.id)}
-                        className="text-[10px] font-mono uppercase tracking-widest px-2 py-1 border border-white/20 hover:border-accent-cyan"
+                        onClick={handleToggleReady}
+                        disabled={toggleReadyMut.isPending}
+                        className={`text-[10px] font-mono uppercase tracking-widest px-2 py-1 border transition-colors disabled:opacity-50 ${
+                          p.ready
+                            ? "border-accent-cyan text-accent-cyan bg-accent-cyan/10"
+                            : "border-white/20 hover:border-accent-cyan"
+                        }`}
                       >
-                        Ready
+                        {p.ready ? "Ready" : "Not Ready"}
                       </button>
                     )}
                   </motion.div>
