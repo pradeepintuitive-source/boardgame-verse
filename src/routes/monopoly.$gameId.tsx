@@ -15,6 +15,12 @@ import { EventLog } from "../components/monopoly/EventLog";
 import { BankManager } from "../components/monopoly/BankManager";
 import { useMonopolyStore } from "../store/monopolyStore";
 import { useAuthStore } from "../store/authStore";
+import { useGameSnapshot } from "../hooks/useGameSession";
+import { useRoom } from "../hooks/useRooms";
+import { Topics } from "../websocket/topics";
+import { useStompSubscription } from "../hooks/useStompSubscription";
+import { pickAvatarColor } from "../utils/ids";
+import type { MonopolyState, PropertyState } from "../models/monopoly";
 import {
   aiAuctionStep,
   aiStep,
@@ -52,6 +58,146 @@ function MonopolyPage() {
   const navigate = useNavigate();
   const state = useMonopolyStore((s) => s.games[gameId]);
   const setGame = useMonopolyStore((s) => s.setGame);
+  const snapshot = useGameSnapshot<any>(gameId);
+  const roomQuery = useRoom(snapshot.data?.roomId);
+
+  // Map backend phase enum to frontend phase strings
+  function mapPhase(phase: string | null | undefined) {
+    switch ((phase ?? "").toString()) {
+      case "WAITING_FOR_ROLL":
+        return "rolling";
+      case "WAITING_FOR_DECISION":
+        return "landed";
+      case "WAITING_FOR_TRADE":
+        return "trade";
+      case "WAITING_FOR_AUCTION":
+        return "auction";
+      case "PAUSED":
+        return "ended";
+      case "ENDED":
+        return "ended";
+      default:
+        return "rolling";
+    }
+  }
+
+  function mapSnapshotToState(session: any, room: any): MonopolyState {
+    const backend = session.state ?? {};
+    const sessionId = session.sessionId ?? gameId;
+    const assets = backend.assets ?? {};
+    const roomPlayers = room?.players ?? [];
+
+    const players = roomPlayers.map((p: any) => {
+      const asset = assets[p.id] ?? null;
+      return {
+        id: p.id,
+        username: p.username,
+        avatarColor: p.avatarColor ?? pickAvatarColor(p.username),
+        isAI: p.isAI,
+        position: asset?.position ?? 0,
+        cash: asset?.cash ?? 1500,
+        inJail: asset?.inJail ?? false,
+        jailTurns: asset?.jailTurns ?? 0,
+        bankrupt: false,
+      };
+    });
+
+    const properties: Record<number, PropertyState> = {};
+    const owners = backend.owners ?? {};
+    const developments = backend.developments ?? {};
+    const mortgaged = new Set(backend.mortgagedTiles ?? []);
+    Object.keys(owners).forEach((k) => {
+      const pos = Number(k);
+      const ownerId = owners[k] ? String(owners[k]) : null;
+      const dev = developments[pos] ?? null;
+      properties[pos] = {
+        ownerId,
+        houses: dev ? dev.houses ?? 0 : 0,
+        mortgaged: mortgaged.has(pos),
+      };
+    });
+
+    const curPlayerIndex = players.findIndex(
+      (p) => String(p.id) === String(backend.currentPlayerId),
+    );
+
+    const mapped: MonopolyState = {
+      gameId: String(sessionId),
+      players,
+      currentPlayerIndex: curPlayerIndex >= 0 ? curPlayerIndex : 0,
+      phase: mapPhase(backend.phase),
+      lastRoll: null,
+      consecutiveDoubles: 0,
+      properties,
+      chanceDeck: backend.board?.chanceDeck ?? [],
+      chestDeck: backend.board?.chestDeck ?? [],
+      pendingPurchaseTile: backend.pendingPurchaseTile ?? null,
+      pendingCard: backend.pendingCard ?? null,
+      auction: backend.auction ?? null,
+      trade: backend.trade ?? null,
+      log: (backend.log ?? []).map((t: string, i: number) => ({ id: String(i), text: t, ts: Date.now(), kind: "info" })),
+      winnerId: null,
+    };
+
+    return mapped;
+  }
+
+  // Hydrate store when snapshot arrives
+  useEffect(() => {
+    if (!snapshot.data) return;
+    try {
+      const session = snapshot.data;
+      const room = roomQuery.data;
+      const mapped = mapSnapshotToState(session, room);
+      setGame(gameId!, mapped);
+    } catch (e) {
+      console.error("Failed to hydrate Monopoly store from snapshot", e);
+    }
+  }, [snapshot.data, roomQuery.data, gameId, setGame]);
+
+  // Subscribe to game updates broadcast for this room (payload contains refreshed state)
+  useStompSubscription<any>(
+    snapshot.data?.roomId ? Topics.gameRoom(snapshot.data.roomId) : null,
+    (msg) => {
+      if (!msg) return;
+      const payload = msg.payload ?? msg; // payload may be in .payload
+      try {
+        // payload may be a MonopolyStateResponse or raw game state; normalize and hydrate
+        const sessionLike = { sessionId: gameId, state: payload };
+        const mapped = mapSnapshotToState(sessionLike, roomQuery.data);
+        setGame(gameId!, mapped);
+      } catch (e) {
+        console.error("Failed to apply game update", e);
+      }
+    },
+    !!snapshot.data?.roomId,
+  );
+
+  // Loading / error handling: show fetching screen while snapshot is loading
+  if (snapshot.isLoading) {
+    return (
+      <AppShell>
+        <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
+          <div>
+            <p className="text-white/60 mb-6 font-mono">Fetching snapshot…</p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (snapshot.isError) {
+    return (
+      <AppShell>
+        <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
+          <div>
+            <p className="text-white/60 mb-6 font-mono">Unable to load game.</p>
+            <NeonButton onClick={() => navigate({ to: "/" })}>Back Home</NeonButton>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
   const user = useAuthStore((s) => s.user);
 
   const [openTile, setOpenTile] = useState<number | null>(null);

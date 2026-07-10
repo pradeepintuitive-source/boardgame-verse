@@ -52,6 +52,23 @@ function LobbyPage() {
     !!roomId,
   );
 
+  // Listen for backend game lifecycle broadcasts for this room (GAME_STARTED, etc.)
+  useStompSubscription<any>(
+    roomId ? Topics.gameRoom(roomId) : null,
+    (msg) => {
+      try {
+        if (!msg || msg.type !== "GAME_STARTED") return;
+        const sessionId = msg.sessionId as string | undefined;
+        if (sessionId) {
+          navigate({ to: "/monopoly/$gameId", params: { gameId: sessionId } });
+        }
+      } catch (e) {
+        console.error("Failed handling GAME_STARTED message", e);
+      }
+    },
+    !!roomId,
+  );
+
   // Polling fallback while the socket isn't connected so joins still surface.
   useEffect(() => {
     if (wsConnected || !roomId) return;

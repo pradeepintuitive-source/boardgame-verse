@@ -7,6 +7,8 @@ export const Topics = {
   // Broadcast
   room: (roomId: string) => `/topic/rooms/${roomId}`,
   roomChat: (roomId: string) => `/topic/rooms/${roomId}/chat`,
+  // Server broadcasts game lifecycle and updates using roomId as key
+  gameRoom: (roomId: string) => `/topic/game/${roomId}`,
   game: (gameId: string) => `/topic/games/${gameId}`,
   gameEvents: (gameId: string) => `/topic/games/${gameId}/events`,
   presence: (roomId: string) => `/topic/rooms/${roomId}/presence`,
