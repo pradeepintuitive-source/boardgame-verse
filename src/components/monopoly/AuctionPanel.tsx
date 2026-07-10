@@ -20,10 +20,10 @@ export function AuctionPanel({
   const [amount, setAmount] = useState<number>(0);
   if (!a) return null;
   const tile = BOARD[a.tileIndex];
-  const me = state.players.find((p) => p.id === meId);
-  const currentBidderId = a.activePlayerIds[a.currentBidderIndex];
+  const me = state.players.find((p) => p.id === meId) ?? state.players[0];
+  const currentBidderId = a.activePlayerIds[a.currentBidderIndex] ?? a.activePlayerIds[0];
   const isMyBid =
-    currentBidderId === meId && me && !me.bankrupt && a.activePlayerIds.includes(meId);
+    currentBidderId === meId && Boolean(me) && !me.bankrupt && a.activePlayerIds.includes(meId);
   const minBid = a.highestBid + 10;
 
   return (

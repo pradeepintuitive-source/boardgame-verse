@@ -27,7 +27,18 @@ export function ActionBar({
   onPayJail,
   onJailCard,
 }: Props) {
-  const cur = state.players[state.currentPlayerIndex];
+  const cur = state.players[state.currentPlayerIndex] ?? state.players[0] ?? {
+    id: "",
+    username: "Player",
+    avatarColor: "#fff",
+    isAI: false,
+    position: 0,
+    cash: 0,
+    inJail: false,
+    jailTurns: 0,
+    jailCards: 0,
+    bankrupt: true,
+  };
   const pending = state.pendingPurchaseTile;
   const tile = pending != null ? BOARD[pending] : null;
   const price = tile?.price ?? 0;

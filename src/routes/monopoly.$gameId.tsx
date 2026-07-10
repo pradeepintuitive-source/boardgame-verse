@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence } from "framer-motion";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Trophy, Banknote } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
@@ -55,6 +55,90 @@ export const Route = createFileRoute("/monopoly/$gameId")({
   component: MonopolyPage,
 });
 
+function mapPhase(phase: string | null | undefined) {
+  switch ((phase ?? "").toString()) {
+    case "WAITING_FOR_ROLL":
+      return "rolling";
+    case "WAITING_FOR_DECISION":
+      return "landed";
+    case "WAITING_FOR_TRADE":
+      return "trade";
+    case "WAITING_FOR_AUCTION":
+      return "auction";
+    case "PAUSED":
+      return "ended";
+    case "ENDED":
+      return "ended";
+    default:
+      return "rolling";
+  }
+}
+
+function mapSnapshotToState(session: any, room: any, gameId: string): MonopolyState {
+  const backend = session.state ?? {};
+  const sessionId = session.sessionId ?? gameId;
+  const assets = backend.assets ?? {};
+  const roomPlayers = room?.players ?? [];
+
+  const players = roomPlayers.map((p: { id: string; username: string; avatarColor?: string; isAI: boolean }) => {
+    const asset = assets[p.id] ?? null;
+    return {
+      id: p.id,
+      username: p.username,
+      avatarColor: p.avatarColor ?? pickAvatarColor(p.username),
+      isAI: p.isAI,
+      position: asset?.position ?? 0,
+      cash: asset?.cash ?? 1500,
+      inJail: asset?.inJail ?? false,
+      jailTurns: asset?.jailTurns ?? 0,
+      jailCards: asset?.jailCards ?? 0,
+      bankrupt: false,
+    };
+  });
+
+  const properties: Record<number, PropertyState> = {};
+  const owners = backend.owners ?? {};
+  const developments = backend.developments ?? {};
+  const mortgaged = new Set(backend.mortgagedTiles ?? []);
+
+  Object.keys(owners).forEach((k) => {
+    const pos = Number(k);
+    const ownerId = owners[k] ? String(owners[k]) : null;
+    const dev = developments[pos] ?? null;
+    properties[pos] = {
+      ownerId,
+      houses: dev ? dev.houses ?? 0 : 0,
+      mortgaged: mortgaged.has(pos),
+    };
+  });
+
+  const curPlayerIndex = Math.min(
+    Math.max(
+      players.findIndex((p: MonopolyState["players"][number]) => String(p.id) === String(backend.currentPlayerId)),
+      0,
+    ),
+    Math.max(players.length - 1, 0),
+  );
+
+  return {
+    gameId: String(sessionId),
+    players,
+    currentPlayerIndex: curPlayerIndex >= 0 ? curPlayerIndex : 0,
+    phase: mapPhase(backend.phase),
+    lastRoll: null,
+    consecutiveDoubles: 0,
+    properties,
+    chanceDeck: backend.board?.chanceDeck ?? [],
+    chestDeck: backend.board?.chestDeck ?? [],
+    pendingPurchaseTile: backend.pendingPurchaseTile ?? null,
+    pendingCard: backend.pendingCard ?? null,
+    auction: backend.auction ?? null,
+    trade: backend.trade ?? null,
+    log: (backend.log ?? []).map((t: string, i: number) => ({ id: String(i), text: t, ts: i, kind: "info" })),
+    winnerId: null,
+  };
+}
+
 function MonopolyPage() {
   const { gameId } = Route.useParams();
   const navigate = useNavigate();
@@ -63,91 +147,11 @@ function MonopolyPage() {
   const snapshot = useGameSnapshot<any>(gameId);
   const roomQuery = useRoom(snapshot.data?.roomId);
 
-  // Map backend phase enum to frontend phase strings
-  function mapPhase(phase: string | null | undefined) {
-    switch ((phase ?? "").toString()) {
-      case "WAITING_FOR_ROLL":
-        return "rolling";
-      case "WAITING_FOR_DECISION":
-        return "landed";
-      case "WAITING_FOR_TRADE":
-        return "trade";
-      case "WAITING_FOR_AUCTION":
-        return "auction";
-      case "PAUSED":
-        return "ended";
-      case "ENDED":
-        return "ended";
-      default:
-        return "rolling";
-    }
-  }
+  const roomId = snapshot.data?.roomId;
+  const destination = roomId ? Topics.gameRoom(roomId) : null;
 
-  function mapSnapshotToState(session: any, room: any): MonopolyState {
-    const backend = session.state ?? {};
-    const sessionId = session.sessionId ?? gameId;
-    const assets = backend.assets ?? {};
-    const roomPlayers = room?.players ?? [];
-
-    const players = roomPlayers.map((p: any) => {
-      const asset = assets[p.id] ?? null;
-      return {
-        id: p.id,
-        username: p.username,
-        avatarColor: p.avatarColor ?? pickAvatarColor(p.username),
-        isAI: p.isAI,
-        position: asset?.position ?? 0,
-        cash: asset?.cash ?? 1500,
-        inJail: asset?.inJail ?? false,
-        jailTurns: asset?.jailTurns ?? 0,
-        bankrupt: false,
-      };
-    });
-
-    const properties: Record<number, PropertyState> = {};
-    const owners = backend.owners ?? {};
-    const developments = backend.developments ?? {};
-    const mortgaged = new Set(backend.mortgagedTiles ?? []);
-    Object.keys(owners).forEach((k) => {
-      const pos = Number(k);
-      const ownerId = owners[k] ? String(owners[k]) : null;
-      const dev = developments[pos] ?? null;
-      properties[pos] = {
-        ownerId,
-        houses: dev ? dev.houses ?? 0 : 0,
-        mortgaged: mortgaged.has(pos),
-      };
-    });
-
-    const curPlayerIndex = players.findIndex(
-      (p) => String(p.id) === String(backend.currentPlayerId),
-    );
-
-    const mapped: MonopolyState = {
-      gameId: String(sessionId),
-      players,
-      currentPlayerIndex: curPlayerIndex >= 0 ? curPlayerIndex : 0,
-      phase: mapPhase(backend.phase),
-      lastRoll: null,
-      consecutiveDoubles: 0,
-      properties,
-      chanceDeck: backend.board?.chanceDeck ?? [],
-      chestDeck: backend.board?.chestDeck ?? [],
-      pendingPurchaseTile: backend.pendingPurchaseTile ?? null,
-      pendingCard: backend.pendingCard ?? null,
-      auction: backend.auction ?? null,
-      trade: backend.trade ?? null,
-      log: (backend.log ?? []).map((t: string, i: number) => ({ id: String(i), text: t, ts: i, kind: "info" })),
-      winnerId: null,
-    };
-
-    return mapped;
-  }
-
-  // Subscribe to game updates broadcast for this room (payload contains refreshed state)
-  useStompSubscription<any>(
-    snapshot.data?.roomId ? Topics.gameRoom(snapshot.data.roomId) : null,
-    (msg) => {
+  const handleGameUpdate = useCallback(
+    (msg: any) => {
       if (!msg) return;
       try {
         if (msg.type === "AUCTION_UPDATE") {
@@ -167,88 +171,39 @@ function MonopolyPage() {
           setGame(gameId!, { ...(current ?? {}), auction });
           return;
         }
-        const payload = msg.payload ?? msg; // payload may be in .payload
-        // payload may be a MonopolyStateResponse or raw game state; normalize and hydrate
+        const payload = msg.payload ?? msg;
         const sessionLike = { sessionId: gameId, state: payload };
-        const mapped = mapSnapshotToState(sessionLike, roomQuery.data);
+        const mapped = mapSnapshotToState(sessionLike, roomQuery.data, gameId);
         setGame(gameId!, mapped);
       } catch (e) {
         console.error("Failed to apply game update", e);
       }
     },
-    !!snapshot.data?.roomId,
+    [gameId, roomQuery.data, setGame],
   );
+
+  useStompSubscription<any>(destination, handleGameUpdate, !!destination);
   const user = useAuthStore((s) => s.user);
   const [hydrated, setHydrated] = useState(false);
-
-  // Hydrate only when we have snapshot + room info
-  useEffect(() => {
-    if (!snapshot.data || !roomQuery.data) return;
-    try {
-      const session = snapshot.data;
-      const room = roomQuery.data;
-      const mapped = mapSnapshotToState(session, room);
-      setGame(gameId!, mapped);
-      setHydrated(true);
-    } catch (e) {
-      console.error("Failed to hydrate Monopoly store from snapshot", e);
-    }
-  }, [snapshot.data, roomQuery.data, gameId, setGame]);
-
-  // Show loading until snapshot and room are available, store hydrated, and user resolved
-  if (snapshot.isLoading || roomQuery.isLoading || !snapshot.data || !roomQuery.data || !user || !hydrated) {
-    return (
-      <AppShell>
-        <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
-          <div>
-            <p className="text-white/60 mb-6 font-mono">Fetching snapshot…</p>
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
-
-  // Defensive guard: if the mapped state has no players yet, avoid rendering main UI to prevent crashes
-  if (!state || !state.players || state.players.length === 0) {
-    return (
-      <AppShell>
-        <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
-          <div>
-            <p className="text-white/60 mb-6 font-mono">Waiting for players…</p>
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
-
-  if (snapshot.isError) {
-    return (
-      <AppShell>
-        <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
-          <div>
-            <p className="text-white/60 mb-6 font-mono">Unable to load game.</p>
-            <NeonButton onClick={() => navigate({ to: "/" })}>Back Home</NeonButton>
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
-
   const [openTile, setOpenTile] = useState<number | null>(null);
   const [tradePartner, setTradePartner] = useState<string | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const hasValidState = Boolean(state && state.players?.length > 0);
+  const safePlayer = (idx: number) => state?.players?.[idx] ?? state?.players?.[0] ?? null;
+
   // AI driver — runs whenever it's an AI's turn or AI auction bidder
   useEffect(() => {
     if (!state || state.phase === "ended") return;
     if (aiTimer.current) clearTimeout(aiTimer.current);
-    const cur = currentPlayer(state);
+    const cur = currentPlayer(state) ?? safePlayer(state.currentPlayerIndex);
+    if (!cur) return;
     // If we're offline (no stomp broker), run local AI steps to keep single-device demos working.
     // When online, the backend is authoritative and will run AI logic and broadcast updates — do nothing here.
     if (stomp.isOffline) {
       if (state.phase === "auction" && state.auction) {
-        const bidderId = state.auction.activePlayerIds[state.auction.currentBidderIndex];
+        const bidderId = state.auction.activePlayerIds[state.auction.currentBidderIndex] ?? state.auction.activePlayerIds[0];
         const bidder = state.players.find((p) => p.id === bidderId);
         if (state.auction.activePlayerIds.length <= 1) {
           aiTimer.current = setTimeout(() => setGame(gameId, settleAuction(state)), 600);
@@ -273,7 +228,7 @@ function MonopolyPage() {
   // they're a human. The auth user is only used as a fallback identity.
   const me = useMemo(() => {
     if (!state) return undefined;
-    const cur = state.players[state.currentPlayerIndex];
+    const cur = safePlayer(state.currentPlayerIndex);
     if (cur && !cur.isAI && !cur.bankrupt) return cur;
     return (
       state.players.find((p) => p.id === user?.id) ??
@@ -281,6 +236,59 @@ function MonopolyPage() {
       state.players[0]
     );
   }, [state, user]);
+
+  // Hydrate only when we have snapshot + room info
+  useEffect(() => {
+    if (!snapshot.data || !roomQuery.data) return;
+    try {
+      const session = snapshot.data;
+      const room = roomQuery.data;
+      const mapped = mapSnapshotToState(session, room, gameId);
+      setGame(gameId!, mapped);
+      setHydrated(true);
+    } catch (e) {
+      console.error("Failed to hydrate Monopoly store from snapshot", e);
+    }
+  }, [snapshot.data, roomQuery.data, gameId, setGame]);
+
+  // Show loading until snapshot and room are available, store hydrated, and user resolved
+  if (snapshot.isLoading || roomQuery.isLoading || !snapshot.data || !roomQuery.data || !user || !hydrated) {
+    return (
+      <AppShell>
+        <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
+          <div>
+            <p className="text-white/60 mb-6 font-mono">Fetching snapshot…</p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  // Defensive guard: if the mapped state has no players yet, avoid rendering main UI to prevent crashes
+  if (!hasValidState) {
+    return (
+      <AppShell>
+        <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
+          <div>
+            <p className="text-white/60 mb-6 font-mono">Waiting for players…</p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
+  if (snapshot.isError) {
+    return (
+      <AppShell>
+        <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
+          <div>
+            <p className="text-white/60 mb-6 font-mono">Unable to load game.</p>
+            <NeonButton onClick={() => navigate({ to: "/" })}>Back Home</NeonButton>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
 
   if (!state || !me) {
     return (
@@ -295,7 +303,7 @@ function MonopolyPage() {
     );
   }
 
-  const cur = currentPlayer(state);
+  const cur = currentPlayer(state) ?? state.players[0];
   const isMyTurn = !cur.isAI && !cur.bankrupt && cur.id === me.id;
   const apply = (fn: (s: typeof state) => typeof state) => setGame(gameId, fn(state));
 
