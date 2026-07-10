@@ -123,6 +123,7 @@ class GameHubStompClient {
 
   sendMessage(destination: string, body: unknown) {
     if (this.offline || !this.client?.connected) return false;
+    console.debug("[stomp] publish", destination, body);
     this.client.publish({
       destination,
       body: typeof body === "string" ? body : JSON.stringify(body),

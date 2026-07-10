@@ -17,7 +17,7 @@ import { BankManager } from "../components/monopoly/BankManager";
 import { useMonopolyStore } from "../store/monopolyStore";
 import { useAuthStore } from "../store/authStore";
 import { useGameSnapshot } from "../hooks/useGameSession";
-import { useRoom } from "../hooks/useRooms";
+import { useLeaveRoom, useRoom } from "../hooks/useRooms";
 import { Topics } from "../websocket/topics";
 import { useStompSubscription } from "../hooks/useStompSubscription";
 import { stomp } from "../websocket/stompClient";
@@ -153,6 +153,7 @@ function MonopolyPage() {
   const setGame = useMonopolyStore((s) => s.setGame);
   const snapshot = useGameSnapshot<any>(gameId);
   const roomQuery = useRoom(snapshot.data?.roomId);
+  const leaveRoomMut = useLeaveRoom();
 
   const roomId = snapshot.data?.roomId;
   const destination = roomId ? Topics.gameRoom(roomId) : null;
@@ -236,7 +237,8 @@ function MonopolyPage() {
   const me = useMemo(() => {
     if (!state || !user) return undefined;
     return (
-      state.players.find((p) => p.userId === user.id) ??
+      state.players.find((p) => p.userId === user.id || p.username === user.username) ??
+      state.players.find((p) => p.id === user.id) ??
       state.players.find((p) => !p.isAI) ??
       state.players[0]
     );
@@ -388,6 +390,7 @@ function MonopolyPage() {
 
     const sent = stomp.sendMessage(dest, requestBody);
     if (sent) {
+      console.debug("[game] sent action over STOMP", type, dest, requestBody);
       // Optimistic local update to keep UI responsive; server broadcast will reconcile.
       if (!stomp.isOffline) {
         fallback(type, payload);
@@ -395,13 +398,17 @@ function MonopolyPage() {
       return true;
     }
 
+    console.warn("[game] STOMP unavailable, falling back to REST action", type, dest, requestBody);
     // Try HTTP fallback (server may accept action via REST)
     try {
-      monopolyApi.action(gameId, requestBody).catch(() => {});
+      monopolyApi.action(gameId, requestBody).catch((error) => {
+        console.error("[game] REST action failed", type, error);
+      });
       // optimistic apply for HTTP fallback too
       fallback(type, payload);
       return true;
     } catch (e) {
+      console.error("[game] REST action exception", type, e);
       // ignore and fall through to local fallback
     }
 
@@ -430,7 +437,19 @@ function MonopolyPage() {
             <NeonButton variant="ghost" size="sm" onClick={() => setBankOpen(true)}>
               <Banknote className="inline size-4 mr-1" /> Bank
             </NeonButton>
-            <NeonButton variant="ghost" size="sm" onClick={() => navigate({ to: "/" })}>
+            <NeonButton
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                if (roomId) {
+                  leaveRoomMut.mutate(roomId, {
+                    onSettled: () => navigate({ to: "/" }),
+                  });
+                } else {
+                  navigate({ to: "/" });
+                }
+              }}
+            >
               Exit
             </NeonButton>
           </div>
@@ -577,7 +596,7 @@ function MonopolyPage() {
         )}
       </AnimatePresence>
 
-      <ChatDrawer roomId={gameId} />
+      {roomId && <ChatDrawer roomId={roomId} />}
     </AppShell>
   );
 }

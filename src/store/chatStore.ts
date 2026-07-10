@@ -1,16 +1,40 @@
 import { create } from "zustand";
 import type { ChatMessage } from "../models";
-import { uid } from "../utils/ids";
+import type { ChatMessageResponse } from "../services/chat";
+import { chatApi } from "../services/chat";
+import { pickAvatarColor } from "../utils/ids";
 
 interface ChatState {
   messages: Record<string, ChatMessage[]>; // roomId -> msgs
   typing: Record<string, string[]>; // roomId -> usernames
   drawerOpen: boolean;
   unread: Record<string, number>;
-  send: (roomId: string, msg: Omit<ChatMessage, "id" | "ts" | "roomId">) => void;
+  send: (roomId: string, content: string) => Promise<void>;
+  loadHistory: (roomId: string) => Promise<void>;
+  receiveMessage: (roomId: string, msg: ChatMessageResponse) => void;
   toggleDrawer: () => void;
   clearUnread: (roomId: string) => void;
   setTyping: (roomId: string, usernames: string[]) => void;
+}
+
+function mapChatResponse(roomId: string, response: ChatMessageResponse): ChatMessage {
+  return {
+    id: response.id,
+    roomId,
+    userId: response.senderUserId,
+    username: response.senderName,
+    avatarColor: pickAvatarColor(response.senderName),
+    text: response.content,
+    ts: new Date(response.sentAt).getTime(),
+    channel: "public",
+  };
+}
+
+function dedupeMessages(existing: ChatMessage[], next: ChatMessage): ChatMessage[] {
+  if (existing.some((message) => message.id === next.id)) {
+    return existing;
+  }
+  return [...existing, next];
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -18,10 +42,29 @@ export const useChatStore = create<ChatState>((set) => ({
   typing: {},
   drawerOpen: false,
   unread: {},
-  send: (roomId, msg) =>
+  send: async (roomId, content) => {
+    const response = await chatApi.sendMessage(roomId, content, null);
+    const next = mapChatResponse(roomId, response);
+    set((s) => ({
+      messages: { ...s.messages, [roomId]: dedupeMessages(s.messages[roomId] ?? [], next) },
+    }));
+  },
+  loadHistory: async (roomId) => {
+    const history = await chatApi.history(roomId);
+    set((s) => ({
+      messages: {
+        ...s.messages,
+        [roomId]: history.reduce<ChatMessage[]>((acc, message) => {
+          const next = mapChatResponse(roomId, message);
+          return dedupeMessages(acc, next);
+        }, s.messages[roomId] ?? []),
+      },
+    }));
+  },
+  receiveMessage: (roomId, msg) =>
     set((s) => {
-      const next: ChatMessage = { ...msg, id: uid("m"), roomId, ts: Date.now() };
-      const list = [...(s.messages[roomId] ?? []), next];
+      const next = mapChatResponse(roomId, msg);
+      const list = dedupeMessages(s.messages[roomId] ?? [], next);
       const unread = s.drawerOpen
         ? s.unread
         : { ...s.unread, [roomId]: (s.unread[roomId] ?? 0) + 1 };

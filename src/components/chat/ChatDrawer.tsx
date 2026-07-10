@@ -1,27 +1,47 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { MessageSquare, X, Send } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useChatStore } from "../../store/chatStore";
 import { useAuthStore } from "../../store/authStore";
 import { Avatar } from "../common/Avatar";
+import { useStompSubscription } from "../../hooks/useStompSubscription";
+import { Topics } from "../../websocket/topics";
 
 export function ChatDrawer({ roomId }: { roomId: string }) {
-  const { drawerOpen, toggleDrawer, messages, send, unread } = useChatStore();
+  const { drawerOpen, toggleDrawer, messages, send, unread, clearUnread, loadHistory, receiveMessage } = useChatStore();
   const user = useAuthStore((s) => s.user);
   const [text, setText] = useState("");
   const list = messages[roomId] ?? [];
   const unreadCount = unread[roomId] ?? 0;
 
-  const submit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!roomId) return;
+    loadHistory(roomId).catch((error) => console.error("[chat] failed to load history", error));
+  }, [roomId, loadHistory]);
+
+  useStompSubscription<any>(
+    roomId ? Topics.roomChat(roomId) : null,
+    (msg) => {
+      if (!msg || msg.type !== "CHAT_MESSAGE") return;
+      const payload = msg.payload ?? msg;
+      receiveMessage(roomId, payload);
+    },
+    !!roomId,
+  );
+
+  useEffect(() => {
+    if (!drawerOpen || !roomId) return;
+    clearUnread(roomId);
+  }, [drawerOpen, roomId, clearUnread]);
+
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!text.trim() || !user) return;
-    send(roomId, {
-      userId: user.id,
-      username: user.username,
-      avatarColor: user.avatarColor,
-      text: text.trim(),
-      channel: "public",
-    });
+    try {
+      await send(roomId, text.trim());
+    } catch (error) {
+      console.error("[chat] failed to send message", error);
+    }
     setText("");
   };
 
