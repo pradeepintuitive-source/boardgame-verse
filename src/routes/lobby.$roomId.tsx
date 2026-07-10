@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "framer-motion";
-import { Copy, Crown, UserPlus, X, Bot, Wifi, Lock } from "lucide-react";
+import { Copy, Crown, UserPlus, X, Bot, Wifi, Lock, LogOut } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppShell } from "../components/layout/AppShell";
@@ -13,7 +13,7 @@ import { useGameStore } from "../store/gameStore";
 import { initMafiaGame } from "../utils/mafiaEngine";
 import { useMonopolyStore } from "../store/monopolyStore";
 import { initMonopolyGame } from "../utils/monopolyEngine";
-import { useRoom, useToggleReady } from "../hooks/useRooms";
+import { useRoom, useToggleReady, useLeaveRoom } from "../hooks/useRooms";
 import { useStompSubscription } from "../hooks/useStompSubscription";
 import { Topics } from "../websocket/topics";
 import { useConnectionStore } from "../store/connectionStore";
@@ -39,6 +39,7 @@ function LobbyPage() {
   const roomQuery = useRoom(roomId);
   const qc = useQueryClient();
   const toggleReadyMut = useToggleReady();
+  const leaveMut = useLeaveRoom();
 
   // Live-sync: refresh the room whenever the server broadcasts a change.
   useStompSubscription(
@@ -103,6 +104,12 @@ function LobbyPage() {
   const handleToggleReady = () => {
     if (!me) return;
     toggleReadyMut.mutate({ roomId: room.id, ready: !myReady });
+  };
+
+  const handleLeave = () => {
+    leaveMut.mutate(room.id, {
+      onSettled: () => navigate({ to: "/" }),
+    });
   };
 
   return (
@@ -191,7 +198,7 @@ function LobbyPage() {
                         <X className="size-4" />
                       </button>
                     )}
-                    {p.id === user?.id && (
+                    {p.userId === user?.id && !p.isAI && (
                       <button
                         onClick={handleToggleReady}
                         disabled={toggleReadyMut.isPending}
@@ -243,9 +250,21 @@ function LobbyPage() {
               </div>
             )}
 
+            <NeonButton
+              variant="ghost"
+              size="sm"
+              onClick={handleLeave}
+              disabled={leaveMut.isPending}
+              className="w-full inline-flex items-center justify-center gap-2"
+            >
+              <LogOut className="size-3.5" />
+              {isHost ? "Close & Leave Room" : "Leave Room"}
+            </NeonButton>
+
             <div className="glass-panel p-5 text-xs font-mono text-white/50 leading-relaxed">
               Share the room code with friends, or fill seats with AI players. The host starts the
-              match when everyone is ready.
+              match when everyone is ready. You can rejoin any room later from Join Game using the
+              room code.
             </div>
           </aside>
         </div>
