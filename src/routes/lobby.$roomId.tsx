@@ -13,7 +13,7 @@ import { useGameStore } from "../store/gameStore";
 import { initMafiaGame } from "../utils/mafiaEngine";
 import { useMonopolyStore } from "../store/monopolyStore";
 import { initMonopolyGame } from "../utils/monopolyEngine";
-import { useRoom, useToggleReady, useLeaveRoom } from "../hooks/useRooms";
+import { useRoom, useStartGame, useToggleReady, useLeaveRoom } from "../hooks/useRooms";
 import { useStompSubscription } from "../hooks/useStompSubscription";
 import { Topics } from "../websocket/topics";
 import { useConnectionStore } from "../store/connectionStore";
@@ -39,6 +39,7 @@ function LobbyPage() {
   const roomQuery = useRoom(roomId);
   const qc = useQueryClient();
   const toggleReadyMut = useToggleReady();
+  const startGameMut = useStartGame();
   const leaveMut = useLeaveRoom();
 
   // Live-sync: refresh the room whenever the server broadcasts a change.
@@ -88,14 +89,21 @@ function LobbyPage() {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const start = () => {
-    const gameId = room.id;
+  const start = async () => {
     if (room.gameType === "mafia") {
+      const gameId = room.id;
       setMafia(gameId, initMafiaGame(gameId, room.players));
       navigate({ to: "/mafia/$gameId", params: { gameId } });
-    } else if (room.gameType === "monopoly") {
-      setMonopoly(gameId, initMonopolyGame(gameId, room.players));
-      navigate({ to: "/monopoly/$gameId", params: { gameId } });
+      return;
+    }
+
+    if (room.gameType === "monopoly") {
+      try {
+        const response = await startGameMut.mutateAsync(room.id);
+        navigate({ to: "/monopoly/$gameId", params: { gameId: response.sessionId } });
+      } catch (error) {
+        console.error("Failed to start Monopoly game", error);
+      }
     }
   };
 

@@ -36,6 +36,15 @@ export interface CreateRoomRequest {
   isLan?: boolean;
 }
 
+export interface GameSessionResponse {
+  sessionId: string;
+  roomId: string;
+  gameType: string;
+  status: string;
+  saveVersion: number;
+  state: unknown;
+}
+
 function normalizeRoom(raw: RawRoom): Room {
   const players: Player[] = raw.players.map((player) => ({
     id: player.id,
@@ -57,6 +66,7 @@ function normalizeRoom(raw: RawRoom): Room {
     isPrivate: raw.visibility === "PRIVATE",
     isLan: raw.roomType === "LAN",
     hostId: raw.hostUserId,
+    currentSessionId: raw.currentSessionId ?? null,
     players,
     createdAt: Date.now(),
   };
@@ -108,8 +118,10 @@ export const roomsApi = {
   kick: async (roomId: string, playerId: string): Promise<void> => {
     await api.post(`rooms/${roomId}/kick`, { playerId });
   },
-  start: async (roomId: string): Promise<{ gameId: string }> => {
-    const { data } = await api.post<{ gameId: string }>(`rooms/${roomId}/start`);
+  start: async (roomId: string): Promise<GameSessionResponse> => {
+    const { data } = await api.post<GameSessionResponse>(`games/start`, {
+      roomId,
+    });
     return data;
   },
 };

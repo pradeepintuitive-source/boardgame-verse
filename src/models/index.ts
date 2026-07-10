@@ -28,6 +28,7 @@ export interface Room {
   isPrivate: boolean;
   isLan: boolean;
   hostId: string;
+  currentSessionId?: string | null;
   players: Player[];
   createdAt: number;
 }

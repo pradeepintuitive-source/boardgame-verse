@@ -37,8 +37,13 @@ export function useJoinRoomByCode() {
 }
 
 export function useStartGame() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (roomId: string) => roomsApi.start(roomId),
+    onSuccess: (_data, roomId) => {
+      qc.invalidateQueries({ queryKey: ["room", roomId] });
+      qc.invalidateQueries({ queryKey: ["rooms"] });
+    },
   });
 }
 
