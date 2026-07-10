@@ -61,9 +61,9 @@ export function ActionBar({
         </div>
       )}
 
-      {isMyTurn && state.phase === "rolling" && (
+      {state.phase === "rolling" && (
         <div className="flex flex-wrap gap-2">
-          <NeonButton variant="cyan" onClick={onRoll}>
+          <NeonButton variant="cyan" onClick={onRoll} disabled={!isMyTurn}>
             <Dice5 className="inline size-4 mr-1" />
             {me.inJail ? "Roll for Doubles" : "Roll Dice"}
           </NeonButton>

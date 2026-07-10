@@ -77,7 +77,7 @@ export function initMonopolyGame(gameId: string, players: Player[]): MonopolySta
   return state;
 }
 
-export const currentPlayer = (s: MonopolyState) => s.players[s.currentPlayerIndex];
+export const currentPlayer = (s: MonopolyState) => s.players[s.currentPlayerIndex] ?? s.players[0];
 
 /** Count how many properties of a given group the player owns. */
 function groupOwnedCount(s: MonopolyState, group: string, playerId: string): number {

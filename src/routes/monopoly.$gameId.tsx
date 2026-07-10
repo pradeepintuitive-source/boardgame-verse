@@ -224,14 +224,12 @@ function MonopolyPage() {
     };
   }, [state, gameId, setGame]);
 
-  // Pass-and-play: the "me" view always follows whoever's turn it is, as long as
-  // they're a human. The auth user is only used as a fallback identity.
+  // The logged-in user should be treated as "me" when present. If the auth user is not
+  // part of this game session, fall back to the first available human player.
   const me = useMemo(() => {
-    if (!state) return undefined;
-    const cur = safePlayer(state.currentPlayerIndex);
-    if (cur && !cur.isAI && !cur.bankrupt) return cur;
+    if (!state || !user) return undefined;
     return (
-      state.players.find((p) => p.id === user?.id) ??
+      state.players.find((p) => p.id === user.id) ??
       state.players.find((p) => !p.isAI) ??
       state.players[0]
     );
