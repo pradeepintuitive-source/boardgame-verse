@@ -12,7 +12,6 @@ import { useAuthStore } from "../store/authStore";
 import { useGameStore } from "../store/gameStore";
 import { initMafiaGame } from "../utils/mafiaEngine";
 import { useMonopolyStore } from "../store/monopolyStore";
-import { initMonopolyGame } from "../utils/monopolyEngine";
 import { useRoom, useStartGame, useToggleReady, useLeaveRoom } from "../hooks/useRooms";
 import { useStompSubscription } from "../hooks/useStompSubscription";
 import { Topics } from "../websocket/topics";
@@ -34,7 +33,6 @@ function LobbyPage() {
   const { addAI, removePlayer } = useLobbyStore();
   const user = useAuthStore((s) => s.user);
   const setMafia = useGameStore((s) => s.setMafia);
-  const setMonopoly = useMonopolyStore((s) => s.setGame);
   const wsConnected = useConnectionStore((s) => s.connected);
   const roomQuery = useRoom(roomId);
   const qc = useQueryClient();

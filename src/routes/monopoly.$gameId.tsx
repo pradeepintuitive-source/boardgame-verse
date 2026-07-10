@@ -19,6 +19,8 @@ import { useGameSnapshot } from "../hooks/useGameSession";
 import { useRoom } from "../hooks/useRooms";
 import { Topics } from "../websocket/topics";
 import { useStompSubscription } from "../hooks/useStompSubscription";
+import { stomp } from "../websocket/stompClient";
+import { monopolyApi } from "../services/monopoly";
 import { pickAvatarColor } from "../utils/ids";
 import type { MonopolyState, PropertyState } from "../models/monopoly";
 import {
@@ -142,14 +144,52 @@ function MonopolyPage() {
     return mapped;
   }
 
-  // Hydrate store when snapshot arrives
+  // Subscribe to game updates broadcast for this room (payload contains refreshed state)
+  useStompSubscription<any>(
+    snapshot.data?.roomId ? Topics.gameRoom(snapshot.data.roomId) : null,
+    (msg) => {
+      if (!msg) return;
+      try {
+        if (msg.type === "AUCTION_UPDATE") {
+          const a = msg.payload ?? null;
+          const current = useMonopolyStore.getState().games[gameId];
+          const auction = a
+            ? {
+                tileIndex: a.tilePosition ?? a.tileIndex ?? 0,
+                bids: [],
+                currentBidderIndex: a.currentBidderIndex ?? 0,
+                activePlayerIds: a.activePlayerIds ?? [],
+                highestBid: a.highestBid ?? 0,
+                highestBidderId: a.highestBidder ? String(a.highestBidder) : null,
+                startedAt: Date.now(),
+              }
+            : null;
+          setGame(gameId!, { ...(current ?? {}), auction });
+          return;
+        }
+        const payload = msg.payload ?? msg; // payload may be in .payload
+        // payload may be a MonopolyStateResponse or raw game state; normalize and hydrate
+        const sessionLike = { sessionId: gameId, state: payload };
+        const mapped = mapSnapshotToState(sessionLike, roomQuery.data);
+        setGame(gameId!, mapped);
+      } catch (e) {
+        console.error("Failed to apply game update", e);
+      }
+    },
+    !!snapshot.data?.roomId,
+  );
+  const user = useAuthStore((s) => s.user);
+  const [hydrated, setHydrated] = useState(false);
+
+  // Hydrate only when we have snapshot + room info
   useEffect(() => {
-    if (!snapshot.data) return;
+    if (!snapshot.data || !roomQuery.data) return;
     try {
       const session = snapshot.data;
       const room = roomQuery.data;
       const mapped = mapSnapshotToState(session, room);
       setGame(gameId!, mapped);
+      setHydrated(true);
     } catch (e) {
       console.error("Failed to hydrate Monopoly store from snapshot", e);
     }
@@ -160,8 +200,25 @@ function MonopolyPage() {
     snapshot.data?.roomId ? Topics.gameRoom(snapshot.data.roomId) : null,
     (msg) => {
       if (!msg) return;
-      const payload = msg.payload ?? msg; // payload may be in .payload
       try {
+        if (msg.type === "AUCTION_UPDATE") {
+          const a = msg.payload ?? null;
+          const current = useMonopolyStore.getState().games[gameId];
+          const auction = a
+            ? {
+                tileIndex: a.tilePosition ?? a.tileIndex ?? 0,
+                bids: [],
+                currentBidderIndex: a.currentBidderIndex ?? 0,
+                activePlayerIds: a.activePlayerIds ?? [],
+                highestBid: a.highestBid ?? 0,
+                highestBidderId: a.highestBidder ? String(a.highestBidder) : null,
+                startedAt: Date.now(),
+              }
+            : null;
+          setGame(gameId!, { ...(current ?? {}), auction });
+          return;
+        }
+        const payload = msg.payload ?? msg; // payload may be in .payload
         // payload may be a MonopolyStateResponse or raw game state; normalize and hydrate
         const sessionLike = { sessionId: gameId, state: payload };
         const mapped = mapSnapshotToState(sessionLike, roomQuery.data);
@@ -173,8 +230,8 @@ function MonopolyPage() {
     !!snapshot.data?.roomId,
   );
 
-  // Loading / error handling: show fetching screen while snapshot is loading
-  if (snapshot.isLoading) {
+  // Show loading until snapshot and room are available, store hydrated, and user resolved
+  if (snapshot.isLoading || roomQuery.isLoading || !snapshot.data || !roomQuery.data || !user || !hydrated) {
     return (
       <AppShell>
         <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
@@ -198,7 +255,6 @@ function MonopolyPage() {
       </AppShell>
     );
   }
-  const user = useAuthStore((s) => s.user);
 
   const [openTile, setOpenTile] = useState<number | null>(null);
   const [tradePartner, setTradePartner] = useState<string | null>(null);
@@ -210,22 +266,25 @@ function MonopolyPage() {
     if (!state || state.phase === "ended") return;
     if (aiTimer.current) clearTimeout(aiTimer.current);
     const cur = currentPlayer(state);
-
-    if (state.phase === "auction" && state.auction) {
-      const bidderId = state.auction.activePlayerIds[state.auction.currentBidderIndex];
-      const bidder = state.players.find((p) => p.id === bidderId);
-      if (state.auction.activePlayerIds.length <= 1) {
-        aiTimer.current = setTimeout(() => setGame(gameId, settleAuction(state)), 600);
+    // If we're offline (no stomp broker), run local AI steps to keep single-device demos working.
+    // When online, the backend is authoritative and will run AI logic and broadcast updates — do nothing here.
+    if (stomp.isOffline) {
+      if (state.phase === "auction" && state.auction) {
+        const bidderId = state.auction.activePlayerIds[state.auction.currentBidderIndex];
+        const bidder = state.players.find((p) => p.id === bidderId);
+        if (state.auction.activePlayerIds.length <= 1) {
+          aiTimer.current = setTimeout(() => setGame(gameId, settleAuction(state)), 600);
+          return;
+        }
+        if (bidder?.isAI) {
+          aiTimer.current = setTimeout(() => setGame(gameId, aiAuctionStep(state)), 900);
+        }
         return;
       }
-      if (bidder?.isAI) {
-        aiTimer.current = setTimeout(() => setGame(gameId, aiAuctionStep(state)), 900);
-      }
-      return;
-    }
 
-    if (cur.isAI && (state.phase === "rolling" || state.phase === "landed")) {
-      aiTimer.current = setTimeout(() => setGame(gameId, aiStep(state)), 1100);
+      if (cur.isAI && (state.phase === "rolling" || state.phase === "landed")) {
+        aiTimer.current = setTimeout(() => setGame(gameId, aiStep(state)), 1100);
+      }
     }
     return () => {
       if (aiTimer.current) clearTimeout(aiTimer.current);
@@ -261,6 +320,104 @@ function MonopolyPage() {
   const cur = currentPlayer(state);
   const isMyTurn = !cur.isAI && !cur.bankrupt && cur.id === me.id;
   const apply = (fn: (s: typeof state) => typeof state) => setGame(gameId, fn(state));
+
+  // Send action to server via STOMP. Actions are validated/processed by backend.
+  const sendGameAction = (type: string, payload: Record<string, unknown> = {}) => {
+    if (!gameId) return false;
+    if (!isMyTurn) {
+      console.warn("Attempted action while not player's turn", type);
+      return false;
+    }
+
+    // Local fallback implementations for offline demo mode
+    const fallback = (action: string, p: Record<string, unknown>) => {
+      switch (action) {
+        case "ROLL":
+          return apply(rollDice);
+        case "BUY":
+          return apply(buyPending);
+        case "START_AUCTION":
+          return apply(startAuction);
+        case "END_TURN":
+          return apply(endTurn);
+        case "PAY_JAIL":
+          return apply(payJailFee);
+        case "USE_JAIL_CARD":
+          return apply(useJailCard);
+        case "PLACE_BID":
+          return apply((s) => placeBid(s, me.id, (p.amount as number) ?? 0));
+        case "PASS_BID":
+          return apply((s) => passBid(s, me.id));
+        case "BUILD_HOUSE":
+          return apply((s) => buildHouse(s, (p.tileIndex as number) ?? 0));
+        case "SELL_HOUSE":
+          return apply((s) => sellHouse(s, (p.tileIndex as number) ?? 0));
+        case "TOGGLE_MORTGAGE":
+          return apply((s) => toggleMortgage(s, (p.tileIndex as number) ?? 0));
+        case "PROPOSE_TRADE":
+          return apply((s) => proposeTrade(s, p.offer as any));
+        case "RESOLVE_TRADE":
+          return apply((s) => resolveTrade(s, !!p.accept));
+        case "BANK_ADJUST":
+          return apply((s) => bankAdjust(s, (p.playerId as string) ?? "", (p.delta as number) ?? 0));
+        case "BANK_TRANSFER":
+          return apply((s) => bankTransfer(s, (p.from as string) ?? "", (p.to as string) ?? "", (p.amt as number) ?? 0));
+        default:
+          console.warn("Unknown fallback action", action);
+      }
+    };
+
+    const dest = Topics.send.gameAction(gameId);
+    // Build server-friendly MonopolyActionRequest shape
+    const requestBody: Record<string, unknown> = {
+      type: (
+        {
+          ROLL: "ROLL_DICE",
+          BUY: "BUY_PROPERTY",
+          START_AUCTION: "AUCTION",
+          END_TURN: "END_TURN",
+          PAY_JAIL: "PAY_JAIL",
+          USE_JAIL_CARD: "USE_JAIL_CARD",
+          PLACE_BID: "AUCTION",
+          PASS_BID: "AUCTION",
+          BUILD_HOUSE: "BUILD_HOUSE",
+          SELL_HOUSE: "SELL_HOUSE",
+          TOGGLE_MORTGAGE: "MORTGAGE",
+          PROPOSE_TRADE: "TRADE",
+          RESOLVE_TRADE: "TRADE",
+          BANK_ADJUST: "TRADE",
+          BANK_TRANSFER: "TRADE",
+        } as Record<string, string>
+      )[type] ?? type,
+    };
+    if ((payload as any).tileIndex != null) requestBody.tilePosition = (payload as any).tileIndex;
+    if ((payload as any).amount != null) requestBody.amount = (payload as any).amount;
+    if ((payload as any).targetPlayerId != null) requestBody.targetPlayerId = (payload as any).targetPlayerId;
+    if ((payload as any).metadata != null) requestBody.metadata = (payload as any).metadata;
+
+    const sent = stomp.sendMessage(dest, requestBody);
+    if (sent) {
+      // Optimistic local update to keep UI responsive; server broadcast will reconcile.
+      if (!stomp.isOffline) {
+        fallback(type, payload);
+      }
+      return true;
+    }
+
+    // Try HTTP fallback (server may accept action via REST)
+    try {
+      monopolyApi.action(gameId, requestBody).catch(() => {});
+      // optimistic apply for HTTP fallback too
+      fallback(type, payload);
+      return true;
+    } catch (e) {
+      // ignore and fall through to local fallback
+    }
+
+    // STOMP and HTTP both unavailable — apply fallback locally to preserve offline demo.
+    fallback(type, payload);
+    return true;
+  };
 
   return (
     <AppShell hideChrome>
@@ -319,12 +476,12 @@ function MonopolyPage() {
               state={state}
               me={me}
               isMyTurn={isMyTurn}
-              onRoll={() => apply(rollDice)}
-              onBuy={() => apply(buyPending)}
-              onAuction={() => apply(startAuction)}
-              onEnd={() => apply(endTurn)}
-              onPayJail={() => apply(payJailFee)}
-              onJailCard={() => apply(useJailCard)}
+              onRoll={() => sendGameAction("ROLL")}
+              onBuy={() => sendGameAction("BUY")}
+              onAuction={() => stomp.sendMessage(Topics.send.auction(gameId), { action: "START", tilePosition: state.pendingPurchaseTile })}
+              onEnd={() => sendGameAction("END_TURN")}
+              onPayJail={() => sendGameAction("PAY_JAIL")}
+              onJailCard={() => sendGameAction("USE_JAIL_CARD")}
             />
             <EventLog log={state.log} />
           </aside>
@@ -349,23 +506,23 @@ function MonopolyPage() {
 
       <AnimatePresence>
         {openTile != null && (
-          <PropertyCard
+            <PropertyCard
             state={state}
             tileIndex={openTile}
             onClose={() => setOpenTile(null)}
             onBuild={
               state.properties[openTile]?.ownerId === me.id
-                ? () => apply((s) => buildHouse(s, openTile))
+                ? () => sendGameAction("BUILD_HOUSE", { tileIndex: openTile })
                 : undefined
             }
             onSell={
               state.properties[openTile]?.ownerId === me.id && state.properties[openTile].houses > 0
-                ? () => apply((s) => sellHouse(s, openTile))
+                ? () => sendGameAction("SELL_HOUSE", { tileIndex: openTile })
                 : undefined
             }
             onMortgage={
               state.properties[openTile]?.ownerId === me.id
-                ? () => apply((s) => toggleMortgage(s, openTile))
+                ? () => sendGameAction("TOGGLE_MORTGAGE", { tileIndex: openTile })
                 : undefined
             }
           />
@@ -375,8 +532,12 @@ function MonopolyPage() {
           <AuctionPanel
             state={state}
             meId={me.id}
-            onBid={(amount) => apply((s) => placeBid(s, me.id, amount))}
-            onPass={() => apply((s) => passBid(s, me.id))}
+            onBid={(amount) => {
+              stomp.sendMessage(Topics.send.auction(gameId), { action: "PLACE_BID", amount });
+            }}
+            onPass={() => {
+              stomp.sendMessage(Topics.send.auction(gameId), { action: "PASS" });
+            }}
           />
         )}
 
@@ -387,10 +548,10 @@ function MonopolyPage() {
             partnerId={tradePartner}
             onClose={() => setTradePartner(null)}
             onPropose={(offer) => {
-              apply((s) => proposeTrade(s, offer));
-              // Auto-resolve if partner is AI (simple heuristic)
+              sendGameAction("PROPOSE_TRADE", { offer });
+              // Auto-resolve locally for AI partner to keep UX snappy in offline demos
               const partner = state.players.find((p) => p.id === tradePartner);
-              if (partner?.isAI) {
+              if (partner?.isAI && stomp.isOffline) {
                 setTimeout(() => {
                   setGame(
                     gameId,
@@ -409,9 +570,9 @@ function MonopolyPage() {
             meId={state.trade.toId}
             partnerId={state.trade.fromId}
             existingOffer={state.trade}
-            onClose={() => apply((s) => resolveTrade(s, false))}
-            onAccept={() => apply((s) => resolveTrade(s, true))}
-            onDecline={() => apply((s) => resolveTrade(s, false))}
+            onClose={() => sendGameAction("RESOLVE_TRADE", { accept: false })}
+            onAccept={() => sendGameAction("RESOLVE_TRADE", { accept: true })}
+            onDecline={() => sendGameAction("RESOLVE_TRADE", { accept: false })}
           />
         )}
 
@@ -419,8 +580,8 @@ function MonopolyPage() {
           <BankManager
             state={state}
             onClose={() => setBankOpen(false)}
-            onAdjust={(pid, delta) => apply((s) => bankAdjust(s, pid, delta))}
-            onTransfer={(from, to, amt) => apply((s) => bankTransfer(s, from, to, amt))}
+            onAdjust={(pid, delta) => sendGameAction("BANK_ADJUST", { playerId: pid, delta })}
+            onTransfer={(from, to, amt) => sendGameAction("BANK_TRANSFER", { from, to, amt })}
           />
         )}
       </AnimatePresence>

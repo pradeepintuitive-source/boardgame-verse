@@ -22,6 +22,7 @@ export const Topics = {
     roomReady: (roomId: string) => `/app/rooms/${roomId}/ready`,
     roomChat: (roomId: string) => `/app/rooms/${roomId}/chat`,
     gameAction: (gameId: string) => `/app/games/${gameId}/action`,
+      auction: (gameId: string) => `/app/games/${gameId}/auction`,
     pause: (gameId: string) => `/app/games/${gameId}/pause`,
     resume: (gameId: string) => `/app/games/${gameId}/resume`,
   },
