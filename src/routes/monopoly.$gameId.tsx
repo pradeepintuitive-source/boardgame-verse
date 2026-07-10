@@ -137,7 +137,7 @@ function MonopolyPage() {
       pendingCard: backend.pendingCard ?? null,
       auction: backend.auction ?? null,
       trade: backend.trade ?? null,
-      log: (backend.log ?? []).map((t: string, i: number) => ({ id: String(i), text: t, ts: Date.now(), kind: "info" })),
+      log: (backend.log ?? []).map((t: string, i: number) => ({ id: String(i), text: t, ts: i, kind: "info" })),
       winnerId: null,
     };
 
@@ -161,7 +161,7 @@ function MonopolyPage() {
                 activePlayerIds: a.activePlayerIds ?? [],
                 highestBid: a.highestBid ?? 0,
                 highestBidderId: a.highestBidder ? String(a.highestBidder) : null,
-                startedAt: Date.now(),
+                startedAt: 0,
               }
             : null;
           setGame(gameId!, { ...(current ?? {}), auction });
@@ -194,41 +194,6 @@ function MonopolyPage() {
       console.error("Failed to hydrate Monopoly store from snapshot", e);
     }
   }, [snapshot.data, roomQuery.data, gameId, setGame]);
-
-  // Subscribe to game updates broadcast for this room (payload contains refreshed state)
-  useStompSubscription<any>(
-    snapshot.data?.roomId ? Topics.gameRoom(snapshot.data.roomId) : null,
-    (msg) => {
-      if (!msg) return;
-      try {
-        if (msg.type === "AUCTION_UPDATE") {
-          const a = msg.payload ?? null;
-          const current = useMonopolyStore.getState().games[gameId];
-          const auction = a
-            ? {
-                tileIndex: a.tilePosition ?? a.tileIndex ?? 0,
-                bids: [],
-                currentBidderIndex: a.currentBidderIndex ?? 0,
-                activePlayerIds: a.activePlayerIds ?? [],
-                highestBid: a.highestBid ?? 0,
-                highestBidderId: a.highestBidder ? String(a.highestBidder) : null,
-                startedAt: Date.now(),
-              }
-            : null;
-          setGame(gameId!, { ...(current ?? {}), auction });
-          return;
-        }
-        const payload = msg.payload ?? msg; // payload may be in .payload
-        // payload may be a MonopolyStateResponse or raw game state; normalize and hydrate
-        const sessionLike = { sessionId: gameId, state: payload };
-        const mapped = mapSnapshotToState(sessionLike, roomQuery.data);
-        setGame(gameId!, mapped);
-      } catch (e) {
-        console.error("Failed to apply game update", e);
-      }
-    },
-    !!snapshot.data?.roomId,
-  );
 
   // Show loading until snapshot and room are available, store hydrated, and user resolved
   if (snapshot.isLoading || roomQuery.isLoading || !snapshot.data || !roomQuery.data || !user || !hydrated) {
