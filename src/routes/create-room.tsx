@@ -27,8 +27,8 @@ function CreateRoomPage() {
 
   const [name, setName] = useState("My Game Room");
   const [gameType, setGameType] = useState<GameType>(search.game ?? "mafia");
-  const [maxPlayers, setMax] = useState(8);
-  const [ai, setAi] = useState(3);
+  const [maxPlayers, setMax] = useState(3);
+  const [ai, setAi] = useState(0);
   const [isPrivate, setPrivate] = useState(false);
   const [isLan, setLan] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -94,20 +94,14 @@ function CreateRoomPage() {
                 <button
                   key={g}
                   type="button"
-                  disabled={g === "monopoly"}
                   onClick={() => setGameType(g)}
-                  className={`p-4 border font-display text-2xl italic uppercase transition-all ${
+                  className={`p-4 border font-display text-2xl italic uppercase transition-all cursor-pointer ${
                     gameType === g
                       ? "border-accent-cyan text-accent-cyan shadow-[var(--shadow-neon-cyan)]"
                       : "border-white/10 text-white/60 hover:border-white/40"
-                  } ${g === "monopoly" ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                  }`}
                 >
                   {g}
-                  {g === "monopoly" && (
-                    <div className="text-[9px] font-mono tracking-widest text-white/40 mt-1">
-                      SOON
-                    </div>
-                  )}
                 </button>
               ))}
             </div>
