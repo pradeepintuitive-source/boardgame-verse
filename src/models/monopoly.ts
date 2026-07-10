@@ -39,6 +39,7 @@ export interface PropertyState {
 
 export interface MonopolyPlayer {
   id: string;
+  userId?: string;
   username: string;
   avatarColor: string;
   isAI: boolean;

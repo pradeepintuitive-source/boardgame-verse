@@ -10,6 +10,7 @@ import { ActionBar } from "../components/monopoly/ActionBar";
 import { PlayerPanel } from "../components/monopoly/PlayerPanel";
 import { PropertyCard } from "../components/monopoly/PropertyCard";
 import { AuctionPanel } from "../components/monopoly/AuctionPanel";
+import { BOARD } from "../data/monopolyBoard";
 import { TradePanel } from "../components/monopoly/TradePanel";
 import { EventLog } from "../components/monopoly/EventLog";
 import { BankManager } from "../components/monopoly/BankManager";
@@ -80,10 +81,11 @@ function mapSnapshotToState(session: any, room: any, gameId: string): MonopolySt
   const assets = backend.assets ?? {};
   const roomPlayers = room?.players ?? [];
 
-  const players = roomPlayers.map((p: { id: string; username: string; avatarColor?: string; isAI: boolean }) => {
+  const players = roomPlayers.map((p: { id: string; userId: string; username: string; avatarColor?: string; isAI: boolean }) => {
     const asset = assets[p.id] ?? null;
     return {
       id: p.id,
+      userId: p.userId,
       username: p.username,
       avatarColor: p.avatarColor ?? pickAvatarColor(p.username),
       isAI: p.isAI,
@@ -97,6 +99,11 @@ function mapSnapshotToState(session: any, room: any, gameId: string): MonopolySt
   });
 
   const properties: Record<number, PropertyState> = {};
+  BOARD.forEach((tile) => {
+    if (tile.type === "property" || tile.type === "railroad" || tile.type === "utility") {
+      properties[tile.index] = { ownerId: null, houses: 0, mortgaged: false };
+    }
+  });
   const owners = backend.owners ?? {};
   const developments = backend.developments ?? {};
   const mortgaged = new Set(backend.mortgagedTiles ?? []);
@@ -229,7 +236,7 @@ function MonopolyPage() {
   const me = useMemo(() => {
     if (!state || !user) return undefined;
     return (
-      state.players.find((p) => p.id === user.id) ??
+      state.players.find((p) => p.userId === user.id) ??
       state.players.find((p) => !p.isAI) ??
       state.players[0]
     );
