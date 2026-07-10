@@ -243,6 +243,19 @@ function MonopolyPage() {
     );
   }
 
+  // Defensive guard: if the mapped state has no players yet, avoid rendering main UI to prevent crashes
+  if (!state || !state.players || state.players.length === 0) {
+    return (
+      <AppShell>
+        <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
+          <div>
+            <p className="text-white/60 mb-6 font-mono">Waiting for players…</p>
+          </div>
+        </div>
+      </AppShell>
+    );
+  }
+
   if (snapshot.isError) {
     return (
       <AppShell>

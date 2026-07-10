@@ -115,7 +115,25 @@ function LobbyPage() {
     if (room.gameType === "monopoly") {
       try {
         const response = await startGameMut.mutateAsync(room.id);
-        navigate({ to: "/monopoly/$gameId", params: { gameId: response.sessionId } });
+        const sessionId = response.sessionId;
+        // Poll the games snapshot endpoint until it's available to avoid hydration race
+        const maxAttempts = 6;
+        let ok = false;
+        for (let i = 0; i < maxAttempts; i++) {
+          try {
+            await import("../services/games").then((m) => m.gamesApi.snapshot(sessionId));
+            ok = true;
+            break;
+          } catch (e) {
+            // wait briefly then retry
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((r) => setTimeout(r, 300));
+          }
+        }
+        if (!ok) {
+          console.warn("Snapshot not ready after start; navigating anyway");
+        }
+        navigate({ to: "/monopoly/$gameId", params: { gameId: sessionId } });
       } catch (error) {
         console.error("Failed to start Monopoly game", error);
       }
