@@ -11,6 +11,7 @@ This file contains persistent instructions for working on this project. All deve
 * **Preserve backward compatibility**: Ensure that payload updates do not break existing database entries, REST contracts, or STOMP channels.
 * **Prefer minimal, targeted changes**: Keep modifications concise. Write focused code blocks that target the issue directly, rather than refactoring surrounding systems.
 * **Search for existing implementations before creating new ones**: Check folders (like `/components/common/` or `/hooks/`) to reuse existing elements before writing duplicate utilities.
+* **Isolate development workarounds from production**: Ensure local development configurations (such as remote backend bypasses) use strict runtime hostname guards (e.g. `window.location.hostname === 'localhost'`). Always verify that relative paths and proxy routing (`vercel.json`) remain fully intact for the production environment.
 
 ---
 

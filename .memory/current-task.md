@@ -1,17 +1,17 @@
-# Current Task: Enable Monopoly Selection and Fix WebSocket Action Features
+# Current Task: Direct Backend Domain Routing and Clean Vercel Proxy Rewrites
 
 ## Objective
-Enable Monopoly room creation, configure default player options, resolve connection failures, and ensure game actions transmit successfully over WebSocket to resolve synchronization issues.
+Configure REST and WebSocket connections to target the backend domain directly (`https://api.pradeepkulal.click` and `wss://api.pradeepkulal.click/ws`), exposing `NEXT_PUBLIC_` environment variables from Vercel, and clearing proxy rewrites from `vercel.json` to prevent path routing conflicts.
 
 ## Subtasks
-* [x] Enable Monopoly selection in the room creation UI.
-* [x] Remove the "SOON" label from the Monopoly game selection button.
-* [x] Set default Max Players to 3 and default AI Players to 0 in the create room page.
-* [x] Resolve relative STOMP broker URLs dynamically to absolute URLs in `stompClient.ts` to support SockJS on same-origin proxy.
-* [x] Set `VITE_STOMP_URL` to `/ws` in `.env` to route through the Vercel rewrite proxy to bypass CORS.
-* [x] Change the STOMP subscription destination in `monopoly.$gameId.tsx` to `Topics.game(gameId)` to listen on the correct authoritative state broadcast channel `/topic/games/{gameId}`.
-* [x] Update project memory files: `current-task.md`, `session.md`, `changelog.md`, `decisions.md`, and `known-issues.md`.
+* [x] Add `envPrefix` supporting `NEXT_PUBLIC_` to `vite.config.ts`.
+* [x] Configure Axios base URL in `src/services/api.ts` to support `NEXT_PUBLIC_API_URL` and default to the backend absolute path.
+* [x] Configure STOMP URL in `src/websocket/stompClient.ts` to support `NEXT_PUBLIC_WS_URL` and default to backend domain.
+* [x] Update STOMP client connection logic to append JWT query token dynamically during native WebSocket handshake.
+* [x] Clear Vercel proxy rewrites in `vercel.json`.
+* [x] Verify project builds successfully without compilation errors.
+* [x] Update project memory files: `current-task.md`, `changelog.md`, and `session.md`.
 
 ## Active Context
-* WebSocket connections are routed through Vercel's proxy rewrite `/ws` to bypass CORS.
-* Authorship and synchronization are managed on the `/topic/games/{gameId}` channel.
+* The client connects directly to the backend domain `https://api.pradeepkulal.click/api` and `wss://api.pradeepkulal.click/ws`.
+* Wildcard CORS is enabled on the backend, making Vercel same-origin rewrites obsolete.

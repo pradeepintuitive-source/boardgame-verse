@@ -5,12 +5,21 @@ All notable changes to the GameHub project will be documented in this file.
 ## [2026-07-11] - Enabled Monopoly & Fixed WebSocket Action Integration
 
 ### Fixed
+* **Missing resolveTrade Import**: Imported `resolveTrade` from `../utils/monopolyEngine` in `monopoly.$gameId.tsx` to fix a compilation failure where client-side trade auto-resolution fallback logic for AI partners called an undefined function.
 * **Monopoly Room Selection**: Removed disabled constraints on the Monopoly button, removed "SOON" text, set default Max Players to 3 and AI Players to 0 in `create-room.tsx`.
-* **WebSocket/STOMP Connection**: Resolved CORS issues on Vercel by setting `VITE_STOMP_URL` to `/ws` relative path in `.env` to leverage same-origin proxy rules, and added dynamic relative-to-absolute URL resolution in `stompClient.ts`.
+* **Direct Backend Domain Routing**: Configured the frontend to call the backend API domain (`https://api.pradeepkulal.click`) directly for REST and WebSocket connections, preventing requests from hitting the frontend's Vercel domain. 
+* **Support Vercel NEXT_PUBLIC_ Env Variables**: Configured Vite's `envPrefix` in `vite.config.ts` to expose `NEXT_PUBLIC_` prefixed env vars to the client bundle. Updated `api.ts` and `stompClient.ts` to respect `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`.
+* **WebSocket Token Query Param Handshake**: Updated native WebSocket upgrades in `stompClient.ts` to dynamically append the JWT access token query parameter before establishing connections to authorize handshakes on the backend.
+* **Cleared Vercel Proxies**: Removed `/api/*` and `/ws/*` proxy rewrites from `vercel.json` to prevent path routing conflicts on Vercel.
 * **Monopoly Updates Subscription**: Corrected subscription topic destination in `monopoly.$gameId.tsx` to use `/topic/games/{gameId}` (via `Topics.game(gameId)`) instead of `/topic/game/{roomId}`, ensuring authoritative state updates broadcasted from the server are successfully received.
+
+### Removed
+* **Client-Side Simulation**: Removed client-side game simulation engines (i.e. local imports, `fallback` method, and offline AI loop triggers) from `monopoly.$gameId.tsx`. The client now relies strictly on authoritative state updates broadcasted from the backend over WebSocket channels, preventing split-brain state mismatches.
 
 ### Updated
 * Updated project memory files: `known-issues.md`, `decisions.md`, `changelog.md`, `current-task.md`, and `session.md`.
+* Updated [AGENTS.md](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/AGENTS.md) to add a persistent rule preventing local configuration overrides from affecting production.
+* Updated [vite.config.ts](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/vite.config.ts) to proxy local requests and expose env vars.
 
 ---
 

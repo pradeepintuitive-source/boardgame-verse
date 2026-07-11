@@ -23,28 +23,9 @@ import { useStompSubscription } from "../hooks/useStompSubscription";
 import { stomp } from "../websocket/stompClient";
 import { monopolyApi } from "../services/monopoly";
 import { pickAvatarColor } from "../utils/ids";
+import { resolveTrade } from "../utils/monopolyEngine";
 import type { MonopolyState, PropertyState } from "../models/monopoly";
-import {
-  aiAuctionStep,
-  aiStep,
-  bankAdjust,
-  bankTransfer,
-  buildHouse,
-  buyPending,
-  currentPlayer,
-  endTurn,
-  passBid,
-  payJailFee,
-  placeBid,
-  proposeTrade,
-  resolveTrade,
-  rollDice,
-  sellHouse,
-  settleAuction,
-  startAuction,
-  toggleMortgage,
-  useJailCard,
-} from "../utils/monopolyEngine";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/monopoly/$gameId")({
   head: () => ({
@@ -205,32 +186,11 @@ function MonopolyPage() {
   useEffect(() => {
     if (!state || state.phase === "ended") return;
     if (aiTimer.current) clearTimeout(aiTimer.current);
-    const cur = currentPlayer(state) ?? safePlayer(state.currentPlayerIndex);
-    if (!cur) return;
-    // If we're offline (no stomp broker), run local AI steps to keep single-device demos working.
-    // When online, the backend is authoritative and will run AI logic and broadcast updates — do nothing here.
-    if (stomp.isOffline) {
-      if (state.phase === "auction" && state.auction) {
-        const bidderId = state.auction.activePlayerIds[state.auction.currentBidderIndex] ?? state.auction.activePlayerIds[0];
-        const bidder = state.players.find((p) => p.id === bidderId);
-        if (state.auction.activePlayerIds.length <= 1) {
-          aiTimer.current = setTimeout(() => setGame(gameId, settleAuction(state)), 600);
-          return;
-        }
-        if (bidder?.isAI) {
-          aiTimer.current = setTimeout(() => setGame(gameId, aiAuctionStep(state)), 900);
-        }
-        return;
-      }
-
-      if (cur.isAI && (state.phase === "rolling" || state.phase === "landed")) {
-        aiTimer.current = setTimeout(() => setGame(gameId, aiStep(state)), 1100);
-      }
-    }
+    // Since backend runs AI logic when online, do nothing here.
     return () => {
       if (aiTimer.current) clearTimeout(aiTimer.current);
     };
-  }, [state, gameId, setGame]);
+  }, [state, gameId]);
 
   // The logged-in user should be treated as "me" when present. If the auth user is not
   // part of this game session, fall back to the first available human player.
@@ -310,9 +270,8 @@ function MonopolyPage() {
     );
   }
 
-  const cur = currentPlayer(state) ?? state.players[0];
+  const cur = state.players[state.currentPlayerIndex] ?? state.players[0];
   const isMyTurn = !cur.isAI && !cur.bankrupt && cur.id === me.id;
-  const apply = (fn: (s: typeof state) => typeof state) => setGame(gameId, fn(state));
 
   // Send action to server via STOMP. Actions are validated/processed by backend.
   const sendGameAction = (type: string, payload: Record<string, unknown> = {}) => {
@@ -324,44 +283,6 @@ function MonopolyPage() {
       );
       return false;
     }
-
-    // Local fallback implementations for offline demo mode
-    const fallback = (action: string, p: Record<string, unknown>) => {
-      switch (action) {
-        case "ROLL":
-          return apply(rollDice);
-        case "BUY":
-          return apply(buyPending);
-        case "START_AUCTION":
-          return apply(startAuction);
-        case "END_TURN":
-          return apply(endTurn);
-        case "PAY_JAIL":
-          return apply(payJailFee);
-        case "USE_JAIL_CARD":
-          return apply(useJailCard);
-        case "PLACE_BID":
-          return apply((s) => placeBid(s, me.id, (p.amount as number) ?? 0));
-        case "PASS_BID":
-          return apply((s) => passBid(s, me.id));
-        case "BUILD_HOUSE":
-          return apply((s) => buildHouse(s, (p.tileIndex as number) ?? 0));
-        case "SELL_HOUSE":
-          return apply((s) => sellHouse(s, (p.tileIndex as number) ?? 0));
-        case "TOGGLE_MORTGAGE":
-          return apply((s) => toggleMortgage(s, (p.tileIndex as number) ?? 0));
-        case "PROPOSE_TRADE":
-          return apply((s) => proposeTrade(s, p.offer as any));
-        case "RESOLVE_TRADE":
-          return apply((s) => resolveTrade(s, !!p.accept));
-        case "BANK_ADJUST":
-          return apply((s) => bankAdjust(s, (p.playerId as string) ?? "", (p.delta as number) ?? 0));
-        case "BANK_TRANSFER":
-          return apply((s) => bankTransfer(s, (p.from as string) ?? "", (p.to as string) ?? "", (p.amt as number) ?? 0));
-        default:
-          console.warn("Unknown fallback action", action);
-      }
-    };
 
     const actionTypeMap: Record<string, string> = {
       ROLL: "ROLL_DICE",
@@ -398,30 +319,31 @@ function MonopolyPage() {
     const sent = stomp.sendMessage(dest, requestBody);
     if (sent) {
       console.debug("[game] sent action over STOMP", type, dest, requestBody);
-      // Optimistic local update to keep UI responsive; server broadcast will reconcile.
-      if (!stomp.isOffline) {
-        fallback(type, payload);
-      }
       return true;
     }
 
     console.warn("[game] STOMP unavailable, falling back to REST action", type, dest, requestBody);
-    // Try HTTP fallback (server may accept action via REST)
+    // Try HTTP fallback (server will validate and broadcast state)
     try {
-      monopolyApi.action(gameId, requestBody).catch((error) => {
-        console.error("[game] REST action failed", type, error);
-      });
-      // optimistic apply for HTTP fallback too
-      fallback(type, payload);
+      monopolyApi.action(gameId, requestBody)
+        .then(() => {
+          console.debug("[game] REST action succeeded", type);
+        })
+        .catch((error) => {
+          console.error("[game] REST action failed", type, error);
+          toast.error("Action failed", {
+            description: "Connection to the game server is currently unavailable."
+          });
+        });
       return true;
     } catch (e) {
       console.error("[game] REST action exception", type, e);
-      // ignore and fall through to local fallback
     }
 
-    // STOMP and HTTP both unavailable — apply fallback locally to preserve offline demo.
-    fallback(type, payload);
-    return true;
+    toast.error("Action failed", {
+      description: "Connection to the game server is currently unavailable."
+    });
+    return false;
   };
 
   return (

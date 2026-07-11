@@ -13,7 +13,10 @@ import { toast } from "sonner";
  * sites can keep using `response.data` as the payload. Errors are
  * normalized into `ApiError` and surfaced via toast.
  */
-export const API_BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "/api";
+export const API_BASE_URL =
+  (import.meta.env.NEXT_PUBLIC_API_URL as string | undefined) ??
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  "https://api.pradeepkulal.click/api";
 
 export const TOKEN_STORAGE_KEY = "gh.jwt";
 export const REFRESH_STORAGE_KEY = "gh.jwt.refresh";

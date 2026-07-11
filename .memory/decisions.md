@@ -46,3 +46,21 @@ This log records major design and architectural choices made in the codebase, al
 * **Trade-offs**:
   * **Pros**: Automatically bypasses CORS policies on both development and production dynamically, while ensuring SockJS can resolve connections locally.
   * **Cons**: Requires custom resolution parsing logic in `stompClient.ts` to convert relative paths (e.g. `/ws`) into absolute browser URLs before initializing SockJS.
+
+---
+
+## 6. Strictly Authoritative Online State Sync
+* **Why it exists**: Guarantees all players see the exact same board state, turn status, and logs. Eliminates split-brain states caused by client-side local optimistic updates and client-side turn simulation fallbacks.
+* **Alternatives Considered**: Keeping client-side simulation as fallback for offline play.
+* **Trade-offs**:
+  * **Pros**: Ensures perfect synchronization across all clients by forcing the UI to reconcile strictly from the backend's broadcast topic.
+  * **Cons**: Players must be connected to the internet to perform actions (no offline gameplay).
+
+---
+
+## 7. Native WebSocket Proxying via Header Rewriting
+* **Why it exists**: Bypasses WebSocket handshake rejection (`403 Forbidden` and `ECONNRESET`) on the remote Spring Boot server by rewriting request origins.
+* **Alternatives Considered**: Forcing SockJS HTTP streaming fallbacks (`xhr-streaming`). However, fallbacks increase latency and network overhead.
+* **Trade-offs**:
+  * **Pros**: Restores true native WebSocket speed and low latency in local development by rewriting `Origin` and `Referer` headers to the authorized production site (`https://boardgame-verse.vercel.app`), convincing the remote broker to accept the socket handshake.
+  * **Cons**: Relies on Vite's dev server proxy to perform header manipulation during local development, but does not impact production.

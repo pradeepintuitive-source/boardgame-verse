@@ -1,16 +1,1 @@
-{
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "https://api.pradeepkulal.click/api/$1"
-    },
-    {
-      "source": "/ws",
-      "destination": "https://api.pradeepkulal.click/ws"
-    },
-    {
-      "source": "/ws/(.*)",
-      "destination": "https://api.pradeepkulal.click/ws/$1"
-    }
-  ]
-}
+{}

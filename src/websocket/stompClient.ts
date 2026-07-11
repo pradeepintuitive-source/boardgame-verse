@@ -63,13 +63,19 @@ class GameHubStompClient {
               }) as unknown as WebSocket;
             },
           }
-        : { brokerURL: target }),
+        : {}),
       reconnectDelay: 2500,
       heartbeatIncoming: 10_000,
       heartbeatOutgoing: 10_000,
       debug: () => {},
       beforeConnect: () => {
         const token = tokenStore.get();
+        if (!isHttp) {
+          const targetUrl = token ? `${target}${target.includes("?") ? "&" : "?"}token=${encodeURIComponent(
+            token,
+          )}` : target;
+          this.client!.brokerURL = targetUrl;
+        }
         this.client!.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
       },
       onConnect: () => {
@@ -143,6 +149,8 @@ class GameHubStompClient {
 export const stomp = new GameHubStompClient();
 stomp.configure(
   typeof window !== "undefined"
-    ? ((import.meta.env.VITE_STOMP_URL as string | undefined) ?? null)
+    ? ((import.meta.env.NEXT_PUBLIC_WS_URL as string | undefined) ??
+       (import.meta.env.VITE_STOMP_URL as string | undefined) ??
+       "wss://api.pradeepkulal.click/ws")
     : null,
 );
