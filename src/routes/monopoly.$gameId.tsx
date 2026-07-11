@@ -360,33 +360,37 @@ function MonopolyPage() {
       }
     };
 
-    const dest = Topics.send.gameAction(gameId);
-    // Build server-friendly MonopolyActionRequest shape
-    const requestBody: Record<string, unknown> = {
-      type: (
-        {
-          ROLL: "ROLL_DICE",
-          BUY: "BUY_PROPERTY",
-          START_AUCTION: "AUCTION",
-          END_TURN: "END_TURN",
-          PAY_JAIL: "PAY_JAIL",
-          USE_JAIL_CARD: "USE_JAIL_CARD",
-          PLACE_BID: "AUCTION",
-          PASS_BID: "AUCTION",
-          BUILD_HOUSE: "BUILD_HOUSE",
-          SELL_HOUSE: "SELL_HOUSE",
-          TOGGLE_MORTGAGE: "MORTGAGE",
-          PROPOSE_TRADE: "TRADE",
-          RESOLVE_TRADE: "TRADE",
-          BANK_ADJUST: "TRADE",
-          BANK_TRANSFER: "TRADE",
-        } as Record<string, string>
-      )[type] ?? type,
+    const actionTypeMap: Record<string, string> = {
+      ROLL: "ROLL_DICE",
+      BUY: "BUY_PROPERTY",
+      END_TURN: "END_TURN",
+      PAY_JAIL: "PAY_JAIL",
+      USE_JAIL_CARD: "USE_JAIL_CARD",
+      BUILD_HOUSE: "BUILD_HOUSE",
+      SELL_HOUSE: "SELL_HOUSE",
+      TOGGLE_MORTGAGE: "MORTGAGE",
+      PROPOSE_TRADE: "TRADE",
+      RESOLVE_TRADE: "TRADE",
+      START_AUCTION: "AUCTION",
+      PLACE_BID: "AUCTION",
+      PASS_BID: "AUCTION",
     };
-    if ((payload as any).tileIndex != null) requestBody.tilePosition = (payload as any).tileIndex;
-    if ((payload as any).amount != null) requestBody.amount = (payload as any).amount;
-    if ((payload as any).targetPlayerId != null) requestBody.targetPlayerId = (payload as any).targetPlayerId;
-    if ((payload as any).metadata != null) requestBody.metadata = (payload as any).metadata;
+    const isAuctionAction = type === "START_AUCTION" || type === "PLACE_BID" || type === "PASS_BID";
+    const dest = isAuctionAction ? Topics.send.auction(gameId) : Topics.send.gameAction(gameId);
+
+    // Build server-friendly MonopolyActionRequest shape
+    const p = payload as Record<string, any>;
+    const requestBody: Record<string, unknown> = {
+      type: actionTypeMap[type] ?? type,
+    };
+    if (p.tileIndex != null) requestBody.tilePosition = p.tileIndex;
+    if (p.amount != null) requestBody.amount = p.amount;
+    if (p.targetPlayerId != null) requestBody.targetPlayerId = p.targetPlayerId;
+    if (p.metadata != null) requestBody.metadata = p.metadata;
+    // Auction-specific hints
+    if (type === "START_AUCTION") requestBody.auctionAction = "START";
+    if (type === "PLACE_BID") requestBody.auctionAction = "BID";
+    if (type === "PASS_BID") requestBody.auctionAction = "PASS";
 
     const sent = stomp.sendMessage(dest, requestBody);
     if (sent) {
