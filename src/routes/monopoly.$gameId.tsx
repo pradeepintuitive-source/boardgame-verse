@@ -57,37 +57,58 @@ function mapPhase(phase: string | null | undefined) {
 }
 
 function mapSnapshotToState(session: any, room: any, gameId: string): MonopolyState {
-  const backend = session.state ?? {};
-  const sessionId = session.sessionId ?? gameId;
-  const assets = backend.assets ?? {};
-  const roomPlayers = room?.players ?? [];
+  // session can be either:
+  //  A) GameSession wrapper (initial REST snapshot):
+  //     { id, roomId, status, state: { sessionId, phase, assets, owners?, ... } }
+  //  B) MonopolyState directly (STOMP broadcast or REST action response):
+  //     { sessionId, phase, currentPlayerId, lastDiceTotal, assets, ... }
+  const backend = session.state ?? session;
+  const resolvedSessionId = session.sessionId ?? session.id ?? gameId;
+  const assets: Record<string, any> = backend.assets ?? {};
+  const roomPlayers: any[] = room?.players ?? [];
 
-  const players = roomPlayers.map((p: { id: string; userId: string; username: string; avatarColor?: string; isAI: boolean }) => {
-    const asset = assets[p.id] ?? null;
+  const players = roomPlayers.map((p: { id: string; userId: string; displayName?: string; username?: string; avatarColor?: string; isAI?: boolean; aiControlled?: boolean }) => {
+    // Asset keys may be room player `id` OR `userId` — try both
+    const asset: any = assets[p.id] ?? assets[p.userId] ?? null;
+    const username = p.username ?? p.displayName ?? p.id;
     return {
       id: p.id,
       userId: p.userId,
-      username: p.username,
-      avatarColor: p.avatarColor ?? pickAvatarColor(p.username),
-      isAI: p.isAI,
+      username,
+      avatarColor: p.avatarColor ?? pickAvatarColor(username),
+      isAI: p.isAI ?? p.aiControlled ?? false,
       position: asset?.position ?? 0,
       cash: asset?.cash ?? 1500,
       inJail: asset?.inJail ?? false,
       jailTurns: asset?.jailTurns ?? 0,
-      jailCards: asset?.jailCards ?? 0,
-      bankrupt: false,
+      jailCards: asset?.jailCards ?? asset?.getOutOfJailCards ?? 0,
+      bankrupt: asset?.bankrupt ?? false,
     };
   });
 
+  // Initialise all purchasable tiles to unowned
   const properties: Record<number, PropertyState> = {};
   BOARD.forEach((tile) => {
     if (tile.type === "property" || tile.type === "railroad" || tile.type === "utility") {
       properties[tile.index] = { ownerId: null, houses: 0, mortgaged: false };
     }
   });
-  const owners = backend.owners ?? {};
-  const developments = backend.developments ?? {};
-  const mortgaged = new Set(backend.mortgagedTiles ?? []);
+
+  // Build owners map: prefer backend.owners (old format), fall back to
+  // reconstructing from per-player ownedTilePositions (new STOMP broadcast format)
+  const owners: Record<string, string> = { ...(backend.owners ?? {}) };
+  if (Object.keys(owners).length === 0) {
+    // Reconstruct from ownedTilePositions per asset entry
+    Object.entries(assets).forEach(([playerId, asset]: [string, any]) => {
+      const positions: number[] = asset?.ownedTilePositions ?? [];
+      positions.forEach((pos) => {
+        owners[String(pos)] = playerId;
+      });
+    });
+  }
+
+  const developments: Record<string, any> = backend.developments ?? {};
+  const mortgaged = new Set<number>(backend.mortgagedTiles ?? []);
 
   Object.keys(owners).forEach((k) => {
     const pos = Number(k);
@@ -95,26 +116,32 @@ function mapSnapshotToState(session: any, room: any, gameId: string): MonopolySt
     const dev = developments[pos] ?? null;
     properties[pos] = {
       ownerId,
-      houses: dev ? dev.houses ?? 0 : 0,
+      houses: dev ? (dev.houses ?? 0) : 0,
       mortgaged: mortgaged.has(pos),
     };
   });
 
-  const curPlayerIndex = Math.min(
-    Math.max(
-      players.findIndex((p: MonopolyState["players"][number]) => String(p.id) === String(backend.currentPlayerId)),
-      0,
-    ),
-    Math.max(players.length - 1, 0),
+  // Match currentPlayerId against both p.id and p.userId
+  const curPlayerId = String(backend.currentPlayerId ?? "");
+  let curPlayerIndex = players.findIndex(
+    (p: MonopolyState["players"][number]) =>
+      String(p.id) === curPlayerId || String(p.userId) === curPlayerId,
   );
+  if (curPlayerIndex < 0) curPlayerIndex = 0;
+  curPlayerIndex = Math.min(curPlayerIndex, Math.max(players.length - 1, 0));
+
+  // lastDiceTotal → lastRoll (two dice that sum to the total, for display)
+  const total: number = backend.lastDiceTotal ?? 0;
+  const lastRoll: [number, number] | null =
+    total > 0 ? [Math.ceil(total / 2), Math.floor(total / 2)] : null;
 
   return {
-    gameId: String(sessionId),
+    gameId: String(resolvedSessionId),
     players,
-    currentPlayerIndex: curPlayerIndex >= 0 ? curPlayerIndex : 0,
+    currentPlayerIndex: curPlayerIndex,
     phase: mapPhase(backend.phase),
-    lastRoll: null,
-    consecutiveDoubles: 0,
+    lastRoll,
+    consecutiveDoubles: backend.consecutiveDoubles ?? 0,
     properties,
     chanceDeck: backend.board?.chanceDeck ?? [],
     chestDeck: backend.board?.chestDeck ?? [],
@@ -122,10 +149,11 @@ function mapSnapshotToState(session: any, room: any, gameId: string): MonopolySt
     pendingCard: backend.pendingCard ?? null,
     auction: backend.auction ?? null,
     trade: backend.trade ?? null,
-    log: (backend.log ?? []).map((t: string, i: number) => ({ id: String(i), text: t, ts: i, kind: "info" })),
-    winnerId: null,
+    log: (backend.log ?? []).map((t: string, i: number) => ({ id: String(i), text: t, ts: i, kind: "info" as const })),
+    winnerId: backend.winnerId ?? null,
   };
 }
+
 
 function MonopolyPage() {
   const { gameId } = Route.useParams();
@@ -137,10 +165,32 @@ function MonopolyPage() {
   const leaveRoomMut = useLeaveRoom();
 
   const roomId = snapshot.data?.roomId;
+  // The URL :gameId param may differ from the session's own UUID — extract both.
+  // Backend Swagger shows actions go to /api/monopoly/{sessionId}/action where
+  // sessionId is the id field returned by GET /api/games/{urlGameId}.
+  const sessionId: string = (snapshot.data?.id ?? snapshot.data?.sessionId ?? gameId) as string;
   const destination = gameId ? Topics.game(gameId) : null;
+  // Also subscribe to the roomId-keyed topic — backend may broadcast on either
+  const roomDestination = roomId ? Topics.game(roomId) : null;
+  // And subscribe to the monopoly-specific session topic
+  const monopolyDestination = sessionId && sessionId !== gameId ? `/topic/monopoly/${sessionId}` : null;
+
+  // DEBUG — log which topics we are listening on
+  useEffect(() => {
+    console.log("[monopoly] gameId (URL):", gameId, "sessionId (backend):", sessionId, "roomId:", roomId);
+    console.log("[monopoly] Subscribing to:", destination, "|", roomDestination, "|", monopolyDestination);
+  }, [gameId, sessionId, roomId, destination, roomDestination, monopolyDestination]);
+
+  // Keep roomQuery.data in a ref so handleGameUpdate never becomes stale
+  // and the subscription hook doesn't re-subscribe on every room poll.
+  const roomDataRef = useRef<typeof roomQuery.data>(roomQuery.data);
+  useEffect(() => {
+    roomDataRef.current = roomQuery.data;
+  }, [roomQuery.data]);
 
   const handleGameUpdate = useCallback(
     (msg: any) => {
+      console.log("[monopoly] 📥 STOMP message received:", JSON.stringify(msg, null, 2));
       if (!msg) return;
       try {
         if (msg.type === "AUCTION_UPDATE") {
@@ -148,30 +198,40 @@ function MonopolyPage() {
           const current = useMonopolyStore.getState().games[gameId];
           const auction = a
             ? {
-                tileIndex: a.tilePosition ?? a.tileIndex ?? 0,
-                bids: [],
-                currentBidderIndex: a.currentBidderIndex ?? 0,
-                activePlayerIds: a.activePlayerIds ?? [],
-                highestBid: a.highestBid ?? 0,
-                highestBidderId: a.highestBidder ? String(a.highestBidder) : null,
-                startedAt: 0,
-              }
+              tileIndex: a.tilePosition ?? a.tileIndex ?? 0,
+              bids: [],
+              currentBidderIndex: a.currentBidderIndex ?? 0,
+              activePlayerIds: a.activePlayerIds ?? [],
+              highestBid: a.highestBid ?? 0,
+              highestBidderId: a.highestBidder ? String(a.highestBidder) : null,
+              startedAt: 0,
+            }
             : null;
           setGame(gameId!, { ...(current ?? {}), auction });
           return;
         }
         const payload = msg.payload ?? msg;
         const sessionLike = { sessionId: gameId, state: payload };
-        const mapped = mapSnapshotToState(sessionLike, roomQuery.data, gameId);
+        // Use ref so this callback is never recreated when roomQuery changes.
+        const mapped = mapSnapshotToState(sessionLike, roomDataRef.current, gameId);
+        console.log("[monopoly] Mapped state from update — phase:", mapped.phase, "currentPlayerIndex:", mapped.currentPlayerIndex);
         setGame(gameId!, mapped);
       } catch (e) {
         console.error("Failed to apply game update", e);
       }
     },
-    [gameId, roomQuery.data, setGame],
+    // Intentionally omit roomQuery.data — we read it via ref to keep the
+    // subscription stable and avoid re-subscribe gaps that drop messages.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [gameId, setGame],
   );
 
+  // Primary subscription on /topic/games/{gameId}
   useStompSubscription<any>(destination, handleGameUpdate, !!destination);
+  // Fallback: roomId-keyed topic
+  useStompSubscription<any>(roomDestination, handleGameUpdate, !!roomDestination && roomDestination !== destination);
+  // Fallback: monopoly session-specific topic
+  useStompSubscription<any>(monopolyDestination, handleGameUpdate, !!monopolyDestination);
   const user = useAuthStore((s) => s.user);
   const [hydrated, setHydrated] = useState(false);
   const [openTile, setOpenTile] = useState<number | null>(null);
@@ -300,7 +360,13 @@ function MonopolyPage() {
       PASS_BID: "AUCTION",
     };
     const isAuctionAction = type === "START_AUCTION" || type === "PLACE_BID" || type === "PASS_BID";
-    const dest = isAuctionAction ? Topics.send.auction(gameId) : Topics.send.gameAction(gameId);
+    // Use monopoly-specific STOMP destinations with the true session ID.
+    // The URL :gameId param is the room/game lookup key; sessionId is the
+    // backend session UUID used by /api/monopoly/{sessionId}/action.
+    const dest = isAuctionAction
+      ? Topics.send.monopolyAuction(sessionId)
+      : Topics.send.monopolyAction(sessionId);
+    console.debug("[game] sending to dest:", dest, "sessionId:", sessionId);
 
     // Build server-friendly MonopolyActionRequest shape
     const p = payload as Record<string, any>;
@@ -323,9 +389,9 @@ function MonopolyPage() {
     }
 
     console.warn("[game] STOMP unavailable, falling back to REST action", type, dest, requestBody);
-    // Try HTTP fallback (server will validate and broadcast state)
+    // REST fallback — use sessionId (backend UUID) not gameId (URL param)
     try {
-      monopolyApi.action(gameId, requestBody)
+      monopolyApi.action(sessionId, requestBody)
         .then(() => {
           console.debug("[game] REST action succeeded", type);
         })
@@ -451,7 +517,7 @@ function MonopolyPage() {
 
       <AnimatePresence>
         {openTile != null && (
-            <PropertyCard
+          <PropertyCard
             state={state}
             tileIndex={openTile}
             onClose={() => setOpenTile(null)}
