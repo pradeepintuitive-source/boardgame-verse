@@ -146,11 +146,24 @@ class GameHubStompClient {
   }
 }
 
+const defaultSocketUrl = (() => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1") {
+    return "http://localhost:8080/ws";
+  }
+
+  return "wss://api.pradeepkulal.click/ws";
+})();
+
 export const stomp = new GameHubStompClient();
 stomp.configure(
   typeof window !== "undefined"
     ? ((import.meta.env.NEXT_PUBLIC_WS_URL as string | undefined) ??
        (import.meta.env.VITE_STOMP_URL as string | undefined) ??
-       "wss://api.pradeepkulal.click/ws")
+       defaultSocketUrl)
     : null,
 );
