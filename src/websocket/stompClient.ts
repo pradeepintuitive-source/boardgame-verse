@@ -1,6 +1,8 @@
 import { Client, type IFrame, type StompSubscription } from "@stomp/stompjs";
+import { Topics } from "./topics";
 import SockJS from "sockjs-client/dist/sockjs";
 import { tokenStore } from "../services/api";
+import { useWebsocketRequestStore } from "../store/requestStore";
 
 /**
  * GameHub STOMP-over-WebSocket service.
@@ -80,10 +82,19 @@ class GameHubStompClient {
       },
       onConnect: () => {
         this.emit(true, false);
-        // re-subscribe everything
         const entries = Array.from(this.subs.entries());
         this.subs.clear();
         entries.forEach(([dest, { handler }]) => this.subscribe(dest, handler));
+        this.subscribe(Topics.privateAcks, (body) => {
+          const ack = body as { requestId?: string; action?: string; success?: boolean; errorCode?: string; message?: string } | null;
+          if (!ack?.requestId) return;
+          const requests = useWebsocketRequestStore.getState();
+          if (ack.success) {
+            requests.markAcknowledged(ack.requestId);
+          } else {
+            requests.failRequest(ack.requestId, ack.errorCode, ack.message ?? "Action rejected by server");
+          }
+        });
       },
       onWebSocketClose: () => this.emit(false, true),
       onStompError: (frame) => {
@@ -98,6 +109,7 @@ class GameHubStompClient {
   disconnect() {
     this.client?.deactivate();
     this.subs.clear();
+    useWebsocketRequestStore.getState().clearAll();
     this.emit(false, false);
   }
 
@@ -131,14 +143,31 @@ class GameHubStompClient {
     this.subs.delete(destination);
   }
 
-  sendMessage(destination: string, body: unknown) {
+  sendMessage(destination: string, body: unknown, requestId?: string) {
     if (this.offline || !this.client?.connected) return false;
-    console.debug("[stomp] publish", destination, body);
+    const payload = typeof body === "string" ? body : body;
+    const envelope = payload && typeof payload === "object" && "requestId" in payload ? payload : { ...((payload as Record<string, unknown>) ?? {}), requestId };
+    console.debug("[stomp] publish", destination, envelope);
     this.client.publish({
       destination,
-      body: typeof body === "string" ? body : JSON.stringify(body),
+      body: typeof envelope === "string" ? envelope : JSON.stringify(envelope),
     });
     return true;
+  }
+
+  sendTrackedMessage(destination: string, body: unknown, action: string, metadata?: Record<string, unknown>) {
+    const existingRequestId =
+      typeof body === "object" && body && "requestId" in body && typeof (body as Record<string, unknown>).requestId === "string"
+        ? (body as Record<string, unknown>).requestId
+        : undefined;
+    const requestId = typeof existingRequestId === "string" ? existingRequestId : crypto.randomUUID();
+    const requestStore = useWebsocketRequestStore.getState();
+    requestStore.createRequest(action, requestId, metadata);
+    const sent = this.sendMessage(destination, { ...(body as Record<string, unknown>), requestId }, requestId);
+    if (!sent) {
+      requestStore.failRequest(requestId, "CONNECTION_ERROR", "Unable to contact server");
+    }
+    return { sent, requestId };
   }
 
   get isOffline() {

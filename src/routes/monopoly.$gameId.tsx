@@ -31,6 +31,7 @@ import type {
   PropertyState,
 } from "../models/monopoly";
 import { toast } from "sonner";
+import { useWebsocketRequestStore } from "../store/requestStore";
 
 type RoomPlayerSnapshot = {
   id: string;
@@ -656,11 +657,12 @@ function MonopolyPage() {
             : { action: "PASS" };
 
       const dest = Topics.send.auction(sessionId);
-      const sent = stomp.sendMessage(dest, auctionBody);
+      const { sent, requestId } = stomp.sendTrackedMessage(dest, auctionBody, type, { sessionId });
       if (sent) {
         console.debug("[game] sent auction action over STOMP", type, dest, auctionBody);
         return true;
       }
+      useWebsocketRequestStore.getState().failRequest(String(requestId), "CONNECTION_ERROR", "Unable to contact server");
 
       toast.error("Auction action failed", {
         description: "Realtime connection is unavailable. Reconnect before retrying the auction.",

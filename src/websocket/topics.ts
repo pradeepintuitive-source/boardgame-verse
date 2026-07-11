@@ -16,6 +16,7 @@ export const Topics = {
   // Private (per-user)
   privateRole: "/user/queue/role",
   privateError: "/user/queue/errors",
+  privateAcks: "/user/queue/acks",
 
   // Send (client → server)
   send: {

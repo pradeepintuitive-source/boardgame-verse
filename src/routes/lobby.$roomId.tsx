@@ -17,6 +17,7 @@ import { useStompSubscription } from "../hooks/useStompSubscription";
 import { Topics } from "../websocket/topics";
 import { stomp } from "../websocket/stompClient";
 import { useConnectionStore } from "../store/connectionStore";
+import { useWebsocketRequestStore } from "../store/requestStore";
 
 export const Route = createFileRoute("/lobby/$roomId")({
   head: () => ({
@@ -44,6 +45,7 @@ function LobbyPage() {
   useStompSubscription(
     roomId ? Topics.room(roomId) : null,
     () => {
+      useWebsocketRequestStore.getState().completeAllRequests();
       qc.invalidateQueries({ queryKey: ["room", roomId] });
       qc.invalidateQueries({ queryKey: ["rooms"] });
     },
@@ -78,6 +80,8 @@ function LobbyPage() {
 
   const room = roomQuery.data;
   const [copied, setCopied] = useState(false);
+  const pendingRequests = useWebsocketRequestStore((s) => s.pendingRequests);
+  const pendingReady = pendingRequests.some((req) => req.action === "READY");
 
   if (!room) {
     return (
@@ -145,9 +149,9 @@ function LobbyPage() {
   const handleToggleReady = () => {
     if (!me) return;
     const dest = Topics.send.roomReady(room.id);
-    const sent = stomp.sendMessage(dest, { ready: !myReady });
+    const { sent, requestId } = stomp.sendTrackedMessage(dest, { ready: !myReady }, "READY", { roomId: room.id });
     if (!sent) {
-      console.warn("[lobby] STOMP ready toggle failed", dest, { ready: !myReady });
+      console.warn("[lobby] STOMP ready toggle failed", dest, { requestId, ready: !myReady });
     }
   };
 
@@ -246,13 +250,14 @@ function LobbyPage() {
                     {p.userId === user?.id && !p.isAI && (
                       <button
                         onClick={handleToggleReady}
-                        className={`text-[10px] font-mono uppercase tracking-widest px-2 py-1 border transition-colors ${
+                        disabled={pendingReady}
+                        className={`text-[10px] font-mono uppercase tracking-widest px-2 py-1 border transition-colors disabled:opacity-60 ${
                           p.ready
                             ? "border-accent-cyan text-accent-cyan bg-accent-cyan/10"
                             : "border-white/20 hover:border-accent-cyan"
                         }`}
                       >
-                        {p.ready ? "Not Ready" : "Ready"}
+                        {pendingReady ? "Pending…" : p.ready ? "Not Ready" : "Ready"}
                       </button>
                     )}
                   </motion.div>
