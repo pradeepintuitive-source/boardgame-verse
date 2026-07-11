@@ -44,6 +44,7 @@ export const useLobbyStore = create<LobbyState>()(
         const name = aiNames[room.players.filter((p) => p.isAI).length % aiNames.length];
         const ai: Player = {
           id: uid("ai"),
+          userId: uid("ai-user"),
           username: name,
           avatarColor: pickAvatarColor(name),
           isHost: false,
