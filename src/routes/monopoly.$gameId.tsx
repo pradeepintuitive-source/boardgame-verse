@@ -318,7 +318,9 @@ function MonopolyPage() {
   const sendGameAction = (type: string, payload: Record<string, unknown> = {}) => {
     if (!gameId) return false;
     if (!isMyTurn) {
-      console.warn("Attempted action while not player's turn", type);
+      console.warn(
+        `[game] ignoring "${type}" — it's ${cur.username}'s turn, not yours (${me.username}).`,
+      );
       return false;
     }
 
