@@ -493,8 +493,14 @@ function MonopolyPage() {
               me={me}
               isMyTurn={isMyTurn}
               onRoll={() => sendGameAction("ROLL")}
-              onBuy={() => sendGameAction("BUY")}
-              onAuction={() => stomp.sendMessage(Topics.send.auction(gameId), { action: "START", tilePosition: state.pendingPurchaseTile })}
+              onBuy={() =>
+                sendGameAction("BUY", { tileIndex: state.pendingPurchaseTile ?? undefined })
+              }
+              onAuction={() =>
+                sendGameAction("START_AUCTION", {
+                  tileIndex: state.pendingPurchaseTile ?? undefined,
+                })
+              }
               onEnd={() => sendGameAction("END_TURN")}
               onPayJail={() => sendGameAction("PAY_JAIL")}
               onJailCard={() => sendGameAction("USE_JAIL_CARD")}
