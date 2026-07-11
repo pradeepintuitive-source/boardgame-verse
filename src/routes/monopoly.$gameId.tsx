@@ -554,12 +554,8 @@ function MonopolyPage() {
           <AuctionPanel
             state={state}
             meId={me.id}
-            onBid={(amount) => {
-              stomp.sendMessage(Topics.send.auction(gameId), { action: "PLACE_BID", amount });
-            }}
-            onPass={() => {
-              stomp.sendMessage(Topics.send.auction(gameId), { action: "PASS" });
-            }}
+            onBid={(amount) => sendGameAction("PLACE_BID", { amount })}
+            onPass={() => sendGameAction("PASS_BID")}
           />
         )}
 
