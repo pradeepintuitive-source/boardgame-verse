@@ -317,8 +317,11 @@ function MonopolyPage() {
   // Send action to server via STOMP. Actions are validated/processed by backend.
   const sendGameAction = (type: string, payload: Record<string, unknown> = {}) => {
     if (!gameId) return false;
-    if (!isMyTurn) {
-      console.warn("Attempted action while not player's turn", type);
+    const isAuctionAct = type === "PLACE_BID" || type === "PASS_BID";
+    if (!isMyTurn && !isAuctionAct) {
+      console.warn(
+        `[game] ignoring "${type}" — it's ${cur.username}'s turn, not yours (${me.username}).`,
+      );
       return false;
     }
 
@@ -491,8 +494,14 @@ function MonopolyPage() {
               me={me}
               isMyTurn={isMyTurn}
               onRoll={() => sendGameAction("ROLL")}
-              onBuy={() => sendGameAction("BUY")}
-              onAuction={() => stomp.sendMessage(Topics.send.auction(gameId), { action: "START", tilePosition: state.pendingPurchaseTile })}
+              onBuy={() =>
+                sendGameAction("BUY", { tileIndex: state.pendingPurchaseTile ?? undefined })
+              }
+              onAuction={() =>
+                sendGameAction("START_AUCTION", {
+                  tileIndex: state.pendingPurchaseTile ?? undefined,
+                })
+              }
               onEnd={() => sendGameAction("END_TURN")}
               onPayJail={() => sendGameAction("PAY_JAIL")}
               onJailCard={() => sendGameAction("USE_JAIL_CARD")}
@@ -546,12 +555,8 @@ function MonopolyPage() {
           <AuctionPanel
             state={state}
             meId={me.id}
-            onBid={(amount) => {
-              stomp.sendMessage(Topics.send.auction(gameId), { action: "PLACE_BID", amount });
-            }}
-            onPass={() => {
-              stomp.sendMessage(Topics.send.auction(gameId), { action: "PASS" });
-            }}
+            onBid={(amount) => sendGameAction("PLACE_BID", { amount })}
+            onPass={() => sendGameAction("PASS_BID")}
           />
         )}
 
