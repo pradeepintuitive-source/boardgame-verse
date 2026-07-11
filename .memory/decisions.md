@@ -37,3 +37,12 @@ This log records major design and architectural choices made in the codebase, al
 * **Trade-offs**:
   * **Pros**: Prevents state loss if the user accidentally refreshes the browser during a match.
   * **Cons**: Stale data can persist in storage. If the state schema changes, old cache formats must be cleared manually.
+
+---
+
+## 5. Relative WebSocket Endpoint and Dynamic URL Resolution
+* **Why it exists**: Prevents CORS blocking of WebSocket connections in production on Vercel by utilizing same-origin proxying via `/ws`.
+* **Alternatives Considered**: Using absolute URLs directly. However, absolute URLs skip the Vercel proxy, triggering browser CORS blocks. Relative URLs cannot be parsed by standard WebSocket constructors directly.
+* **Trade-offs**:
+  * **Pros**: Automatically bypasses CORS policies on both development and production dynamically, while ensuring SockJS can resolve connections locally.
+  * **Cons**: Requires custom resolution parsing logic in `stompClient.ts` to convert relative paths (e.g. `/ws`) into absolute browser URLs before initializing SockJS.

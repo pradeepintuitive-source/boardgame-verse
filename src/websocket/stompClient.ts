@@ -41,7 +41,11 @@ class GameHubStompClient {
     if (this.client?.active) return;
 
     const url = this.url;
-    const isHttp = /^https?:\/\//i.test(url);
+    let target = url;
+    if (url.startsWith("/")) {
+      target = `${window.location.protocol}//${window.location.host}${url}`;
+    }
+    const isHttp = /^https?:\/\//i.test(target);
 
     this.client = new Client({
       // Spring Boot /ws SockJS endpoint when http(s); raw ws(s) brokerURL otherwise.
@@ -51,15 +55,15 @@ class GameHubStompClient {
               // Append JWT as a query parameter so the backend handshake interceptor
               // can validate the token during the initial HTTP/SockJS handshake.
               const token = tokenStore.get();
-              const target = token ? `${url}${url.includes("?") ? "&" : "?"}token=${encodeURIComponent(
+              const targetUrl = token ? `${target}${target.includes("?") ? "&" : "?"}token=${encodeURIComponent(
                 token,
-              )}` : url;
-              return new SockJS(target, undefined, {
+              )}` : target;
+              return new SockJS(targetUrl, undefined, {
                 transports: ["websocket", "xhr-streaming", "xhr-polling"],
               }) as unknown as WebSocket;
             },
           }
-        : { brokerURL: url }),
+        : { brokerURL: target }),
       reconnectDelay: 2500,
       heartbeatIncoming: 10_000,
       heartbeatOutgoing: 10_000,

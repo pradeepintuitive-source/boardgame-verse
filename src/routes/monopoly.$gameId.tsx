@@ -156,7 +156,7 @@ function MonopolyPage() {
   const leaveRoomMut = useLeaveRoom();
 
   const roomId = snapshot.data?.roomId;
-  const destination = roomId ? Topics.gameRoom(roomId) : null;
+  const destination = gameId ? Topics.game(gameId) : null;
 
   const handleGameUpdate = useCallback(
     (msg: any) => {

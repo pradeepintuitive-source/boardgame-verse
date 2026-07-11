@@ -6,13 +6,7 @@ This log tracks code limitations, incomplete features, and technical debt in the
 
 ## Under-Construction & Disabled Features
 
-### 1. Monopoly Disabled during Room Creation
-* **Status**: Disabled
-* **Location**: [create-room.tsx](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/src/routes/create-room.tsx#L97)
-* **Details**: The option to select Monopoly during room creation is disabled in the UI (`disabled={g === "monopoly"}`), displaying a `SOON` banner. However, the Monopoly board, client state engine (`monopolyEngine.ts`), and backend services are fully functional.
-* **Workaround**: Can be bypassed by passing the query parameter `?game=monopoly` directly in the URL: `/create-room?game=monopoly`.
-
-### 2. Unused Simulation Methods in `useAuthStore`
+### 1. Unused Simulation Methods in `useAuthStore`
 * **Status**: Technical Debt
 * **Location**: [authStore.ts](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/src/store/authStore.ts#L30-L53)
 * **Details**: `useAuthStore` defines local `login` and `register` simulation methods. These are never called by the UI.

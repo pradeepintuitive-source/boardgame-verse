@@ -2,6 +2,16 @@
 
 All notable changes to the GameHub project will be documented in this file.
 
+## [2026-07-11] - Enabled Monopoly & Fixed WebSocket Action Integration
+
+### Fixed
+* **Monopoly Room Selection**: Removed disabled constraints on the Monopoly button, removed "SOON" text, set default Max Players to 3 and AI Players to 0 in `create-room.tsx`.
+* **WebSocket/STOMP Connection**: Resolved CORS issues on Vercel by setting `VITE_STOMP_URL` to `/ws` relative path in `.env` to leverage same-origin proxy rules, and added dynamic relative-to-absolute URL resolution in `stompClient.ts`.
+* **Monopoly Updates Subscription**: Corrected subscription topic destination in `monopoly.$gameId.tsx` to use `/topic/games/{gameId}` (via `Topics.game(gameId)`) instead of `/topic/game/{roomId}`, ensuring authoritative state updates broadcasted from the server are successfully received.
+
+### Updated
+* Updated project memory files: `known-issues.md`, `decisions.md`, `changelog.md`, `current-task.md`, and `session.md`.
+
 ---
 
 ## [2026-07-10] - Initial Memory Base Construction

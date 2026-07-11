@@ -1,43 +1,28 @@
-# Session Summary: 2026-07-10 (session.md)
+# Session Summary: 2026-07-11 (session.md)
 
 ## What Changed
-During this session, we analyzed the codebase and created a comprehensive project memory database under the `.memory/` directory, along with a workspace rules file (`AGENTS.md`).
+During this session, we enabled Monopoly room selection, updated default player constraints, and resolved WebSocket action integration and CORS configuration issues.
 
 ---
 
 ## Files Modified / Created
 
-### Created
-* `.memory/project.md`
-* `.memory/architecture.md`
-* `.memory/frontend.md`
-* `.memory/backend.md`
-* `.memory/database.md`
-* `.memory/api.md`
-* `.memory/websocket.md`
-* `.memory/authentication.md`
-* `.memory/deployment.md`
-* `.memory/docker.md`
-* `.memory/environment.md`
-* `.memory/coding-standards.md`
-* `.memory/design-patterns.md`
-* `.memory/decisions.md`
-* `.memory/known-issues.md`
-* `.memory/roadmap.md`
-* `.memory/testing.md`
-* `.memory/current-task.md`
-* `.memory/changelog.md`
-* `.memory/session.md`
-* `AGENTS.md`
+### Modified
+* [create-room.tsx](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/src/routes/create-room.tsx): Enabled Monopoly button, removed "SOON" label, set default Max Players to 3 and AI Players to 0.
+* [stompClient.ts](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/src/websocket/stompClient.ts): Resolved relative URLs dynamically to absolute URLs to support SockJS routing via proxy.
+* [monopoly.$gameId.tsx](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/src/routes/monopoly.$gameId.tsx): Subscribed to `/topic/games/{gameId}` instead of `/topic/game/{roomId}` to receive authoritative state broadcasts.
+* [.env](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/.env): Changed `VITE_STOMP_URL` to relative `/ws` path.
+* [.memory/current-task.md](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/.memory/current-task.md)
+* [.memory/known-issues.md](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/.memory/known-issues.md)
+* [.memory/decisions.md](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/.memory/decisions.md)
+* [.memory/changelog.md](file:///Users/swethamurthy1/Desktop/timesheet/boardgame-verse/.memory/changelog.md)
 
 ---
 
 ## Remaining Work
 * Configure automated unit tests for game engines (`mafiaEngine.ts` and `monopolyEngine.ts`) using Vitest.
-* Enable Monopoly in the room creation UI (`create-room.tsx`).
 
 ---
 
 ## Suggested Next Steps
-1. Open the room creation route (`create-room.tsx`) and remove the `disabled` state from the Monopoly button to enable match creation.
-2. Set up Vitest to run unit tests on client-side simulation engines.
+1. Configure Vitest to run unit tests on client-side simulation engines.
