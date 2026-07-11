@@ -682,15 +682,21 @@ function MonopolyPage() {
       return false;
     }
 
-    try {
-      const updatedState = await monopolyApi.action<MonopolyBackendState>(sessionId, requestBody);
-      applyMonopolyState(updatedState, updatedState?.sessionId ?? sessionId);
-      console.debug("[game] REST action succeeded", type, requestBody);
-      return true;
-    } catch (e) {
-      console.error("[game] REST action failed", type, requestBody, e);
+    const requestId = crypto.randomUUID();
+    const requestStore = useWebsocketRequestStore.getState();
+    requestStore.createRequest(requestBody.type, requestId, { sessionId, type });
+
+    const dest = Topics.send.gameAction(sessionId);
+    const sent = stomp.sendMessage(dest, { requestId, ...requestBody }, requestId);
+    if (!sent) {
+      requestStore.failRequest(requestId, "CONNECTION_ERROR", "Unable to contact server");
+      toast.error("Action failed", {
+        description: "Realtime connection is unavailable. Reconnect before retrying the action.",
+      });
       return false;
     }
+
+    return true;
   };
 
   return (
