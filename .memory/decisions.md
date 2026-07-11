@@ -4,30 +4,30 @@ This log records major design and architectural choices made in the codebase, al
 
 ---
 
-## 1. Local Fallback Client State Engine
+## 1. Direct Backend Routing for API and WebSocket Traffic
+* **Why it exists**: The client now targets the Spring Boot backend domain directly for both REST and WebSocket traffic instead of depending on Vercel rewrite rules.
+* **Alternatives Considered**: Path rewrites through the frontend domain or a separate reverse proxy layer.
+* **Trade-offs**:
+  * **Pros**: Removes routing ambiguity and makes the runtime configuration explicit through `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`.
+  * **Cons**: The deployment environment must expose the correct backend URLs; misconfiguration will break API and socket connectivity.
+
+---
+
+## 2. Environment Variable Precedence for Runtime Configuration
+* **Why it exists**: The client resolves API and WebSocket endpoints with a clear precedence order: `NEXT_PUBLIC_*` values first, then `VITE_*` values, then a production fallback.
+* **Alternatives Considered**: Hard-coding a single backend URL in source.
+* **Trade-offs**:
+  * **Pros**: Keeps deployments flexible across Vercel, local development, and alternate hosting environments.
+  * **Cons**: The precedence order must be documented so the team does not assume a different variable source.
+
+---
+
+## 3. Local Fallback Client State Engine
 * **Why it exists**: Enables offline play and guest matches on single devices without requiring a connection to the external Spring Boot backend.
 * **Alternatives Considered**: Authoritative server-only architecture.
 * **Trade-offs**:
   * **Pros**: Improves game reliability, simplifies offline demos, and keeps the UI responsive.
-  * **Cons**: Introduces duplicate code. Game rules (e.g. Monopoly transactions, rents) must be maintained in both Java (backend) and TypeScript (frontend client).
-
----
-
-## 2. TanStack Start with Static Client Deployments
-* **Why it exists**: TanStack Start handles Server-Side Rendering (SSR), while the client is hosted statically on Vercel and compiled via Nginx.
-* **Alternatives Considered**: Dedicated Node.js SSR hosting environments (e.g. Next.js server runtimes).
-* **Trade-offs**:
-  * **Pros**: Simple static hosting pipelines (e.g. Nginx, Vercel edge CDN networks) and lower deployment costs.
-  * **Cons**: Limits SSR capabilities since server actions (like `server.ts` filters) are bypassed when using static hosting.
-
----
-
-## 3. Proxy Redirect Routing in `vercel.json`
-* **Why it exists**: Redirects API (`/api/*`) and WebSocket (`/ws/*`) calls to the external Spring Boot server.
-* **Alternatives Considered**: Configuring CORS directly on the Spring Boot server to allow requests from the client domain.
-* **Trade-offs**:
-  * **Pros**: Bypasses browser CORS restrictions, secures Cookies, and routes all traffic through a single domain.
-  * **Cons**: Adds a routing dependency. If Vercel redirects fail, clients cannot communicate with the backend.
+  * **Cons**: Introduces duplicate game logic. Rules must be maintained in both Java (backend) and TypeScript (frontend client).
 
 ---
 
@@ -40,27 +40,9 @@ This log records major design and architectural choices made in the codebase, al
 
 ---
 
-## 5. Relative WebSocket Endpoint and Dynamic URL Resolution
-* **Why it exists**: Prevents CORS blocking of WebSocket connections in production on Vercel by utilizing same-origin proxying via `/ws`.
-* **Alternatives Considered**: Using absolute URLs directly. However, absolute URLs skip the Vercel proxy, triggering browser CORS blocks. Relative URLs cannot be parsed by standard WebSocket constructors directly.
+## 5. Strictly Authoritative Online State Sync
+* **Why it exists**: Ensures all players see the same turn state and board state by reconciling from the backend's broadcast topic.
+* **Alternatives Considered**: Keeping client-side simulation as the primary authority during online play.
 * **Trade-offs**:
-  * **Pros**: Automatically bypasses CORS policies on both development and production dynamically, while ensuring SockJS can resolve connections locally.
-  * **Cons**: Requires custom resolution parsing logic in `stompClient.ts` to convert relative paths (e.g. `/ws`) into absolute browser URLs before initializing SockJS.
-
----
-
-## 6. Strictly Authoritative Online State Sync
-* **Why it exists**: Guarantees all players see the exact same board state, turn status, and logs. Eliminates split-brain states caused by client-side local optimistic updates and client-side turn simulation fallbacks.
-* **Alternatives Considered**: Keeping client-side simulation as fallback for offline play.
-* **Trade-offs**:
-  * **Pros**: Ensures perfect synchronization across all clients by forcing the UI to reconcile strictly from the backend's broadcast topic.
-  * **Cons**: Players must be connected to the internet to perform actions (no offline gameplay).
-
----
-
-## 7. Native WebSocket Proxying via Header Rewriting
-* **Why it exists**: Bypasses WebSocket handshake rejection (`403 Forbidden` and `ECONNRESET`) on the remote Spring Boot server by rewriting request origins.
-* **Alternatives Considered**: Forcing SockJS HTTP streaming fallbacks (`xhr-streaming`). However, fallbacks increase latency and network overhead.
-* **Trade-offs**:
-  * **Pros**: Restores true native WebSocket speed and low latency in local development by rewriting `Origin` and `Referer` headers to the authorized production site (`https://boardgame-verse.vercel.app`), convincing the remote broker to accept the socket handshake.
-  * **Cons**: Relies on Vite's dev server proxy to perform header manipulation during local development, but does not impact production.
+  * **Pros**: Prevents split-brain state drift and keeps the UI consistent across clients.
+  * **Cons**: Players must be connected to the backend to perform actions in online sessions.

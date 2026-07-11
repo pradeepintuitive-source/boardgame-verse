@@ -2,6 +2,14 @@
 
 All notable changes to the GameHub project will be documented in this file.
 
+## [2026-07-11] - Aligned Runtime Configuration and Memory Docs
+
+### Updated
+* Adjusted the REST client in [src/services/api.ts](src/services/api.ts) to prefer `NEXT_PUBLIC_API_URL`, then `VITE_API_URL`, and finally the direct production backend URL.
+* Synced the memory documents with the current repository state so they reflect direct backend routing, the current environment variable scheme, and the absence of Vercel proxy rewrites.
+
+---
+
 ## [2026-07-11] - Enabled Monopoly & Fixed WebSocket Action Integration
 
 ### Fixed

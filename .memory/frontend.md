@@ -65,13 +65,13 @@ Zustand is used for client-side persistence and local offline caching:
 ## API & WebSocket Communication Protocol
 
 ### REST Communication Layer (`src/services/api.ts`)
-* Pre-configured Axios instance. Sets global base URL via `import.meta.env.VITE_API_URL` (defaults to `/api`).
+* Pre-configured Axios instance. Resolves the global base URL from `NEXT_PUBLIC_API_URL`, then `VITE_API_URL`, and finally falls back to the direct production backend endpoint.
 * Interceptors:
   * **Request Interceptor**: Adds JWT token dynamically: `Authorization: Bearer <token>`.
   * **Response Interceptor**: Unwraps backend API envelopes (converts Success bodies into `ApiResponse<T>.data`). Surfaces validation errors or server failures via global toast alerts.
 
 ### STOMP WebSocket Protocol (`src/websocket/stompClient.ts`)
 * Implemented as a singleton `stomp`.
-* Resolves the server socket address using `VITE_STOMP_URL`.
+* Resolves the server socket address using `NEXT_PUBLIC_WS_URL`, then `VITE_STOMP_URL`, and finally the direct production WebSocket endpoint.
 * Uses SockJS to build transport channels. If HTTP/HTTPS URLs are passed, it appends the JWT bearer token as a query parameter (`token=`) so backend WebSocket handshake filters can authorize the initial HTTP upgrade request.
 * Queues subscriptions if they are registered before the connection becomes active.

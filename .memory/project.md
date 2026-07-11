@@ -36,7 +36,7 @@ GameHub is designed to provide a premium arcade-like experience. It features hig
 ```text
 boardgame-verse/
 ├── .dockerignore
-├── .env                  # Port & URL configuration (VITE_API_URL, VITE_STOMP_URL)
+├── .env                  # Runtime configuration for direct backend URLs (NEXT_PUBLIC_API_URL, NEXT_PUBLIC_WS_URL, VITE_* fallbacks)
 ├── .gitignore
 ├── .lovable/             # Metadata from development tools (plan.md, project.json)
 ├── .prettierrc           # Formatter rules
@@ -44,7 +44,7 @@ boardgame-verse/
 ├── Dockerfile.prod       # Container definitions for static Nginx server
 ├── package.json          # Node scripts and dependency declarations
 ├── tsconfig.json         # TypeScript compiler configurations
-├── vercel.json           # Vercel deployment routes and reverse proxy redirects
+├── vercel.json           # Minimal Vercel config; the client targets the backend directly
 ├── vite.config.ts        # Vite build configurations with Lovable TanStack preset
 └── src/
     ├── animations/       # Framer-motion layout transition presets (variants.ts)

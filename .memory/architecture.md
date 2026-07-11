@@ -7,17 +7,16 @@ GameHub operates as a hybrid architecture with a strict separation between clien
 graph TD
     User([User's Browser]) -->|HTTPS / REST| SPA[Vite React Client]
     User -->|WSS / STOMP| SPA
-    SPA -->|Axios API Calls| Vercel[Vercel Route Rewrite Proxy]
-    SPA -->|SockJS Connection| WebSocketServer[Spring Boot WebSocket Broker]
-    Vercel -->|Forwarded REST API| SpringBoot[Spring Boot Backend App]
+    SPA -->|Axios API Calls| Backend[Spring Boot Backend API]
+    SPA -->|SockJS / STOMP| WebSocketServer[Spring Boot WebSocket Broker]
     WebSocketServer -->|Subscribed Updates| SPA
-    SpringBoot -->|Read / Write| Database[(PostgreSQL/MySQL Database)]
+    Backend -->|Read / Write| Database[(PostgreSQL/MySQL Database)]
 ```
 
 ## Hybrid Operational Modes
 
 ### 1. Authoritative Online Mode (Connected)
-When the client successfully connects to the external Spring Boot backend (`https://api.pradeepkulal.click` proxying through Vercel or direct URL configuration):
+When the client successfully connects to the external Spring Boot backend through the configured direct URL (`NEXT_PUBLIC_API_URL` / `VITE_API_URL` for REST and `NEXT_PUBLIC_WS_URL` / `VITE_STOMP_URL` for sockets):
 * **State Authority**: The backend processes all state updates, validates moves (e.g. dice rolls, property purchases, trades), and maintains game database state.
 * **Synchronization**: The frontend registers subscriptions to WebSocket topics (using STOMP/SockJS) and listens for broadcasts. When a player performs an action, the client sends a message over STOMP to `/app/games/{gameId}/action`. The backend updates state and broadcasts the new game payload to `/topic/game/{roomId}`. All clients receive this payload, parse it, and update their local Zustand stores (`useMonopolyStore`).
 

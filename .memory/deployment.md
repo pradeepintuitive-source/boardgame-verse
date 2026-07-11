@@ -58,18 +58,10 @@ docker run -p 80:80 gamehub-client-prod
 
 ## Production Deployment (Vercel Integration)
 
-The frontend is configured for static web hosting platforms like Vercel.
+The frontend is configured for static web hosting platforms like Vercel, but it now targets the Spring Boot backend directly instead of depending on rewrite rules.
 
 ### Vercel Routing Configuration (`vercel.json`)
-The application includes a `vercel.json` file. It configures URL rewrites to proxy REST and WebSocket traffic to the Spring Boot backend (`https://api.pradeepkulal.click`):
-* **REST URL Rewrite**:
-  * Incoming path: `/api/(.*)`
-  * Redirects to: `https://api.pradeepkulal.click/api/$1`
-* **WebSocket URL Rewrite**:
-  * Incoming paths: `/ws` and `/ws/(.*)`
-  * Redirect to: `https://api.pradeepkulal.click/ws` and `https://api.pradeepkulal.click/ws/$1`
-
-These configurations bypass browser CORS restrictions and secure Cookie settings by route-redirecting backend endpoints through the frontend domain root.
+The repository keeps `vercel.json` intentionally minimal. The current deployment shape does not depend on `/api/*` or `/ws/*` rewrites; the client resolves the backend URLs from environment variables and calls the backend domain directly.
 
 ---
 
@@ -77,5 +69,7 @@ These configurations bypass browser CORS restrictions and secure Cookie settings
 
 Configure these variables inside a `.env` file at the root directory before running build steps:
 
-* `VITE_API_URL`: Base address for REST calls (e.g. `/api`).
-* `VITE_STOMP_URL`: WebSocket endpoint address (e.g. `https://api.pradeepkulal.click/ws`).
+* `NEXT_PUBLIC_API_URL`: Base address for REST calls (e.g. `https://api.pradeepkulal.click/api`).
+* `NEXT_PUBLIC_WS_URL`: WebSocket endpoint address (e.g. `wss://api.pradeepkulal.click/ws`).
+* `VITE_API_URL`: Optional fallback for Vite-only builds or local development.
+* `VITE_STOMP_URL`: Optional fallback for Vite-only builds or local development.

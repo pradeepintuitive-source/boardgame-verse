@@ -1,17 +1,15 @@
-# Current Task: Direct Backend Domain Routing and Clean Vercel Proxy Rewrites
+# Current Task: Synchronize Runtime Configuration and Memory Documentation
 
 ## Objective
-Configure REST and WebSocket connections to target the backend domain directly (`https://api.pradeepkulal.click` and `wss://api.pradeepkulal.click/ws`), exposing `NEXT_PUBLIC_` environment variables from Vercel, and clearing proxy rewrites from `vercel.json` to prevent path routing conflicts.
+Align the client runtime configuration with the current repository implementation by preferring direct backend URLs from `NEXT_PUBLIC_*` environment variables, keeping Vercel rewrite rules empty, and updating the memory documents so they reflect the live code.
 
 ## Subtasks
-* [x] Add `envPrefix` supporting `NEXT_PUBLIC_` to `vite.config.ts`.
-* [x] Configure Axios base URL in `src/services/api.ts` to support `NEXT_PUBLIC_API_URL` and default to the backend absolute path.
-* [x] Configure STOMP URL in `src/websocket/stompClient.ts` to support `NEXT_PUBLIC_WS_URL` and default to backend domain.
-* [x] Update STOMP client connection logic to append JWT query token dynamically during native WebSocket handshake.
-* [x] Clear Vercel proxy rewrites in `vercel.json`.
-* [x] Verify project builds successfully without compilation errors.
-* [x] Update project memory files: `current-task.md`, `changelog.md`, and `session.md`.
+* [x] Add `envPrefix` support for `NEXT_PUBLIC_` values in `vite.config.ts`.
+* [x] Configure Axios base URL selection in `src/services/api.ts` to prefer `NEXT_PUBLIC_API_URL`, then fall back to `VITE_API_URL` and the direct backend endpoint.
+* [x] Keep STOMP URL selection in `src/websocket/stompClient.ts` aligned with the direct backend endpoint flow.
+* [x] Keep `vercel.json` free of rewrite rules so the frontend targets the backend directly.
+* [x] Verify the production build completes without compilation errors.
+* [x] Synchronize the memory documents with the repository state.
 
-## Active Context
-* The client connects directly to the backend domain `https://api.pradeepkulal.click/api` and `wss://api.pradeepkulal.click/ws`.
-* Wildcard CORS is enabled on the backend, making Vercel same-origin rewrites obsolete.
+## Status
+Completed. The repository now documents the current direct-backend routing model and the associated runtime environment variables.

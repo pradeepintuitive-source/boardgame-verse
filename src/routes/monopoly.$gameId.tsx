@@ -132,8 +132,10 @@ function mapSnapshotToState(session: any, room: any, gameId: string): MonopolySt
 
   // lastDiceTotal → lastRoll (two dice that sum to the total, for display)
   const total: number = backend.lastDiceTotal ?? 0;
-  const lastRoll: [number, number] | null =
-    total > 0 ? [Math.ceil(total / 2), Math.floor(total / 2)] : null;
+  const d1 = total > 0 ? Math.ceil(total / 2) : 1;
+  const d2 = total > 0 ? Math.floor(total / 2) : 1;
+  const lastRoll: import("../models/monopoly").DiceRoll | null =
+    total > 0 ? { d1, d2, isDouble: d1 === d2, rolledAt: Date.now() } : null;
 
   return {
     gameId: String(resolvedSessionId),
@@ -165,21 +167,18 @@ function MonopolyPage() {
   const leaveRoomMut = useLeaveRoom();
 
   const roomId = snapshot.data?.roomId;
-  // The URL :gameId param may differ from the session's own UUID — extract both.
-  // Backend Swagger shows actions go to /api/monopoly/{sessionId}/action where
-  // sessionId is the id field returned by GET /api/games/{urlGameId}.
   const sessionId: string = (snapshot.data?.id ?? snapshot.data?.sessionId ?? gameId) as string;
-  const destination = gameId ? Topics.game(gameId) : null;
-  // Also subscribe to the roomId-keyed topic — backend may broadcast on either
-  const roomDestination = roomId ? Topics.game(roomId) : null;
-  // And subscribe to the monopoly-specific session topic
-  const monopolyDestination = sessionId && sessionId !== gameId ? `/topic/monopoly/${sessionId}` : null;
+
+  // PRIMARY: backend broadcasts Monopoly state on /topic/game/{roomId} (singular)
+  const primaryDestination = roomId ? Topics.gameRoom(roomId) : null;
+  // FALLBACK: also listen on /topic/games/{sessionId} in case session-keyed events arrive
+  const fallbackDestination = sessionId ? Topics.game(sessionId) : null;
 
   // DEBUG — log which topics we are listening on
   useEffect(() => {
-    console.log("[monopoly] gameId (URL):", gameId, "sessionId (backend):", sessionId, "roomId:", roomId);
-    console.log("[monopoly] Subscribing to:", destination, "|", roomDestination, "|", monopolyDestination);
-  }, [gameId, sessionId, roomId, destination, roomDestination, monopolyDestination]);
+    console.log("[monopoly] sessionId:", sessionId, "roomId:", roomId);
+    console.log("[monopoly] PRIMARY topic:", primaryDestination, "| FALLBACK:", fallbackDestination);
+  }, [sessionId, roomId, primaryDestination, fallbackDestination]);
 
   // Keep roomQuery.data in a ref so handleGameUpdate never becomes stale
   // and the subscription hook doesn't re-subscribe on every room poll.
@@ -193,6 +192,11 @@ function MonopolyPage() {
       console.log("[monopoly] 📥 STOMP message received:", JSON.stringify(msg, null, 2));
       if (!msg) return;
       try {
+        // Unwrap the backend notification envelope.
+        // Backend sends: { type, payload: { state: <MonopolyState> } }
+        // or:            { type, payload: <MonopolyState> }
+        // or:            { state: <MonopolyState> }
+        // or:            <MonopolyState> directly
         if (msg.type === "AUCTION_UPDATE") {
           const a = msg.payload ?? null;
           const current = useMonopolyStore.getState().games[gameId];
@@ -210,11 +214,12 @@ function MonopolyPage() {
           setGame(gameId!, { ...(current ?? {}), auction });
           return;
         }
-        const payload = msg.payload ?? msg;
-        const sessionLike = { sessionId: gameId, state: payload };
+        // Extract the real state from the envelope — try all known shapes
+        const rawState = msg.payload?.state ?? msg.payload ?? msg.state ?? msg;
+        const sessionLike = { sessionId: gameId, state: rawState };
         // Use ref so this callback is never recreated when roomQuery changes.
         const mapped = mapSnapshotToState(sessionLike, roomDataRef.current, gameId);
-        console.log("[monopoly] Mapped state from update — phase:", mapped.phase, "currentPlayerIndex:", mapped.currentPlayerIndex);
+        console.log("[monopoly] ✅ Mapped — phase:", mapped.phase, "currentPlayerIndex:", mapped.currentPlayerIndex);
         setGame(gameId!, mapped);
       } catch (e) {
         console.error("Failed to apply game update", e);
@@ -226,12 +231,10 @@ function MonopolyPage() {
     [gameId, setGame],
   );
 
-  // Primary subscription on /topic/games/{gameId}
-  useStompSubscription<any>(destination, handleGameUpdate, !!destination);
-  // Fallback: roomId-keyed topic
-  useStompSubscription<any>(roomDestination, handleGameUpdate, !!roomDestination && roomDestination !== destination);
-  // Fallback: monopoly session-specific topic
-  useStompSubscription<any>(monopolyDestination, handleGameUpdate, !!monopolyDestination);
+  // PRIMARY: /topic/game/{roomId} — confirmed backend broadcast topic
+  useStompSubscription<any>(primaryDestination, handleGameUpdate, !!primaryDestination);
+  // FALLBACK: /topic/games/{sessionId} — for session-scoped events
+  useStompSubscription<any>(fallbackDestination, handleGameUpdate, !!fallbackDestination && fallbackDestination !== primaryDestination);
   const user = useAuthStore((s) => s.user);
   const [hydrated, setHydrated] = useState(false);
   const [openTile, setOpenTile] = useState<number | null>(null);
@@ -360,12 +363,12 @@ function MonopolyPage() {
       PASS_BID: "AUCTION",
     };
     const isAuctionAction = type === "START_AUCTION" || type === "PLACE_BID" || type === "PASS_BID";
-    // Use monopoly-specific STOMP destinations with the true session ID.
-    // The URL :gameId param is the room/game lookup key; sessionId is the
-    // backend session UUID used by /api/monopoly/{sessionId}/action.
+    // Backend confirmed STOMP destinations:
+    //   actions → /app/games/{sessionId}/action
+    //   auction → /app/games/{sessionId}/auction
     const dest = isAuctionAction
-      ? Topics.send.monopolyAuction(sessionId)
-      : Topics.send.monopolyAction(sessionId);
+      ? Topics.send.auction(sessionId)
+      : Topics.send.gameAction(sessionId);
     console.debug("[game] sending to dest:", dest, "sessionId:", sessionId);
 
     // Build server-friendly MonopolyActionRequest shape
