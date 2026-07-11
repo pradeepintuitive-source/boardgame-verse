@@ -12,9 +12,10 @@ import { useAuthStore } from "../store/authStore";
 import { useGameStore } from "../store/gameStore";
 import { initMafiaGame } from "../utils/mafiaEngine";
 import { useMonopolyStore } from "../store/monopolyStore";
-import { useRoom, useStartGame, useToggleReady, useLeaveRoom } from "../hooks/useRooms";
+import { useRoom, useStartGame, useLeaveRoom } from "../hooks/useRooms";
 import { useStompSubscription } from "../hooks/useStompSubscription";
 import { Topics } from "../websocket/topics";
+import { stomp } from "../websocket/stompClient";
 import { useConnectionStore } from "../store/connectionStore";
 
 export const Route = createFileRoute("/lobby/$roomId")({
@@ -36,7 +37,6 @@ function LobbyPage() {
   const wsConnected = useConnectionStore((s) => s.connected);
   const roomQuery = useRoom(roomId);
   const qc = useQueryClient();
-  const toggleReadyMut = useToggleReady();
   const startGameMut = useStartGame();
   const leaveMut = useLeaveRoom();
 
@@ -144,7 +144,11 @@ function LobbyPage() {
   const myReady = !!me?.ready;
   const handleToggleReady = () => {
     if (!me) return;
-    toggleReadyMut.mutate({ roomId: room.id, ready: !myReady });
+    const dest = Topics.send.roomReady(room.id);
+    const sent = stomp.sendMessage(dest, { ready: !myReady });
+    if (!sent) {
+      console.warn("[lobby] STOMP ready toggle failed", dest, { ready: !myReady });
+    }
   };
 
   const handleLeave = () => {
@@ -242,14 +246,13 @@ function LobbyPage() {
                     {p.userId === user?.id && !p.isAI && (
                       <button
                         onClick={handleToggleReady}
-                        disabled={toggleReadyMut.isPending}
-                        className={`text-[10px] font-mono uppercase tracking-widest px-2 py-1 border transition-colors disabled:opacity-50 ${
+                        className={`text-[10px] font-mono uppercase tracking-widest px-2 py-1 border transition-colors ${
                           p.ready
                             ? "border-accent-cyan text-accent-cyan bg-accent-cyan/10"
                             : "border-white/20 hover:border-accent-cyan"
                         }`}
                       >
-                        {p.ready ? "Ready" : "Not Ready"}
+                        {p.ready ? "Not Ready" : "Ready"}
                       </button>
                     )}
                   </motion.div>

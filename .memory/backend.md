@@ -1,11 +1,13 @@
 # Project Memory: Reconstructed Backend Architecture (backend.md)
 
 ## Backend System Overview
+
 The external backend is built as a Spring Boot Java application designed for stateless REST operations, WebSocket message distribution, and real-time state management. Because backend source code is not direct workspace source, this analysis is reconstructed from the REST client endpoints, parameters, models, and WebSocket handshake mechanisms used in the frontend.
 
 ---
 
 ## Package Architecture (Reconstructed Spring Boot Structure)
+
 ```text
 com.gamehub.backend/
 ├── config/                  # Configuration beans
@@ -49,41 +51,48 @@ com.gamehub.backend/
 ## Key Backend Components
 
 ### 1. Controllers (REST API & STOMP)
-* **REST Controllers (`@RestController`)**: Expose the endpoints documented in `api.md`. Request parameters are parsed using `@RequestBody`, `@PathVariable`, and `@RequestParam`.
-* **STOMP Controllers (`@Controller` with `@MessageMapping`)**: Handle socket messages. Endpoint routes (e.g. `@MessageMapping("/rooms/{roomId}/ready")`) extract context from client tokens and call shared service methods.
+
+- **REST Controllers (`@RestController`)**: Expose the endpoints documented in `api.md`. Request parameters are parsed using `@RequestBody`, `@PathVariable`, and `@RequestParam`.
+- **STOMP Controllers (`@Controller` with `@MessageMapping`)**: Handle socket messages. Endpoint routes (e.g. `@MessageMapping("/rooms/{roomId}/ready")`) extract context from client tokens and call shared service methods.
 
 ### 2. Service Logic Layer (`@Service`)
-* **RoomService**: Maintains room lifecycles. On changes (join, leave, ready toggle), it invokes `SimpMessagingTemplate.convertAndSend` to broadcast updates to `/topic/rooms/{roomId}`.
-* **MonopolyService**: Evaluates actions sent by clients. Implements Monopoly rules (bidding, transactions, mortgage, house limits). On changes, it broadcasts updates to `/topic/games/{gameId}`.
+
+- **RoomService**: Maintains room lifecycles. On changes (join, leave, ready toggle), it invokes `SimpMessagingTemplate.convertAndSend` to broadcast updates to `/topic/rooms/{roomId}`.
+- **MonopolyService**: Evaluates actions sent by clients. Normal actions are available over `POST /api/monopoly/{sessionId}/action`, auction controls are handled on `/app/games/{sessionId}/auction`, and state broadcasts fan out on `/topic/game/{roomId}`.
 
 ### 3. Repository Layer (`@Repository`)
-* Extends `JpaRepository` or `CrudRepository` to communicate with the SQL database.
-* Features queries such as `findByRoomCode(String code)` or `findByGameType(String gameType)`.
+
+- Extends `JpaRepository` or `CrudRepository` to communicate with the SQL database.
+- Features queries such as `findByRoomCode(String code)` or `findByGameType(String gameType)`.
 
 ### 4. Database Entities & DTO Mapping
-* Entities use standard JPA annotations (`@Entity`, `@Table`, `@Id`, `@GeneratedValue`).
-* Relationships:
-  * A `Room` has a one-to-many relationship with `RoomPlayer`.
-  * `RoomPlayer` stores a reference to a `User` or guest model.
+
+- Entities use standard JPA annotations (`@Entity`, `@Table`, `@Id`, `@GeneratedValue`).
+- Relationships:
+  - A `Room` has a one-to-many relationship with `RoomPlayer`.
+  - `RoomPlayer` stores a reference to a `User` or guest model.
 
 ---
 
 ## Security Framework (Spring Security)
-* **Authentication**: Stateless architecture using JSON Web Tokens (JWT).
-* **Spring Security Flow**:
+
+- **Authentication**: Stateless architecture using JSON Web Tokens (JWT).
+- **Spring Security Flow**:
   1. Incoming HTTP requests pass through `JwtAuthenticationFilter`.
   2. The filter extracts the Bearer token from the `Authorization` header.
   3. The token is validated using a signing key. User identity is set in Spring Security's `SecurityContextHolder`.
   4. Unauthenticated endpoints (e.g. `/api/auth/login`, `/api/auth/register`, `/api/auth/guest`) bypass validation rules.
-* **WebSocket Handshake Auth**:
-  * WebSocket upgrades cannot include custom headers, so the frontend passes the JWT token as a URL query parameter (`token=`).
-  * A backend `HandshakeInterceptor` extracts the token, validates it, and registers the user principal in the WebSocket connection state.
-  * Subsequent STOMP messages are authorized based on this registered principal.
+- **WebSocket Handshake Auth**:
+  - WebSocket upgrades cannot include custom headers, so the frontend passes the JWT token as a URL query parameter (`token=`).
+  - A backend `HandshakeInterceptor` extracts the token, validates it, and registers the user principal in the WebSocket connection state.
+  - Subsequent STOMP messages are authorized based on this registered principal.
 
 ---
 
 ## Exception Handling
-* The backend returns a standard JSON error payload:
+
+- The backend returns a standard JSON error payload:
+
 ```json
 {
   "timestamp": "2026-07-10T15:26:43Z",
@@ -94,8 +103,9 @@ com.gamehub.backend/
   "path": "/api/monopoly/session-123/action"
 }
 ```
-* Global exception handling is configured using `@RestControllerAdvice` and `@ExceptionHandler` annotations.
-* Standard exception types include:
-  * `BadCredentialsException` -> 401 Unauthorized
-  * `EntityNotFoundException` -> 404 Not Found
-  * `IllegalStateException` / `IllegalArgumentException` -> 400 Bad Request
+
+- Global exception handling is configured using `@RestControllerAdvice` and `@ExceptionHandler` annotations.
+- Standard exception types include:
+  - `BadCredentialsException` -> 401 Unauthorized
+  - `EntityNotFoundException` -> 404 Not Found
+  - `IllegalStateException` / `IllegalArgumentException` -> 400 Bad Request

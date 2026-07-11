@@ -23,9 +23,108 @@ import { useStompSubscription } from "../hooks/useStompSubscription";
 import { stomp } from "../websocket/stompClient";
 import { monopolyApi } from "../services/monopoly";
 import { pickAvatarColor } from "../utils/ids";
-import { resolveTrade } from "../utils/monopolyEngine";
-import type { MonopolyState, PropertyState } from "../models/monopoly";
+import type {
+  MonopolyActionRequest,
+  MonopolyActionType,
+  MonopolyAuctionMessage,
+  MonopolyState,
+  PropertyState,
+} from "../models/monopoly";
 import { toast } from "sonner";
+
+type RoomPlayerSnapshot = {
+  id: string;
+  userId: string;
+  displayName?: string;
+  username?: string;
+  avatarColor?: string;
+  isAI?: boolean;
+  aiControlled?: boolean;
+};
+
+type RoomSnapshotData = {
+  roomId?: string;
+  players?: RoomPlayerSnapshot[];
+};
+
+type MonopolyAssetSnapshot = {
+  cash?: number;
+  position?: number;
+  inJail?: boolean;
+  jailTurns?: number;
+  jailCards?: number;
+  getOutOfJailCards?: number;
+  bankrupt?: boolean;
+  ownedTilePositions?: number[];
+};
+
+type MonopolyAuctionBidSnapshot = {
+  playerId?: string;
+  bidderId?: string;
+  amount?: number;
+};
+
+type MonopolyAuctionSnapshot = {
+  tilePosition?: number;
+  tileIndex?: number;
+  bids?: MonopolyAuctionBidSnapshot[];
+  currentBidderIndex?: number;
+  activePlayerIds?: string[];
+  highestBid?: number;
+  highestBidder?: string;
+  highestBidderId?: string;
+  startedAt?: number;
+};
+
+type MonopolyBackendState = {
+  sessionId?: string;
+  phase?: string;
+  currentPlayerId?: string;
+  lastDiceTotal?: number;
+  consecutiveDoubles?: number;
+  assets?: Record<string, MonopolyAssetSnapshot>;
+  owners?: Record<string, string>;
+  developments?: Record<string, { houses?: number }>;
+  mortgagedTiles?: number[];
+  board?: {
+    chanceDeck?: number[];
+    chestDeck?: number[];
+  };
+  pendingPurchaseTile?: number | null;
+  pendingCard?: MonopolyState["pendingCard"];
+  auction?: MonopolyAuctionSnapshot | null;
+  trade?: MonopolyState["trade"];
+  log?: string[];
+  winnerId?: string | null;
+};
+
+type MonopolySessionSnapshot = {
+  id?: string;
+  sessionId?: string;
+  roomId?: string;
+  state?: MonopolyBackendState;
+} & MonopolyBackendState;
+
+type MonopolySocketEnvelope = {
+  type?: string;
+  sessionId?: string;
+  payload?: unknown;
+  state?: MonopolyBackendState;
+};
+
+type MonopolyActionPayload = {
+  tileIndex?: number | string | null;
+  amount?: number | string | null;
+  targetPlayerId?: string | null;
+  metadata?: Record<string, unknown>;
+  offer?: {
+    toId: string;
+    fromProps?: number[];
+    toProps?: number[];
+    fromCash?: number;
+    toCash?: number;
+  };
+};
 
 export const Route = createFileRoute("/monopoly/$gameId")({
   head: () => ({
@@ -56,7 +155,152 @@ function mapPhase(phase: string | null | undefined) {
   }
 }
 
-function mapSnapshotToState(session: any, room: any, gameId: string): MonopolyState {
+function resolveRoomPlayerId(
+  rawPlayerId: string | null | undefined,
+  roomPlayers: Array<{ id?: string; userId?: string }>,
+) {
+  if (!rawPlayerId) return null;
+  const match = roomPlayers.find(
+    (player) =>
+      String(player.id ?? "") === String(rawPlayerId) ||
+      String(player.userId ?? "") === String(rawPlayerId),
+  );
+  return match?.id ? String(match.id) : String(rawPlayerId);
+}
+
+function normalizeMetadata(metadata: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value)]));
+}
+
+function normalizeAuctionState(
+  auction: MonopolyAuctionSnapshot | null | undefined,
+  roomPlayers: Array<{ id?: string; userId?: string }>,
+) {
+  if (!auction) return null;
+  return {
+    tileIndex: auction.tilePosition ?? auction.tileIndex ?? 0,
+    bids: Array.isArray(auction.bids)
+      ? auction.bids.map((bid) => ({
+          playerId:
+            resolveRoomPlayerId(String(bid.playerId ?? bid.bidderId ?? ""), roomPlayers) ??
+            String(bid.playerId ?? bid.bidderId ?? ""),
+          amount: Number(bid.amount ?? 0),
+        }))
+      : [],
+    currentBidderIndex: auction.currentBidderIndex ?? 0,
+    activePlayerIds: Array.isArray(auction.activePlayerIds)
+      ? auction.activePlayerIds.map(
+          (playerId: string) =>
+            resolveRoomPlayerId(String(playerId), roomPlayers) ?? String(playerId),
+        )
+      : [],
+    highestBid: auction.highestBid ?? 0,
+    highestBidderId:
+      auction.highestBidder != null
+        ? (resolveRoomPlayerId(String(auction.highestBidder), roomPlayers) ??
+          String(auction.highestBidder))
+        : auction.highestBidderId != null
+          ? (resolveRoomPlayerId(String(auction.highestBidderId), roomPlayers) ??
+            String(auction.highestBidderId))
+          : null,
+    startedAt: auction.startedAt ?? 0,
+  };
+}
+
+function buildMonopolyActionRequest(
+  type: string,
+  payload: MonopolyActionPayload,
+  state: MonopolyState,
+): MonopolyActionRequest | null {
+  const p = payload;
+  let actionType: MonopolyActionType | null = null;
+
+  switch (type) {
+    case "ROLL":
+      actionType = "ROLL_DICE";
+      break;
+    case "BUY":
+      actionType = "BUY_PROPERTY";
+      break;
+    case "END_TURN":
+      actionType = "END_TURN";
+      break;
+    case "PAY_JAIL":
+      actionType = "PAY_JAIL";
+      break;
+    case "USE_JAIL_CARD":
+      actionType = "USE_JAIL_CARD";
+      break;
+    case "BUILD_HOUSE":
+      actionType = "BUILD_HOUSE";
+      break;
+    case "SELL_HOUSE":
+      actionType = "SELL_HOUSE";
+      break;
+    case "TOGGLE_MORTGAGE": {
+      const tileIndex = Number(p.tileIndex);
+      const property = Number.isFinite(tileIndex) ? state.properties[tileIndex] : undefined;
+      actionType = property?.mortgaged ? "UNMORTGAGE" : "MORTGAGE";
+      break;
+    }
+    case "PROPOSE_TRADE":
+      actionType = "TRADE";
+      break;
+    default:
+      return null;
+  }
+
+  const requestBody: MonopolyActionRequest = { type: actionType };
+
+  if (p.tileIndex != null) requestBody.tilePosition = Number(p.tileIndex);
+  if (p.amount != null) requestBody.amount = Number(p.amount);
+  if (p.targetPlayerId != null) requestBody.targetPlayerId = String(p.targetPlayerId);
+  if (p.metadata && typeof p.metadata === "object") {
+    requestBody.metadata = normalizeMetadata(p.metadata as Record<string, unknown>);
+  }
+
+  if (type === "PROPOSE_TRADE" && p.offer) {
+    const offer = p.offer as {
+      toId: string;
+      fromProps: number[];
+      toProps: number[];
+      fromCash: number;
+      toCash: number;
+    };
+
+    requestBody.targetPlayerId = String(offer.toId);
+
+    const metadata: Record<string, string> = {};
+    if (offer.fromProps?.[0] != null) metadata.offeredTile = String(offer.fromProps[0]);
+    if (offer.toProps?.[0] != null) metadata.requestedTile = String(offer.toProps[0]);
+    if (Object.keys(metadata).length > 0) requestBody.metadata = metadata;
+
+    const cashDelta = Number(offer.fromCash ?? 0) - Number(offer.toCash ?? 0);
+    if (cashDelta !== 0) requestBody.amount = cashDelta;
+  }
+
+  return requestBody;
+}
+
+function extractSocketState(message: unknown) {
+  if (!message || typeof message !== "object") return null;
+  const envelope = message as MonopolySocketEnvelope;
+  const payload = envelope.payload;
+  if (payload && typeof payload === "object" && "state" in payload) {
+    return (payload as { state?: MonopolyBackendState }).state ?? null;
+  }
+  if (payload && typeof payload === "object") {
+    return payload as MonopolyBackendState;
+  }
+  if (envelope.state) return envelope.state;
+  return message as MonopolyBackendState;
+}
+
+function mapSnapshotToState(
+  session: MonopolySessionSnapshot,
+  room: RoomSnapshotData | null | undefined,
+  gameId: string,
+): MonopolyState {
   // session can be either:
   //  A) GameSession wrapper (initial REST snapshot):
   //     { id, roomId, status, state: { sessionId, phase, assets, owners?, ... } }
@@ -64,12 +308,12 @@ function mapSnapshotToState(session: any, room: any, gameId: string): MonopolySt
   //     { sessionId, phase, currentPlayerId, lastDiceTotal, assets, ... }
   const backend = session.state ?? session;
   const resolvedSessionId = session.sessionId ?? session.id ?? gameId;
-  const assets: Record<string, any> = backend.assets ?? {};
-  const roomPlayers: any[] = room?.players ?? [];
+  const assets: Record<string, MonopolyAssetSnapshot> = backend.assets ?? {};
+  const roomPlayers: RoomPlayerSnapshot[] = room?.players ?? [];
 
-  const players = roomPlayers.map((p: { id: string; userId: string; displayName?: string; username?: string; avatarColor?: string; isAI?: boolean; aiControlled?: boolean }) => {
+  const players = roomPlayers.map((p) => {
     // Asset keys may be room player `id` OR `userId` — try both
-    const asset: any = assets[p.id] ?? assets[p.userId] ?? null;
+    const asset: MonopolyAssetSnapshot | null = assets[p.id] ?? assets[p.userId] ?? null;
     const username = p.username ?? p.displayName ?? p.id;
     return {
       id: p.id,
@@ -96,18 +340,26 @@ function mapSnapshotToState(session: any, room: any, gameId: string): MonopolySt
 
   // Build owners map: prefer backend.owners (old format), fall back to
   // reconstructing from per-player ownedTilePositions (new STOMP broadcast format)
-  const owners: Record<string, string> = { ...(backend.owners ?? {}) };
+  const owners: Record<string, string> = {};
+  Object.entries(backend.owners ?? {}).forEach(([pos, ownerId]) => {
+    const resolvedOwnerId = resolveRoomPlayerId(
+      ownerId != null ? String(ownerId) : null,
+      roomPlayers,
+    );
+    if (resolvedOwnerId) owners[pos] = resolvedOwnerId;
+  });
   if (Object.keys(owners).length === 0) {
     // Reconstruct from ownedTilePositions per asset entry
-    Object.entries(assets).forEach(([playerId, asset]: [string, any]) => {
+    Object.entries(assets).forEach(([playerId, asset]) => {
       const positions: number[] = asset?.ownedTilePositions ?? [];
       positions.forEach((pos) => {
-        owners[String(pos)] = playerId;
+        owners[String(pos)] =
+          resolveRoomPlayerId(String(playerId), roomPlayers) ?? String(playerId);
       });
     });
   }
 
-  const developments: Record<string, any> = backend.developments ?? {};
+  const developments: Record<string, { houses?: number }> = backend.developments ?? {};
   const mortgaged = new Set<number>(backend.mortgagedTiles ?? []);
 
   Object.keys(owners).forEach((k) => {
@@ -122,13 +374,32 @@ function mapSnapshotToState(session: any, room: any, gameId: string): MonopolySt
   });
 
   // Match currentPlayerId against both p.id and p.userId
-  const curPlayerId = String(backend.currentPlayerId ?? "");
+  const rawCurrentPlayerId = String(backend.currentPlayerId ?? "");
+  const curPlayerId = resolveRoomPlayerId(rawCurrentPlayerId, roomPlayers) ?? rawCurrentPlayerId;
   let curPlayerIndex = players.findIndex(
     (p: MonopolyState["players"][number]) =>
-      String(p.id) === curPlayerId || String(p.userId) === curPlayerId,
+      String(p.id) === curPlayerId ||
+      String(p.id) === rawCurrentPlayerId ||
+      String(p.userId) === rawCurrentPlayerId,
   );
   if (curPlayerIndex < 0) curPlayerIndex = 0;
   curPlayerIndex = Math.min(curPlayerIndex, Math.max(players.length - 1, 0));
+
+  const mappedPhase = mapPhase(backend.phase);
+  let pendingPurchaseTile: number | null = backend.pendingPurchaseTile ?? null;
+  if (pendingPurchaseTile == null && mappedPhase === "landed") {
+    const currentPosition = players[curPlayerIndex]?.position;
+    const tile = typeof currentPosition === "number" ? BOARD[currentPosition] : null;
+    const property = typeof currentPosition === "number" ? properties[currentPosition] : null;
+    if (
+      tile &&
+      property &&
+      (tile.type === "property" || tile.type === "railroad" || tile.type === "utility") &&
+      !property.ownerId
+    ) {
+      pendingPurchaseTile = currentPosition;
+    }
+  }
 
   // lastDiceTotal → lastRoll (two dice that sum to the total, for display)
   const total: number = backend.lastDiceTotal ?? 0;
@@ -141,44 +412,52 @@ function mapSnapshotToState(session: any, room: any, gameId: string): MonopolySt
     gameId: String(resolvedSessionId),
     players,
     currentPlayerIndex: curPlayerIndex,
-    phase: mapPhase(backend.phase),
+    phase: mappedPhase,
     lastRoll,
     consecutiveDoubles: backend.consecutiveDoubles ?? 0,
     properties,
     chanceDeck: backend.board?.chanceDeck ?? [],
     chestDeck: backend.board?.chestDeck ?? [],
-    pendingPurchaseTile: backend.pendingPurchaseTile ?? null,
+    pendingPurchaseTile,
     pendingCard: backend.pendingCard ?? null,
-    auction: backend.auction ?? null,
+    auction: normalizeAuctionState(backend.auction, roomPlayers),
     trade: backend.trade ?? null,
-    log: (backend.log ?? []).map((t: string, i: number) => ({ id: String(i), text: t, ts: i, kind: "info" as const })),
-    winnerId: backend.winnerId ?? null,
+    log: (backend.log ?? []).map((t: string, i: number) => ({
+      id: String(i),
+      text: t,
+      ts: i,
+      kind: "info" as const,
+    })),
+    winnerId:
+      resolveRoomPlayerId(
+        backend.winnerId != null ? String(backend.winnerId) : null,
+        roomPlayers,
+      ) ??
+      backend.winnerId ??
+      null,
   };
 }
-
 
 function MonopolyPage() {
   const { gameId } = Route.useParams();
   const navigate = useNavigate();
   const state = useMonopolyStore((s) => s.games[gameId]);
   const setGame = useMonopolyStore((s) => s.setGame);
-  const snapshot = useGameSnapshot<any>(gameId);
+  const snapshot = useGameSnapshot<MonopolySessionSnapshot>(gameId);
   const roomQuery = useRoom(snapshot.data?.roomId);
   const leaveRoomMut = useLeaveRoom();
 
   const roomId = snapshot.data?.roomId;
   const sessionId: string = (snapshot.data?.id ?? snapshot.data?.sessionId ?? gameId) as string;
 
-  // PRIMARY: backend broadcasts Monopoly state on /topic/game/{roomId} (singular)
+  // Backend broadcasts Monopoly state on /topic/game/{roomId} (singular)
   const primaryDestination = roomId ? Topics.gameRoom(roomId) : null;
-  // FALLBACK: also listen on /topic/games/{sessionId} in case session-keyed events arrive
-  const fallbackDestination = sessionId ? Topics.game(sessionId) : null;
 
-  // DEBUG — log which topics we are listening on
+  // DEBUG — log which topic we are listening on
   useEffect(() => {
     console.log("[monopoly] sessionId:", sessionId, "roomId:", roomId);
-    console.log("[monopoly] PRIMARY topic:", primaryDestination, "| FALLBACK:", fallbackDestination);
-  }, [sessionId, roomId, primaryDestination, fallbackDestination]);
+    console.log("[monopoly] room topic:", primaryDestination);
+  }, [sessionId, roomId, primaryDestination]);
 
   // Keep roomQuery.data in a ref so handleGameUpdate never becomes stale
   // and the subscription hook doesn't re-subscribe on every room poll.
@@ -187,54 +466,62 @@ function MonopolyPage() {
     roomDataRef.current = roomQuery.data;
   }, [roomQuery.data]);
 
+  const applyMonopolyState = useCallback(
+    (nextState: MonopolyBackendState, nextSessionId?: string) => {
+      const mapped = mapSnapshotToState(
+        { sessionId: nextSessionId ?? nextState?.sessionId ?? sessionId, state: nextState },
+        roomDataRef.current,
+        gameId,
+      );
+      setGame(gameId!, mapped);
+      return mapped;
+    },
+    [gameId, sessionId, setGame],
+  );
+
   const handleGameUpdate = useCallback(
-    (msg: any) => {
+    (msg: unknown) => {
       console.log("[monopoly] 📥 STOMP message received:", JSON.stringify(msg, null, 2));
       if (!msg) return;
       try {
-        // Unwrap the backend notification envelope.
-        // Backend sends: { type, payload: { state: <MonopolyState> } }
-        // or:            { type, payload: <MonopolyState> }
-        // or:            { state: <MonopolyState> }
-        // or:            <MonopolyState> directly
-        if (msg.type === "AUCTION_UPDATE") {
-          const a = msg.payload ?? null;
+        const envelope = typeof msg === "object" ? (msg as MonopolySocketEnvelope) : null;
+        if (envelope?.type === "AUCTION_UPDATE") {
           const current = useMonopolyStore.getState().games[gameId];
-          const auction = a
-            ? {
-              tileIndex: a.tilePosition ?? a.tileIndex ?? 0,
-              bids: [],
-              currentBidderIndex: a.currentBidderIndex ?? 0,
-              activePlayerIds: a.activePlayerIds ?? [],
-              highestBid: a.highestBid ?? 0,
-              highestBidderId: a.highestBidder ? String(a.highestBidder) : null,
-              startedAt: 0,
-            }
-            : null;
-          setGame(gameId!, { ...(current ?? {}), auction });
+          const auction = normalizeAuctionState(
+            (envelope.payload as MonopolyAuctionSnapshot | null | undefined) ?? null,
+            roomDataRef.current?.players ?? [],
+          );
+          if (current) {
+            setGame(gameId!, {
+              ...current,
+              auction,
+              phase: auction ? "auction" : current.phase,
+              pendingPurchaseTile: auction?.tileIndex ?? current.pendingPurchaseTile,
+            });
+          }
           return;
         }
-        // Extract the real state from the envelope — try all known shapes
-        const rawState = msg.payload?.state ?? msg.payload ?? msg.state ?? msg;
-        const sessionLike = { sessionId: gameId, state: rawState };
-        // Use ref so this callback is never recreated when roomQuery changes.
-        const mapped = mapSnapshotToState(sessionLike, roomDataRef.current, gameId);
-        console.log("[monopoly] ✅ Mapped — phase:", mapped.phase, "currentPlayerIndex:", mapped.currentPlayerIndex);
-        setGame(gameId!, mapped);
+        const rawState = extractSocketState(msg);
+        if (!rawState) return;
+        const mapped = applyMonopolyState(
+          rawState,
+          envelope?.sessionId ?? rawState.sessionId ?? sessionId,
+        );
+        console.log(
+          "[monopoly] ✅ Mapped — phase:",
+          mapped.phase,
+          "currentPlayerIndex:",
+          mapped.currentPlayerIndex,
+        );
       } catch (e) {
         console.error("Failed to apply game update", e);
       }
     },
-    // Intentionally omit roomQuery.data — we read it via ref to keep the
-    // subscription stable and avoid re-subscribe gaps that drop messages.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [gameId, setGame],
+    [applyMonopolyState, gameId, sessionId, setGame],
   );
 
-  // PRIMARY: /topic/game/{roomId} — confirmed backend broadcast topic
-  useStompSubscription<any>(primaryDestination, handleGameUpdate, !!primaryDestination);
-  // FALLBACK: /topic/games/{sessionId} — for session-scoped events
-  useStompSubscription<any>(fallbackDestination, handleGameUpdate, !!fallbackDestination && fallbackDestination !== primaryDestination);
+  // Canonical backend broadcast topic for Monopoly state updates
+  useStompSubscription<unknown>(primaryDestination, handleGameUpdate, !!primaryDestination);
   const user = useAuthStore((s) => s.user);
   const [hydrated, setHydrated] = useState(false);
   const [openTile, setOpenTile] = useState<number | null>(null);
@@ -243,15 +530,15 @@ function MonopolyPage() {
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasValidState = Boolean(state && state.players?.length > 0);
-  const safePlayer = (idx: number) => state?.players?.[idx] ?? state?.players?.[0] ?? null;
 
   // AI driver — runs whenever it's an AI's turn or AI auction bidder
   useEffect(() => {
     if (!state || state.phase === "ended") return;
-    if (aiTimer.current) clearTimeout(aiTimer.current);
+    const timer = aiTimer.current;
+    if (timer) clearTimeout(timer);
     // Since backend runs AI logic when online, do nothing here.
     return () => {
-      if (aiTimer.current) clearTimeout(aiTimer.current);
+      if (timer) clearTimeout(timer);
     };
   }, [state, gameId]);
 
@@ -282,7 +569,14 @@ function MonopolyPage() {
   }, [snapshot.data, roomQuery.data, gameId, setGame]);
 
   // Show loading until snapshot and room are available, store hydrated, and user resolved
-  if (snapshot.isLoading || roomQuery.isLoading || !snapshot.data || !roomQuery.data || !user || !hydrated) {
+  if (
+    snapshot.isLoading ||
+    roomQuery.isLoading ||
+    !snapshot.data ||
+    !roomQuery.data ||
+    !user ||
+    !hydrated
+  ) {
     return (
       <AppShell>
         <div className="min-h-screen grid place-items-center px-6 pt-32 text-center">
@@ -336,9 +630,9 @@ function MonopolyPage() {
   const cur = state.players[state.currentPlayerIndex] ?? state.players[0];
   const isMyTurn = !cur.isAI && !cur.bankrupt && cur.id === me.id;
 
-  // Send action to server via STOMP. Actions are validated/processed by backend.
-  const sendGameAction = (type: string, payload: Record<string, unknown> = {}) => {
-    if (!gameId) return false;
+  // Normal Monopoly actions are REST-authoritative; auctions remain STOMP-only.
+  const sendGameAction = async (type: string, payload: Record<string, unknown> = {}) => {
+    if (!sessionId) return false;
     const isAuctionAct = type === "PLACE_BID" || type === "PASS_BID";
     if (!isMyTurn && !isAuctionAct) {
       console.warn(
@@ -347,72 +641,54 @@ function MonopolyPage() {
       return false;
     }
 
-    const actionTypeMap: Record<string, string> = {
-      ROLL: "ROLL_DICE",
-      BUY: "BUY_PROPERTY",
-      END_TURN: "END_TURN",
-      PAY_JAIL: "PAY_JAIL",
-      USE_JAIL_CARD: "USE_JAIL_CARD",
-      BUILD_HOUSE: "BUILD_HOUSE",
-      SELL_HOUSE: "SELL_HOUSE",
-      TOGGLE_MORTGAGE: "MORTGAGE",
-      PROPOSE_TRADE: "TRADE",
-      RESOLVE_TRADE: "TRADE",
-      START_AUCTION: "AUCTION",
-      PLACE_BID: "AUCTION",
-      PASS_BID: "AUCTION",
-    };
+    const p = payload as MonopolyActionPayload;
     const isAuctionAction = type === "START_AUCTION" || type === "PLACE_BID" || type === "PASS_BID";
-    // Backend confirmed STOMP destinations:
-    //   actions → /app/games/{sessionId}/action
-    //   auction → /app/games/{sessionId}/auction
-    const dest = isAuctionAction
-      ? Topics.send.auction(sessionId)
-      : Topics.send.gameAction(sessionId);
-    console.debug("[game] sending to dest:", dest, "sessionId:", sessionId);
+    if (isAuctionAction) {
+      const startTileIndex = p.tileIndex ?? state.pendingPurchaseTile;
+      const auctionBody: MonopolyAuctionMessage =
+        type === "START_AUCTION"
+          ? {
+              action: "START",
+              ...(startTileIndex != null ? { tilePosition: Number(startTileIndex) } : {}),
+            }
+          : type === "PLACE_BID"
+            ? { action: "PLACE_BID", amount: Number(p.amount ?? 0) }
+            : { action: "PASS" };
 
-    // Build server-friendly MonopolyActionRequest shape
-    const p = payload as Record<string, any>;
-    const requestBody: Record<string, unknown> = {
-      type: actionTypeMap[type] ?? type,
-    };
-    if (p.tileIndex != null) requestBody.tilePosition = p.tileIndex;
-    if (p.amount != null) requestBody.amount = p.amount;
-    if (p.targetPlayerId != null) requestBody.targetPlayerId = p.targetPlayerId;
-    if (p.metadata != null) requestBody.metadata = p.metadata;
-    // Auction-specific hints
-    if (type === "START_AUCTION") requestBody.auctionAction = "START";
-    if (type === "PLACE_BID") requestBody.auctionAction = "BID";
-    if (type === "PASS_BID") requestBody.auctionAction = "PASS";
+      const dest = Topics.send.auction(sessionId);
+      const sent = stomp.sendMessage(dest, auctionBody);
+      if (sent) {
+        console.debug("[game] sent auction action over STOMP", type, dest, auctionBody);
+        return true;
+      }
 
-    const sent = stomp.sendMessage(dest, requestBody);
-    if (sent) {
-      console.debug("[game] sent action over STOMP", type, dest, requestBody);
-      return true;
+      toast.error("Auction action failed", {
+        description: "Realtime connection is unavailable. Reconnect before retrying the auction.",
+      });
+      return false;
     }
 
-    console.warn("[game] STOMP unavailable, falling back to REST action", type, dest, requestBody);
-    // REST fallback — use sessionId (backend UUID) not gameId (URL param)
+    const requestBody = buildMonopolyActionRequest(type, payload, state);
+    if (!requestBody) {
+      const description =
+        type === "RESOLVE_TRADE"
+          ? "Trade responses are not part of the current backend Monopoly contract."
+          : type === "BANK_ADJUST" || type === "BANK_TRANSFER"
+            ? "Bank manager actions are not supported by the live backend Monopoly API."
+            : `Unsupported Monopoly action: ${type}`;
+      toast.error("Action unavailable", { description });
+      return false;
+    }
+
     try {
-      monopolyApi.action(sessionId, requestBody)
-        .then(() => {
-          console.debug("[game] REST action succeeded", type);
-        })
-        .catch((error) => {
-          console.error("[game] REST action failed", type, error);
-          toast.error("Action failed", {
-            description: "Connection to the game server is currently unavailable."
-          });
-        });
+      const updatedState = await monopolyApi.action<MonopolyBackendState>(sessionId, requestBody);
+      applyMonopolyState(updatedState, updatedState?.sessionId ?? sessionId);
+      console.debug("[game] REST action succeeded", type, requestBody);
       return true;
     } catch (e) {
-      console.error("[game] REST action exception", type, e);
+      console.error("[game] REST action failed", type, requestBody, e);
+      return false;
     }
-
-    toast.error("Action failed", {
-      description: "Connection to the game server is currently unavailable."
-    });
-    return false;
   };
 
   return (
@@ -559,16 +835,6 @@ function MonopolyPage() {
             onClose={() => setTradePartner(null)}
             onPropose={(offer) => {
               sendGameAction("PROPOSE_TRADE", { offer });
-              // Auto-resolve locally for AI partner to keep UX snappy in offline demos
-              const partner = state.players.find((p) => p.id === tradePartner);
-              if (partner?.isAI && stomp.isOffline) {
-                setTimeout(() => {
-                  setGame(
-                    gameId,
-                    resolveTrade(useMonopolyStore.getState().games[gameId], aiAcceptsTrade(offer)),
-                  );
-                }, 1200);
-              }
               setTradePartner(null);
             }}
           />
@@ -599,16 +865,4 @@ function MonopolyPage() {
       {roomId && <ChatDrawer roomId={roomId} />}
     </AppShell>
   );
-}
-
-function aiAcceptsTrade(offer: {
-  fromCash: number;
-  toCash: number;
-  fromProps: number[];
-  toProps: number[];
-}) {
-  // Simple heuristic: AI accepts if cash+prop-count is roughly fair (within 15%)
-  const give = offer.toCash + offer.toProps.length * 150;
-  const get = offer.fromCash + offer.fromProps.length * 150;
-  return get >= give * 0.9;
 }

@@ -11,14 +11,7 @@ export type TileType =
   | "free-parking";
 
 export type ColorGroup =
-  | "brown"
-  | "lightblue"
-  | "pink"
-  | "orange"
-  | "red"
-  | "yellow"
-  | "green"
-  | "darkblue";
+  "brown" | "lightblue" | "pink" | "orange" | "red" | "yellow" | "green" | "darkblue";
 
 export interface Tile {
   index: number; // 0..39
@@ -79,6 +72,37 @@ export interface TradeOffer {
   toCash: number;
   toJailCards: number;
   status: "pending" | "accepted" | "declined";
+}
+
+export type MonopolyActionType =
+  | "ROLL_DICE"
+  | "BUY_PROPERTY"
+  | "PAY_RENT"
+  | "MORTGAGE"
+  | "UNMORTGAGE"
+  | "BUILD_HOUSE"
+  | "BUILD_HOTEL"
+  | "SELL_HOUSE"
+  | "PAY_JAIL"
+  | "USE_JAIL_CARD"
+  | "TRADE"
+  | "AUCTION"
+  | "END_TURN";
+
+export interface MonopolyActionRequest {
+  type: MonopolyActionType;
+  tilePosition?: number;
+  targetPlayerId?: string;
+  amount?: number;
+  metadata?: Record<string, string>;
+}
+
+export type MonopolyAuctionAction = "START" | "PLACE_BID" | "PASS";
+
+export interface MonopolyAuctionMessage {
+  action: MonopolyAuctionAction;
+  tilePosition?: number;
+  amount?: number;
 }
 
 export type MonopolyPhase =

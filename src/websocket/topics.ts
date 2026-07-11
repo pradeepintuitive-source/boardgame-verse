@@ -21,10 +21,8 @@ export const Topics = {
   send: {
     roomReady: (roomId: string) => `/app/rooms/${roomId}/ready`,
     roomChat: (roomId: string) => `/app/rooms/${roomId}/chat`,
-    gameAction: (gameId: string) => `/app/games/${gameId}/action`,
-    monopolyAction: (sessionId: string) => `/app/monopoly/${sessionId}/action`,
-    auction: (gameId: string) => `/app/games/${gameId}/auction`,
-    monopolyAuction: (sessionId: string) => `/app/monopoly/${sessionId}/auction`,
+    gameAction: (sessionId: string) => `/app/games/${sessionId}/action`,
+    auction: (sessionId: string) => `/app/games/${sessionId}/auction`,
     pause: (gameId: string) => `/app/games/${gameId}/pause`,
     resume: (gameId: string) => `/app/games/${gameId}/resume`,
   },

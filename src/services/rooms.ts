@@ -108,9 +108,6 @@ export const roomsApi = {
   leave: async (roomId: string): Promise<void> => {
     await api.post(`rooms/${roomId}/leave`);
   },
-  ready: async (roomId: string, ready: boolean): Promise<void> => {
-    await api.post(`rooms/${roomId}/ready`, { ready });
-  },
   addBot: async (roomId: string): Promise<Room> => {
     const { data } = await api.post<RawRoom>(`rooms/${roomId}/add-bot`);
     return normalizeRoom(data);
