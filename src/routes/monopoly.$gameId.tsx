@@ -317,7 +317,8 @@ function MonopolyPage() {
   // Send action to server via STOMP. Actions are validated/processed by backend.
   const sendGameAction = (type: string, payload: Record<string, unknown> = {}) => {
     if (!gameId) return false;
-    if (!isMyTurn) {
+    const isAuctionAct = type === "PLACE_BID" || type === "PASS_BID";
+    if (!isMyTurn && !isAuctionAct) {
       console.warn(
         `[game] ignoring "${type}" — it's ${cur.username}'s turn, not yours (${me.username}).`,
       );
