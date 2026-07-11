@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -54,10 +55,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [setUser, clear]);
 
-  // Reconnect STOMP when token changes
+  // Connect STOMP after login; disconnect on logout.
+  // Uses a ref to track whether we've already connected to avoid calling
+  // reconnect() (which internally disconnects first) on every user change.
+  const prevUserRef = useRef<User | null>(null);
   useEffect(() => {
-    if (user) stomp.reconnect();
-    else stomp.disconnect();
+    const prev = prevUserRef.current;
+    prevUserRef.current = user;
+    if (user && !prev) {
+      // Newly logged in — open connection for the first time.
+      stomp.connect();
+    } else if (user && prev && prev.id !== user.id) {
+      // User switched (rare) — reconnect with fresh token.
+      stomp.reconnect();
+    } else if (!user && prev) {
+      // Logged out — close connection.
+      stomp.disconnect();
+    }
   }, [user]);
 
   // Global 401 -> sign out

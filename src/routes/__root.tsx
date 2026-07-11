@@ -136,10 +136,12 @@ function RootComponent() {
 }
 
 function RootInner() {
-  const initConn = useConnectionStore((s) => s.init);
+  // Call init() once on mount via getState() to avoid including the function
+  // reference in a useEffect dependency array, which would cause re-runs and
+  // stack up stomp.connect() calls on every render.
   useEffect(() => {
-    initConn();
-  }, [initConn]);
+    useConnectionStore.getState().init();
+  }, []);
   useStompStatusToasts();
 
   return (

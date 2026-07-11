@@ -18,10 +18,11 @@ export const useConnectionStore = create<ConnStore>((set) => {
     roomId: null,
     setRoom: (id) => set({ roomId: id }),
     init: () => {
+      // Only register the status listener once — connection is managed
+      // exclusively by AuthProvider, gated on the authenticated user.
       if (initialised) return;
       initialised = true;
       stomp.onStatus((connected, reconnecting) => set({ connected, reconnecting }));
-      stomp.connect();
     },
   };
 });

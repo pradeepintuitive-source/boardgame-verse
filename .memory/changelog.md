@@ -7,6 +7,7 @@ All notable changes to the GameHub project will be documented in this file.
 ### Fixed
 * **Missing resolveTrade Import**: Imported `resolveTrade` from `../utils/monopolyEngine` in `monopoly.$gameId.tsx` to fix a compilation failure where client-side trade auto-resolution fallback logic for AI partners called an undefined function.
 * **Monopoly Room Selection**: Removed disabled constraints on the Monopoly button, removed "SOON" text, set default Max Players to 3 and AI Players to 0 in `create-room.tsx`.
+* **VITE_API_URL Enforcement**: Updated `api.ts` to strictly read the `VITE_API_URL` environment variable for REST API calls and throw a runtime error if undefined. This prevents fetch calls from silently falling back to relative paths on the frontend origin.
 * **Direct Backend Domain Routing**: Configured the frontend to call the backend API domain (`https://api.pradeepkulal.click`) directly for REST and WebSocket connections, preventing requests from hitting the frontend's Vercel domain. 
 * **Support Vercel NEXT_PUBLIC_ Env Variables**: Configured Vite's `envPrefix` in `vite.config.ts` to expose `NEXT_PUBLIC_` prefixed env vars to the client bundle. Updated `api.ts` and `stompClient.ts` to respect `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_WS_URL`.
 * **WebSocket Token Query Param Handshake**: Updated native WebSocket upgrades in `stompClient.ts` to dynamically append the JWT access token query parameter before establishing connections to authorize handshakes on the backend.
