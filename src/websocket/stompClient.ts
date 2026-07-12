@@ -86,6 +86,9 @@ class GameHubStompClient {
         this.subs.clear();
         entries.forEach(([dest, { handler }]) => this.subscribe(dest, handler));
         this.subscribe(Topics.privateAcks, (body) => {
+          console.log("******** ACK RECEIVED ********");
+          console.log(body);
+          console.debug("[stomp] incoming ack message", body);
           const ack = body as { requestId?: string; action?: string; success?: boolean; errorCode?: string; message?: string } | null;
           if (!ack?.requestId) return;
           const requests = useWebsocketRequestStore.getState();
@@ -124,6 +127,7 @@ class GameHubStompClient {
       this.subs.set(destination, { stomp: {} as StompSubscription, handler });
       return () => this.unsubscribe(destination);
     }
+    console.debug("[stomp] subscribing to", destination);
     const stomp = this.client.subscribe(destination, (msg) => {
       let body: unknown = msg.body;
       try {
@@ -131,6 +135,7 @@ class GameHubStompClient {
       } catch {
         /* keep as raw */
       }
+      console.debug("[stomp] incoming message", { destination, body, headers: msg.headers });
       handler(body, msg);
     });
     this.subs.set(destination, { stomp, handler });
