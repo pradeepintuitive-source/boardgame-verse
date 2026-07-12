@@ -81,6 +81,7 @@ class GameHubStompClient {
         this.client!.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
       },
       onConnect: () => {
+        console.log("STOMP CONNECTED");
         this.emit(true, false);
         const entries = Array.from(this.subs.entries());
         this.subs.clear();
@@ -88,8 +89,9 @@ class GameHubStompClient {
         this.subscribe(Topics.privateAcks, (body) => {
           console.log("******** ACK RECEIVED ********");
           console.log(body);
-          console.debug("[stomp] incoming ack message", body);
           const ack = body as { requestId?: string; action?: string; success?: boolean; errorCode?: string; message?: string } | null;
+          console.log("ACK requestId", ack?.requestId);
+          console.log("ACK success", ack?.success);
           if (!ack?.requestId) return;
           const requests = useWebsocketRequestStore.getState();
           if (ack.success) {
@@ -127,6 +129,7 @@ class GameHubStompClient {
       this.subs.set(destination, { stomp: {} as StompSubscription, handler });
       return () => this.unsubscribe(destination);
     }
+    console.log("[SUBSCRIBE]", destination);
     console.debug("[stomp] subscribing to", destination);
     const stomp = this.client.subscribe(destination, (msg) => {
       let body: unknown = msg.body;
@@ -135,7 +138,7 @@ class GameHubStompClient {
       } catch {
         /* keep as raw */
       }
-      console.debug("[stomp] incoming message", { destination, body, headers: msg.headers });
+      console.log("[STOMP INCOMING]", { destination, headers: msg.headers, body });
       handler(body, msg);
     });
     this.subs.set(destination, { stomp, handler });
@@ -152,6 +155,7 @@ class GameHubStompClient {
     if (this.offline || !this.client?.connected) return false;
     const payload = typeof body === "string" ? body : body;
     const envelope = payload && typeof payload === "object" && "requestId" in payload ? payload : { ...((payload as Record<string, unknown>) ?? {}), requestId };
+    console.log("[STOMP PUBLISH]", { destination, requestId, payload: envelope });
     console.debug("[stomp] publish", destination, envelope);
     this.client.publish({
       destination,
@@ -167,6 +171,7 @@ class GameHubStompClient {
         : undefined;
     const requestId = typeof existingRequestId === "string" ? existingRequestId : crypto.randomUUID();
     const requestStore = useWebsocketRequestStore.getState();
+    console.log("CREATE REQUEST", { action, requestId });
     requestStore.createRequest(action, requestId, metadata);
     const sent = this.sendMessage(destination, { ...(body as Record<string, unknown>), requestId }, requestId);
     if (!sent) {

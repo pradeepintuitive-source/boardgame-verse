@@ -40,6 +40,7 @@ export const useWebsocketRequestStore = create<RequestStore>((set, get) => ({
   pendingRequests: [],
 
   createRequest: (action, requestId = makeId(), metadata, timeoutMs = DEFAULT_TIMEOUT_MS) => {
+    console.log("CREATE REQUEST", { action, requestId });
     if (!action) return null;
     const existing = get().pendingRequests.find((req) => req.requestId === requestId);
     if (existing) return existing;
@@ -62,6 +63,7 @@ export const useWebsocketRequestStore = create<RequestStore>((set, get) => ({
   },
 
   markAcknowledged: (requestId) => {
+    console.log("ACK MARKED", requestId);
     set((state) => ({
       pendingRequests: state.pendingRequests.map((req) =>
         req.requestId === requestId ? { ...req, status: "acknowledged" } : req,
@@ -70,6 +72,7 @@ export const useWebsocketRequestStore = create<RequestStore>((set, get) => ({
   },
 
   completeRequest: (requestId) => {
+    console.log("COMPLETE REQUEST", requestId);
     const request = get().pendingRequests.find((req) => req.requestId === requestId);
     if (request?.timeoutId) {
       clearTimeout(request.timeoutId);
@@ -87,6 +90,7 @@ export const useWebsocketRequestStore = create<RequestStore>((set, get) => ({
   },
 
   failRequest: (requestId, errorCode, message) => {
+    console.log("FAIL REQUEST", { requestId, errorCode, message });
     const request = get().pendingRequests.find((req) => req.requestId === requestId);
     if (request?.timeoutId) {
       clearTimeout(request.timeoutId);
