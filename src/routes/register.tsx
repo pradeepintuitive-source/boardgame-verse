@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { useAuth } from "../providers/AuthProvider";
+import { apiErrorMessage } from "../services/api";
 
 export const Route = createFileRoute("/register")({
   head: () => ({
@@ -21,15 +22,17 @@ function RegisterPage() {
   const [e, setE] = useState("");
   const [p, setP] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const submit = async (ev: React.FormEvent) => {
     ev.preventDefault();
     setLoading(true);
+    setErrorMessage(null);
     try {
       await register(u.trim(), e.trim(), p);
       navigate({ to: "/" });
-    } catch {
-      // Error toast is already shown by api interceptor.
+    } catch (err) {
+      setErrorMessage(apiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -43,6 +46,12 @@ function RegisterPage() {
             New Operator
           </div>
           <h1 className="font-display text-5xl italic uppercase mb-8">Register</h1>
+
+          {errorMessage ? (
+            <div className="mb-4 border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive font-mono">
+              {errorMessage}
+            </div>
+          ) : null}
 
           {[
             { label: "Username", v: u, set: setU, type: "text" },

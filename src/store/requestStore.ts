@@ -27,7 +27,7 @@ interface RequestStore {
   clearAll: () => void;
 }
 
-const DEFAULT_TIMEOUT_MS = 3000;
+const DEFAULT_TIMEOUT_MS = 15000;
 
 const makeId = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {

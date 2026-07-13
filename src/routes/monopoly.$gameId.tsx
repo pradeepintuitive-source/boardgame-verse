@@ -706,11 +706,15 @@ function MonopolyPage() {
     const isAuctionAction = type === "START_AUCTION" || type === "PLACE_BID" || type === "PASS_BID";
     if (isAuctionAction) {
       const startTileIndex = p.tileIndex ?? state.pendingPurchaseTile;
+      if (type === "START_AUCTION" && startTileIndex == null) {
+        toast.error("Auction unavailable", { description: "No property selected to auction." });
+        return false;
+      }
       const auctionBody: MonopolyAuctionMessage =
         type === "START_AUCTION"
           ? {
               action: "START",
-              ...(startTileIndex != null ? { tilePosition: Number(startTileIndex) } : {}),
+              tilePosition: Number(startTileIndex),
             }
           : type === "PLACE_BID"
             ? { action: "PLACE_BID", amount: Number(p.amount ?? 0) }
@@ -722,7 +726,9 @@ function MonopolyPage() {
         console.debug("[game] sent auction action over STOMP", type, dest, auctionBody);
         return true;
       }
-      useWebsocketRequestStore.getState().failRequest(String(requestId), "CONNECTION_ERROR", "Unable to contact server");
+      useWebsocketRequestStore
+        .getState()
+        .failRequest(String(requestId), "CONNECTION_ERROR", "Unable to contact server");
 
       toast.error("Auction action failed", {
         description: "Realtime connection is unavailable. Reconnect before retrying the auction.",
@@ -742,21 +748,15 @@ function MonopolyPage() {
       return false;
     }
 
-    const requestId = crypto.randomUUID();
-    const requestStore = useWebsocketRequestStore.getState();
-    requestStore.createRequest(requestBody.type, requestId, { sessionId, type });
-
-    const dest = Topics.send.gameAction(sessionId);
-    const sent = stomp.sendMessage(dest, { requestId, ...requestBody }, requestId);
-    if (!sent) {
-      requestStore.failRequest(requestId, "CONNECTION_ERROR", "Unable to contact server");
-      toast.error("Action failed", {
-        description: "Realtime connection is unavailable. Reconnect before retrying the action.",
-      });
+    try {
+      const nextState = await monopolyApi.action<MonopolyBackendState>(sessionId, requestBody);
+      applyMonopolyState(nextState, sessionId);
+      return true;
+    } catch (e) {
+      // Axios interceptor already surfaces a toast for API errors.
+      console.error("[monopoly] REST action failed", type, e);
       return false;
     }
-
-    return true;
   };
 
   return (

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { useAuth } from "../providers/AuthProvider";
+import { apiErrorMessage } from "../services/api";
 
 export const Route = createFileRoute("/login")({
   head: () => ({
@@ -20,16 +21,18 @@ function LoginPage() {
   const [username, setU] = useState("");
   const [password, setP] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim()) return;
     setLoading(true);
+    setErrorMessage(null);
     try {
       await login(username.trim(), password);
       navigate({ to: "/" });
-    } catch {
-      // Error toast is already shown by api interceptor.
+    } catch (err) {
+      setErrorMessage(apiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -38,11 +41,12 @@ function LoginPage() {
   const guest = async () => {
     const name = username.trim() || `Guest${Math.floor(Math.random() * 9999)}`;
     setLoading(true);
+    setErrorMessage(null);
     try {
       await loginGuest(name);
       navigate({ to: "/" });
-    } catch {
-      // Error toast is already shown by api interceptor.
+    } catch (err) {
+      setErrorMessage(apiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -57,9 +61,15 @@ function LoginPage() {
           </div>
           <h1 className="font-display text-5xl italic uppercase mb-8">Sign In</h1>
 
+          {errorMessage ? (
+            <div className="mb-4 border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive font-mono">
+              {errorMessage}
+            </div>
+          ) : null}
+
           <label className="block mb-4">
             <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
-              Username
+              Username or Email
             </span>
             <input
               value={username}

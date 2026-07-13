@@ -158,8 +158,33 @@ api.interceptors.response.use(
     const details = body?.details ?? [];
 
     if (status === 401) {
-      tokenStore.clear();
-      onUnauthorized?.();
+      const url = String(err.config?.url ?? body?.path ?? "");
+      const isCredentialAuthAttempt =
+        url.includes("/auth/login") ||
+        url.includes("/auth/register") ||
+        url.includes("/auth/guest");
+      const isSessionExpiry =
+        url.includes("/auth/refresh") ||
+        message.toLowerCase().includes("session expired") ||
+        message.toLowerCase().includes("invalid session");
+
+      // Login/register show inline errors; toast session expiry and other 401s.
+      if (!isCredentialAuthAttempt) {
+        toast.error(message || "Authentication failed", {
+          description:
+            details.length > 0
+              ? details.join("\n")
+              : isSessionExpiry
+                ? "Please sign in again to continue."
+                : undefined,
+        });
+      }
+
+      // Don't wipe tokens on failed login/register; do clear on expired session.
+      if (!isCredentialAuthAttempt || isSessionExpiry) {
+        tokenStore.clear();
+        onUnauthorized?.();
+      }
     }
 
     console.warn("[api]", status, message, details);
@@ -172,7 +197,7 @@ api.interceptors.response.use(
       path: body?.path,
     });
 
-    // Global toast — silence 401s (handled by auth flow) and network aborts.
+    // Global toast — skip duplicate 401 (already toasted above) and network aborts.
     if (status && status !== 401) {
       toast.error(body?.error ?? "Request failed", {
         description:
