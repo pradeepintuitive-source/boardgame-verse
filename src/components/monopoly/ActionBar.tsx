@@ -1,6 +1,7 @@
 import { Dice5, ArrowRight, ShoppingBag, Gavel, Lock, Ticket } from "lucide-react";
 import { BOARD } from "../../data/monopolyBoard";
 import type { MonopolyPlayer, MonopolyState } from "../../models/monopoly";
+import { formatInr, effectiveJailFee } from "../../utils/monopolyEngine";
 import { NeonButton } from "../common/NeonButton";
 import { Dice } from "./Dice";
 
@@ -67,9 +68,9 @@ export function ActionBar({
             <Dice5 className="inline size-4 mr-1" />
             {me.inJail ? "Roll for Doubles" : "Roll Dice"}
           </NeonButton>
-          {me.inJail && me.cash >= 50 && (
+          {me.inJail && me.cash >= effectiveJailFee(state) && (
             <NeonButton variant="ghost" size="sm" onClick={onPayJail}>
-              <Lock className="inline size-3 mr-1" /> Pay $50
+              <Lock className="inline size-3 mr-1" /> Pay {formatInr(effectiveJailFee(state))}
             </NeonButton>
           )}
           {me.inJail && me.jailCards > 0 && (
@@ -83,7 +84,7 @@ export function ActionBar({
       {isMyTurn && state.phase === "landed" && pending != null && tile && (
         <div>
           <div className="text-xs mb-2">
-            Buy <b>{tile.name}</b> for ${price}?
+            Buy <b>{tile.name}</b> for {formatInr(price)}?
           </div>
           <div className="flex gap-2">
             <NeonButton variant="cyan" size="sm" onClick={onBuy} disabled={me.cash < price}>

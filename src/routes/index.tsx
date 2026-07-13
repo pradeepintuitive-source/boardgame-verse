@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "../components/layout/AppShell";
 import { GameCard } from "../components/game/GameCard";
 import { NeonButton } from "../components/common/NeonButton";
@@ -28,6 +29,27 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
+  const [resumeSession, setResumeSession] = useState<{ roomId: string; sessionId: string; gameType: string } | null>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("gamehub:resume-session");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.sessionId) {
+          setResumeSession(parsed);
+        }
+      }
+    } catch {
+      setResumeSession(null);
+    }
+  }, []);
+
+  const resumeLabel = useMemo(() => {
+    if (!resumeSession) return null;
+    return resumeSession.gameType === "monopoly" ? "Resume Monopoly" : "Resume Game";
+  }, [resumeSession]);
+
   return (
     <AppShell>
       <main className="relative flex flex-col items-center pt-32 pb-32 px-6">
@@ -50,6 +72,11 @@ function Index() {
             Digital Classics Pradeep &bull; Premium Board Gaming
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
+            {resumeSession && resumeLabel ? (
+              <Link to="/monopoly/$gameId" params={{ gameId: resumeSession.sessionId }}>
+                <NeonButton size="lg">{resumeLabel}</NeonButton>
+              </Link>
+            ) : null}
             <Link to="/create-room">
               <NeonButton size="lg">Create Room</NeonButton>
             </Link>
@@ -81,8 +108,8 @@ function Index() {
           </motion.div>
           <motion.div variants={riseItem}>
             <GameCard
-              title="Monopoly"
-              description="The ultimate property trading game. Build your empire and bankrupt your rivals in this neon-lit edition."
+              title="Monopoly: India Edition"
+              description="The ultimate property trading game. Build your Bharat empire with Indian cities, ₹ currency, and a modern India-themed board."
               players="2-6"
               duration="EST. 90 MIN"
               image={monopolyArt}

@@ -39,7 +39,11 @@ function JoinRoomPage() {
 
       const room = await joinByCode.mutateAsync(code.trim());
       upsertRoom(room);
-      navigate({ to: "/lobby/$roomId", params: { roomId: room.id } });
+      if (room.gameType === "monopoly" && room.state && ["IN_PROGRESS", "PAUSED"].includes(room.state.toUpperCase()) && room.currentSessionId) {
+        navigate({ to: "/monopoly/$gameId", params: { gameId: room.currentSessionId } });
+      } else {
+        navigate({ to: "/lobby/$roomId", params: { roomId: room.id } });
+      }
     } catch {
       setErrorMessage("Unable to join this room. Please verify the code and try again.");
     } finally {

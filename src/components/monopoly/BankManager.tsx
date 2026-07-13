@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Banknote, X, ArrowRight } from "lucide-react";
 import type { MonopolyState } from "../../models/monopoly";
 import { NeonButton } from "../common/NeonButton";
+import { formatInr } from "../../utils/monopolyEngine";
 
 interface Props {
   state: MonopolyState;
@@ -67,7 +68,7 @@ export function BankManager({ state, onClose, onAdjust, onTransfer }: Props) {
                 <div className="font-bold text-sm" style={{ color: p.avatarColor }}>
                   {p.username}
                 </div>
-                <div className="font-mono text-xs text-accent-amber">${p.cash}</div>
+                <div className="font-mono text-xs text-accent-amber">{formatInr(p.cash)}</div>
               </div>
               <div className="flex flex-wrap gap-1 justify-end">
                 {QUICK.map((q) => (
@@ -76,7 +77,7 @@ export function BankManager({ state, onClose, onAdjust, onTransfer }: Props) {
                     onClick={() => onAdjust(p.id, -q)}
                     className="px-2 py-1 border border-accent-pink/40 hover:bg-accent-pink/20 font-mono text-[10px] text-accent-pink"
                   >
-                    −${q}
+                    −{formatInr(q)}
                   </button>
                 ))}
                 {QUICK.map((q) => (
@@ -85,7 +86,7 @@ export function BankManager({ state, onClose, onAdjust, onTransfer }: Props) {
                     onClick={() => onAdjust(p.id, q)}
                     className="px-2 py-1 border border-accent-cyan/40 hover:bg-accent-cyan/20 font-mono text-[10px] text-accent-cyan"
                   >
-                    +${q}
+                    +{formatInr(q)}
                   </button>
                 ))}
               </div>
@@ -123,7 +124,7 @@ export function BankManager({ state, onClose, onAdjust, onTransfer }: Props) {
             >
               {players.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.username} (${p.cash})
+                  {p.username} ({formatInr(p.cash)})
                 </option>
               ))}
             </select>

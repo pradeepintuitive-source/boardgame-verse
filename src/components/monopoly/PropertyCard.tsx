@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
-import { BOARD, GROUP_COLORS, RAILROAD_RENT } from "../../data/monopolyBoard";
+import { BOARD, GROUP_COLORS, RAILROAD_RENT, developmentLabel } from "../../data/monopolyBoard";
 import type { MonopolyState } from "../../models/monopoly";
 import { NeonButton } from "../common/NeonButton";
+import { formatInr } from "../../utils/monopolyEngine";
 
 interface Props {
   state: MonopolyState;
@@ -49,43 +50,43 @@ export function PropertyCard({ state, tileIndex, onClose, onBuild, onSell, onMor
           <h3 className="font-display text-3xl italic uppercase mb-1">{tile.name}</h3>
           {tile.price != null && (
             <div className="text-[10px] font-mono uppercase tracking-widest text-accent-cyan mb-4">
-              Price ${tile.price}
+              Price {formatInr(tile.price ?? 0)}
             </div>
           )}
 
           {tile.type === "property" && tile.rent && (
             <ul className="text-xs font-mono space-y-1 mb-4">
               <li className="flex justify-between">
-                <span>Rent</span>
-                <span>${tile.rent[0]}</span>
+                <span>Rent (Empty Land)</span>
+                <span>{formatInr(tile.rent[0])}</span>
               </li>
               <li className="flex justify-between">
-                <span>With 1 House</span>
-                <span>${tile.rent[1]}</span>
+                <span>With Village</span>
+                <span>{formatInr(tile.rent[1])}</span>
               </li>
               <li className="flex justify-between">
-                <span>With 2 Houses</span>
-                <span>${tile.rent[2]}</span>
+                <span>With Town</span>
+                <span>{formatInr(tile.rent[2])}</span>
               </li>
               <li className="flex justify-between">
-                <span>With 3 Houses</span>
-                <span>${tile.rent[3]}</span>
+                <span>With City</span>
+                <span>{formatInr(tile.rent[3])}</span>
               </li>
               <li className="flex justify-between">
-                <span>With 4 Houses</span>
-                <span>${tile.rent[4]}</span>
+                <span>With Metro</span>
+                <span>{formatInr(tile.rent[4])}</span>
               </li>
               <li className="flex justify-between">
-                <span>With Hotel</span>
-                <span>${tile.rent[5]}</span>
+                <span>With Smart City</span>
+                <span>{formatInr(tile.rent[5])}</span>
               </li>
               <li className="flex justify-between text-white/40 pt-2">
-                <span>House cost</span>
-                <span>${tile.housePrice}</span>
+                <span>Upgrade cost</span>
+                <span>{formatInr(tile.housePrice ?? 0)}</span>
               </li>
               <li className="flex justify-between text-white/40">
                 <span>Mortgage</span>
-                <span>${(tile.price ?? 0) / 2}</span>
+                <span>{formatInr(Math.floor((tile.price ?? 0) / 2))}</span>
               </li>
             </ul>
           )}
@@ -93,8 +94,8 @@ export function PropertyCard({ state, tileIndex, onClose, onBuild, onSell, onMor
             <ul className="text-xs font-mono space-y-1 mb-4">
               {RAILROAD_RENT.map((r, i) => (
                 <li key={i} className="flex justify-between">
-                  <span>{i + 1} RR Owned</span>
-                  <span>${r}</span>
+                  <span>{i + 1} Railway Owned</span>
+                  <span>{formatInr(r)}</span>
                 </li>
               ))}
             </ul>
@@ -119,10 +120,8 @@ export function PropertyCard({ state, tileIndex, onClose, onBuild, onSell, onMor
             ) : (
               <span className="text-white/40">Bank</span>
             )}
-            {prop?.houses ? (
-              <span className="ml-3 text-accent-amber">
-                {prop.houses === 5 ? "HOTEL" : `${prop.houses}H`}
-              </span>
+            {prop && prop.houses > 0 ? (
+              <span className="ml-3 text-accent-amber">{developmentLabel(prop.houses)}</span>
             ) : null}
             {prop?.mortgaged && <span className="ml-3 text-destructive">MORTGAGED</span>}
           </div>
@@ -130,12 +129,12 @@ export function PropertyCard({ state, tileIndex, onClose, onBuild, onSell, onMor
           <div className="flex flex-wrap gap-2">
             {onBuild && (
               <NeonButton variant="cyan" size="sm" onClick={onBuild}>
-                Build
+                Upgrade
               </NeonButton>
             )}
             {onSell && (
               <NeonButton variant="ghost" size="sm" onClick={onSell}>
-                Sell House
+                Sell Development
               </NeonButton>
             )}
             {onMortgage && (

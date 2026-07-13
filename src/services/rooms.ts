@@ -54,6 +54,7 @@ function normalizeRoom(raw: RawRoom): Room {
     isHost: player.userId === raw.hostUserId,
     isAI: player.aiControlled,
     ready: player.ready,
+    connected: player.connected,
   }));
 
   return {
@@ -66,6 +67,7 @@ function normalizeRoom(raw: RawRoom): Room {
     isPrivate: raw.visibility === "PRIVATE",
     isLan: raw.roomType === "LAN",
     hostId: raw.hostUserId,
+    state: raw.state ?? "WAITING",
     currentSessionId: raw.currentSessionId ?? null,
     players,
     createdAt: Date.now(),
@@ -99,6 +101,10 @@ export const roomsApi = {
   },
   join: async (roomId: string): Promise<Room> => {
     const { data } = await api.post<RawRoom>(`rooms/${roomId}/join`);
+    return normalizeRoom(data);
+  },
+  reconnect: async (roomId: string): Promise<Room> => {
+    const { data } = await api.post<RawRoom>(`rooms/${roomId}/reconnect`);
     return normalizeRoom(data);
   },
   joinByCode: async (code: string): Promise<Room> => {

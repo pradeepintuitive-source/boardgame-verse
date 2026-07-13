@@ -55,6 +55,17 @@ export function useLeaveRoom() {
   });
 }
 
+export function useReconnectRoom() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (roomId: string) => roomsApi.reconnect(roomId),
+    onSuccess: (room) => {
+      qc.setQueryData(["room", room.id], room);
+      qc.invalidateQueries({ queryKey: ["rooms"] });
+    },
+  });
+}
+
 export function useAddBot() {
   return useMutation({ mutationFn: (roomId: string) => roomsApi.addBot(roomId) });
 }

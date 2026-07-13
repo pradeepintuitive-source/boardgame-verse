@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { GROUP_COLORS } from "../../data/monopolyBoard";
 import type { PropertyState, Tile as TileType } from "../../models/monopoly";
+import { formatInr } from "../../utils/monopolyEngine";
 
 interface Props {
   tile: TileType;
@@ -48,7 +49,7 @@ export function Tile({ tile, prop, ownerColor, orientation, onClick, children, h
           {tile.name}
         </div>
         {tile.price != null && (
-          <div className="text-[7px] font-mono text-accent-cyan/70 mt-0.5">${tile.price}</div>
+          <div className="text-[7px] font-mono text-accent-cyan/70 mt-0.5">{formatInr(tile.price ?? 0)}</div>
         )}
         {prop?.mortgaged && <div className="text-[7px] font-mono text-destructive">MTG</div>}
         {prop && prop.houses > 0 && prop.houses < 5 && (

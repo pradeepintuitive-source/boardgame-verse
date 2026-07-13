@@ -14,10 +14,11 @@ import { BOARD } from "../data/monopolyBoard";
 import { TradePanel } from "../components/monopoly/TradePanel";
 import { EventLog } from "../components/monopoly/EventLog";
 import { BankManager } from "../components/monopoly/BankManager";
+import { IndianEventBanner } from "../components/monopoly/IndianEventBanner";
 import { useMonopolyStore } from "../store/monopolyStore";
 import { useAuthStore } from "../store/authStore";
 import { useGameSnapshot } from "../hooks/useGameSession";
-import { useLeaveRoom, useRoom } from "../hooks/useRooms";
+import { useLeaveRoom, useReconnectRoom, useRoom } from "../hooks/useRooms";
 import { Topics } from "../websocket/topics";
 import { useStompSubscription } from "../hooks/useStompSubscription";
 import { stomp } from "../websocket/stompClient";
@@ -32,6 +33,9 @@ import type {
 } from "../models/monopoly";
 import { toast } from "sonner";
 import { useWebsocketRequestStore } from "../store/requestStore";
+import { formatInr } from "../utils/monopolyEngine";
+import { useConnectionStore } from "../store/connectionStore";
+import { useQueryClient } from "@tanstack/react-query";
 
 type RoomPlayerSnapshot = {
   id: string;
@@ -97,6 +101,12 @@ type MonopolyBackendState = {
   trade?: MonopolyState["trade"];
   log?: string[];
   winnerId?: string | null;
+  activeEvent?: {
+    id?: string;
+    title?: string;
+    description?: string;
+    expiresOnTurn?: number;
+  } | null;
 };
 
 type MonopolySessionSnapshot = {
@@ -130,8 +140,11 @@ type MonopolyActionPayload = {
 export const Route = createFileRoute("/monopoly/$gameId")({
   head: () => ({
     meta: [
-      { title: "Monopoly — GameHub" },
-      { name: "description", content: "Play Monopoly locally with friends and AI. Offline-ready." },
+      { title: "Monopoly: India Edition — GameHub" },
+      {
+        name: "description",
+        content: "Play Monopoly: India Edition with friends and AI. Indian cities, ₹ currency, offline-ready.",
+      },
     ],
   }),
   component: MonopolyPage,
@@ -148,7 +161,7 @@ function mapPhase(phase: string | null | undefined) {
     case "WAITING_FOR_AUCTION":
       return "auction";
     case "PAUSED":
-      return "ended";
+      return "rolling";
     case "ENDED":
       return "ended";
     default:
@@ -323,7 +336,7 @@ function mapSnapshotToState(
       avatarColor: p.avatarColor ?? pickAvatarColor(username),
       isAI: p.isAI ?? p.aiControlled ?? false,
       position: asset?.position ?? 0,
-      cash: asset?.cash ?? 1500,
+      cash: asset?.cash ?? 15000,
       inJail: asset?.inJail ?? false,
       jailTurns: asset?.jailTurns ?? 0,
       jailCards: asset?.jailCards ?? asset?.getOutOfJailCards ?? 0,
@@ -436,6 +449,14 @@ function mapSnapshotToState(
       ) ??
       backend.winnerId ??
       null,
+    activeEvent: backend.activeEvent?.id
+      ? {
+          id: String(backend.activeEvent.id),
+          title: backend.activeEvent.title ?? String(backend.activeEvent.id),
+          description: backend.activeEvent.description ?? "",
+          expiresOnTurn: backend.activeEvent.expiresOnTurn ?? 0,
+        }
+      : null,
   };
 }
 
@@ -447,9 +468,48 @@ function MonopolyPage() {
   const snapshot = useGameSnapshot<MonopolySessionSnapshot>(gameId);
   const roomQuery = useRoom(snapshot.data?.roomId);
   const leaveRoomMut = useLeaveRoom();
+  const reconnectMut = useReconnectRoom();
+  const queryClient = useQueryClient();
+  const wsConnected = useConnectionStore((s) => s.connected);
 
   const roomId = snapshot.data?.roomId;
   const sessionId: string = (snapshot.data?.id ?? snapshot.data?.sessionId ?? gameId) as string;
+
+  useEffect(() => {
+    if (!roomId || !sessionId) return;
+    localStorage.setItem(
+      "gamehub:resume-session",
+      JSON.stringify({ roomId, sessionId, gameType: "monopoly" }),
+    );
+  }, [roomId, sessionId]);
+
+  // Mark seat connected + refresh authoritative snapshot on enter and after STOMP recovery
+  const prevWsConnected = useRef(wsConnected);
+  const didMountReconnect = useRef(false);
+  useEffect(() => {
+    if (!roomId) return;
+    const becameConnected = wsConnected && !prevWsConnected.current;
+    prevWsConnected.current = wsConnected;
+    const mountReconnect = wsConnected && !didMountReconnect.current;
+    if (mountReconnect) didMountReconnect.current = true;
+    if (!becameConnected && !mountReconnect) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await reconnectMut.mutateAsync(roomId);
+        if (cancelled) return;
+        await queryClient.invalidateQueries({ queryKey: ["game", gameId] });
+        await snapshot.refetch();
+      } catch (e) {
+        console.warn("[monopoly] room reconnect failed", e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId, wsConnected, gameId, queryClient]);
 
   // Backend broadcasts Monopoly state on /topic/game/{roomId} (singular)
   const primaryDestination = roomId ? Topics.gameRoom(roomId) : null;
@@ -709,10 +769,10 @@ function MonopolyPage() {
         <header className="flex items-end justify-between mb-4">
           <div>
             <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-1">
-              Local Game · Offline Ready
+              Bharat Edition · Multiplayer
             </div>
             <h1 className="font-display text-4xl md:text-5xl italic uppercase neon-text-glow">
-              Monopoly
+              Monopoly: India Edition
             </h1>
           </div>
           <div className="flex gap-2">
@@ -723,6 +783,17 @@ function MonopolyPage() {
               variant="ghost"
               size="sm"
               onClick={() => {
+                // Soft Exit: keep seat + resume token for later return
+                navigate({ to: "/" });
+              }}
+            >
+              Soft Exit
+            </NeonButton>
+            <NeonButton
+              variant="pink"
+              size="sm"
+              onClick={() => {
+                localStorage.removeItem("gamehub:resume-session");
                 if (roomId) {
                   leaveRoomMut.mutate(roomId, {
                     onSettled: () => navigate({ to: "/" }),
@@ -732,10 +803,12 @@ function MonopolyPage() {
                 }
               }}
             >
-              Exit
+              Abandon
             </NeonButton>
           </div>
         </header>
+
+        <IndianEventBanner event={state.activeEvent} />
 
         <div className="grid xl:grid-cols-[280px_minmax(0,1fr)_320px] gap-4">
           {/* Left: players */}
@@ -796,7 +869,7 @@ function MonopolyPage() {
                 {state.players.find((p) => p.id === state.winnerId)?.username} wins!
               </h2>
               <p className="text-white/60 text-sm mb-6">The last tycoon standing.</p>
-              <NeonButton onClick={() => navigate({ to: "/" })}>Return Home</NeonButton>
+              <NeonButton onClick={() => { localStorage.removeItem("gamehub:resume-session"); navigate({ to: "/" }); }}>Return Home</NeonButton>
             </div>
           </div>
         )}

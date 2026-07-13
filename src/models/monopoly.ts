@@ -1,3 +1,5 @@
+import type { ActiveIndianEvent } from "../data/indianEvents";
+
 export type TileType =
   | "go"
   | "property"
@@ -136,4 +138,5 @@ export interface MonopolyState {
   trade: TradeOffer | null;
   log: MonopolyLog[];
   winnerId: string | null;
+  activeEvent: ActiveIndianEvent | null;
 }

@@ -4,6 +4,7 @@ import { Gavel } from "lucide-react";
 import { BOARD } from "../../data/monopolyBoard";
 import type { MonopolyState } from "../../models/monopoly";
 import { NeonButton } from "../common/NeonButton";
+import { formatInr } from "../../utils/monopolyEngine";
 
 export function AuctionPanel({
   state,
@@ -42,12 +43,12 @@ export function AuctionPanel({
           Live Auction
         </div>
         <h2 className="font-display text-3xl italic uppercase mb-1">{tile.name}</h2>
-        <div className="text-xs font-mono text-white/40 mb-6">List $${tile.price}</div>
+        <div className="text-xs font-mono text-white/40 mb-6">List {formatInr(tile.price ?? 0)}</div>
 
         <div className="text-[10px] font-mono uppercase tracking-widest text-white/40">
           Highest Bid
         </div>
-        <div className="font-display text-5xl italic text-accent-amber mb-4">${a.highestBid}</div>
+        <div className="font-display text-5xl italic text-accent-amber mb-4">{formatInr(a.highestBid)}</div>
         {a.highestBidderId && (
           <div className="text-xs font-mono mb-4">
             by {state.players.find((p) => p.id === a.highestBidderId)?.username}

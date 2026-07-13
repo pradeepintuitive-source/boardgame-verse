@@ -69,6 +69,14 @@ function LobbyPage() {
     !!roomId,
   );
 
+  useEffect(() => {
+    if (!roomQuery.data || roomQuery.data.gameType !== "monopoly") return;
+    const room = roomQuery.data;
+    if (["IN_PROGRESS", "PAUSED"].includes(room.state.toUpperCase()) && room.currentSessionId) {
+      navigate({ to: "/monopoly/$gameId", params: { gameId: room.currentSessionId } });
+    }
+  }, [roomQuery.data, navigate]);
+
   // Polling fallback while the socket isn't connected so joins still surface.
   useEffect(() => {
     if (wsConnected || !roomId) return;

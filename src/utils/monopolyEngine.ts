@@ -19,11 +19,17 @@ import {
   UTILITY_TILES,
 } from "../data/monopolyBoard";
 import { CHANCE_CARDS, CHEST_CARDS } from "../data/monopolyCards";
+import { drawIndianEvent } from "../data/indianEvents";
 import { uid } from "./ids";
 
-const STARTING_CASH = 1500;
-const GO_BONUS = 200;
-const JAIL_FEE = 50;
+const STARTING_CASH = 15000;
+const GO_BONUS = 2000;
+/** Scaled with Bharat economy (classic 50 × 10). */
+export const JAIL_FEE = 500;
+
+export function formatInr(value: number): string {
+  return `₹${value.toLocaleString("en-IN")}`;
+}
 
 function log(state: MonopolyState, text: string, kind: MonopolyLog["kind"] = "info") {
   state.log = [...state.log, { id: uid("ml"), text, ts: Date.now(), kind }].slice(-200);
@@ -73,6 +79,7 @@ export function initMonopolyGame(gameId: string, players: Player[]): MonopolySta
     trade: null,
     log: [{ id: uid("ml"), text: "Match begins. Roll the dice!", ts: Date.now(), kind: "event" }],
     winnerId: null,
+    activeEvent: null,
   };
   return state;
 }
@@ -97,19 +104,56 @@ export function rentFor(s: MonopolyState, tileIndex: number, diceTotal: number):
   const tile = BOARD[tileIndex];
   const prop = s.properties[tileIndex];
   if (!prop || !prop.ownerId || prop.mortgaged) return 0;
+  let rent = 0;
   if (tile.type === "property" && tile.rent) {
     let r = tile.rent[prop.houses] ?? tile.rent[0];
     if (prop.houses === 0 && ownsFullGroup(s, tile.group!, prop.ownerId)) r *= 2;
-    return r;
+    rent = r;
+  } else if (tile.type === "railroad") {
+    rent = RAILROAD_RENT[railroadsOwned(s, prop.ownerId) - 1] ?? 0;
+  } else if (tile.type === "utility") {
+    const event = s.activeEvent;
+    const mult =
+      event?.id === "CYCLONE" ? 2 : utilitiesOwned(s, prop.ownerId) === 2 ? 10 : 4;
+    rent = mult * diceTotal;
   }
-  if (tile.type === "railroad") {
-    return RAILROAD_RENT[railroadsOwned(s, prop.ownerId) - 1] ?? 0;
+  return applyEventRentModifier(s, tileIndex, rent);
+}
+
+function applyEventRentModifier(s: MonopolyState, tileIndex: number, rent: number): number {
+  const event = s.activeEvent;
+  const tile = BOARD[tileIndex];
+  if (!event || rent <= 0) return rent;
+  switch (event.id) {
+    case "ECONOMIC_BOOM":
+      return tile.type === "property" ? Math.round(rent * 1.5) : rent;
+    case "ECONOMIC_RECESSION":
+      return tile.type === "property" ? Math.floor(rent / 2) : rent;
+    case "FESTIVAL_SEASON":
+      return tile.type === "railroad" ? rent * 2 : rent;
+    case "TOURISM_SEASON":
+      return tile.type === "property" && (tile.group === "lightblue" || tile.group === "yellow")
+        ? rent * 2
+        : rent;
+    case "FLOODS":
+    case "CYCLONE":
+      return tile.type === "property" && tile.group === "yellow" ? 0 : rent;
+    case "STARTUP_WAVE":
+      return tileIndex === 24 || tileIndex === 34 ? rent * 2 : rent;
+    default:
+      return rent;
   }
-  if (tile.type === "utility") {
-    const mult = utilitiesOwned(s, prop.ownerId) === 2 ? 10 : 4;
-    return mult * diceTotal;
-  }
-  return 0;
+}
+
+export function effectiveJailFee(s: MonopolyState): number {
+  return s.activeEvent?.id === "IPL_SEASON" ? 250 : JAIL_FEE;
+}
+
+function goBonus(s: MonopolyState): number {
+  let bonus = GO_BONUS;
+  if (s.activeEvent?.id === "BUDGET_ANNOUNCEMENT") bonus = 3000;
+  if (s.activeEvent?.id === "FESTIVAL_SEASON") bonus += 500;
+  return bonus;
 }
 
 /* ---------- Money / bankruptcy ---------- */
@@ -134,7 +178,7 @@ function pay(
   }
   // Bankruptcy if still owing
   if (amount > actualPay) {
-    log(next, `${payer.username} cannot pay $${amount} and is bankrupt!`, "event");
+    log(next, `${payer.username} cannot pay ${formatInr(amount)} and is bankrupt!`, "event");
     next = bankrupt(next, payerId, payeeId === "bank" ? null : (payeeId ?? null));
   }
   return next;
@@ -192,8 +236,12 @@ export function rollDice(state: MonopolyState): MonopolyState {
       if (turns >= 3) {
         // forced pay
         next = updatePlayer(next, player.id, { inJail: false, jailTurns: 0 });
-        next = pay(next, player.id, JAIL_FEE, "bank");
-        log(next, `${player.username} paid $${JAIL_FEE} after 3 turns in jail.`, "money");
+        next = pay(next, player.id, effectiveJailFee(next), "bank");
+        log(
+          next,
+          `${player.username} paid ${formatInr(effectiveJailFee(next))} after 3 turns in jail.`,
+          "money",
+        );
       } else {
         next = updatePlayer(next, player.id, { jailTurns: turns });
         log(next, `${player.username} rolled ${d1}+${d2}, still in jail.`, "info");
@@ -230,8 +278,9 @@ function advancePlayer(
   const newPos = (((p.position + steps) % 40) + 40) % 40;
   let next = updatePlayer(state, id, { position: newPos });
   if (collectGo && p.position + steps >= 40) {
-    next = updatePlayer(next, id, { cash: next.players.find((x) => x.id === id)!.cash + GO_BONUS });
-    log(next, `${p.username} passed GO. +$${GO_BONUS}`, "money");
+    const bonus = goBonus(next);
+    next = updatePlayer(next, id, { cash: next.players.find((x) => x.id === id)!.cash + bonus });
+    log(next, `${p.username} passed GO. +${formatInr(bonus)}`, "money");
   }
   next = { ...next, phase: "moving" };
   return resolveLanding(next, id);
@@ -249,8 +298,34 @@ function resolveLanding(state: MonopolyState, id: string): MonopolyState {
     return next;
   }
   if (tile.type === "tax") {
-    next = pay(next, id, tile.taxAmount!, "bank");
-    log(next, `${p.username} paid $${tile.taxAmount} tax.`, "money");
+    let tax = tile.taxAmount!;
+    if (next.activeEvent?.id === "BUDGET_ANNOUNCEMENT" && tile.index === 4) tax = 3000;
+    next = pay(next, id, tax, "bank");
+    log(next, `${p.username} paid ${formatInr(tax)} tax.`, "money");
+    return next;
+  }
+  if (tile.type === "free-parking") {
+    const drawn = drawIndianEvent(next.activeEvent?.id);
+    const expiresOnTurn = (next.players.length || 1) * 2 + (next.currentPlayerIndex + 1);
+    next = {
+      ...next,
+      activeEvent: { ...drawn, expiresOnTurn },
+    };
+    log(next, `Indian Event: ${drawn.title} — ${drawn.description}`, "event");
+    if (drawn.id === "FLOODS" || drawn.id === "CYCLONE") {
+      const yellow = [26, 27, 29];
+      const payouts = new Map<string, number>();
+      yellow.forEach((pos) => {
+        const ownerId = next.properties[pos]?.ownerId;
+        if (ownerId) payouts.set(ownerId, (payouts.get(ownerId) ?? 0) + 200);
+      });
+      payouts.forEach((amount, ownerId) => {
+        const owner = next.players.find((x) => x.id === ownerId);
+        if (!owner) return;
+        next = updatePlayer(next, ownerId, { cash: owner.cash + amount });
+        log(next, `${owner.username} received ${formatInr(amount)} flood insurance.`, "money");
+      });
+    }
     return next;
   }
   if (tile.type === "chance" || tile.type === "chest") {
@@ -268,7 +343,7 @@ function resolveLanding(state: MonopolyState, id: string): MonopolyState {
         next = pay(next, id, rent, prop.ownerId);
         log(
           next,
-          `${p.username} paid $${rent} rent to ${next.players.find((x) => x.id === prop.ownerId)!.username}.`,
+          `${p.username} paid ${formatInr(rent)} rent to ${next.players.find((x) => x.id === prop.ownerId)!.username}.`,
           "money",
         );
       }
@@ -385,7 +460,7 @@ export function buyPending(state: MonopolyState): MonopolyState {
     },
     pendingPurchaseTile: null,
   };
-  log(next, `${buyer.username} bought ${tile.name} for $${tile.price}.`, "money");
+  log(next, `${buyer.username} bought ${tile.name} for ${formatInr(tile.price)}.`, "money");
   return next;
 }
 
@@ -456,7 +531,7 @@ export function settleAuction(state: MonopolyState): MonopolyState {
         [a.tileIndex]: { ownerId: buyer.id, houses: 0, mortgaged: false },
       },
     };
-    log(next, `${buyer.username} won the auction for ${tile.name} at $${a.highestBid}.`, "money");
+    log(next, `${buyer.username} won the auction for ${tile.name} at ${formatInr(a.highestBid)}.`, "money");
   } else {
     log(next, `Auction for ${tile.name} ended with no bids.`, "event");
   }
@@ -499,7 +574,7 @@ export function sellHouse(state: MonopolyState, tileIdx: number): MonopolyState 
     ...next,
     properties: { ...next.properties, [tileIdx]: { ...prop, houses: prop.houses - 1 } },
   };
-  log(next, `${owner.username} sold a house on ${tile.name} for $${refund}.`, "money");
+  log(next, `${owner.username} sold a house on ${tile.name} for ${formatInr(refund)}.`, "money");
   return next;
 }
 
@@ -522,7 +597,7 @@ export function toggleMortgage(state: MonopolyState, tileIdx: number): MonopolyS
   }
   let next = updatePlayer(state, owner.id, { cash: owner.cash + mortgageValue });
   next = { ...next, properties: { ...next.properties, [tileIdx]: { ...prop, mortgaged: true } } };
-  log(next, `${owner.username} mortgaged ${tile.name} for $${mortgageValue}.`, "money");
+  log(next, `${owner.username} mortgaged ${tile.name} for ${formatInr(mortgageValue)}.`, "money");
   return next;
 }
 
@@ -530,9 +605,10 @@ export function toggleMortgage(state: MonopolyState, tileIdx: number): MonopolyS
 
 export function payJailFee(state: MonopolyState): MonopolyState {
   const p = currentPlayer(state);
-  if (!p.inJail || p.cash < JAIL_FEE) return state;
-  let next = updatePlayer(state, p.id, { inJail: false, jailTurns: 0, cash: p.cash - JAIL_FEE });
-  log(next, `${p.username} paid $${JAIL_FEE} to leave jail.`, "money");
+  const fee = effectiveJailFee(state);
+  if (!p.inJail || p.cash < fee) return state;
+  let next = updatePlayer(state, p.id, { inJail: false, jailTurns: 0, cash: p.cash - fee });
+  log(next, `${p.username} paid ${formatInr(fee)} to leave jail.`, "money");
   return next;
 }
 export function useJailCard(state: MonopolyState): MonopolyState {
@@ -552,7 +628,7 @@ export function bankAdjust(state: MonopolyState, playerId: string, delta: number
   const next = updatePlayer(state, playerId, { cash: newCash });
   log(
     next,
-    delta >= 0 ? `Bank paid ${p.username} $${delta}.` : `${p.username} paid bank $${-delta}.`,
+    delta >= 0 ? `Bank paid ${p.username} ${formatInr(delta)}.` : `${p.username} paid bank ${formatInr(-delta)}.`,
     "money",
   );
   return next;
@@ -570,7 +646,7 @@ export function bankTransfer(
   if (!from || !to || from.cash < amount) return state;
   let next = updatePlayer(state, fromId, { cash: from.cash - amount });
   next = updatePlayer(next, toId, { cash: to.cash + amount });
-  log(next, `${from.username} transferred $${amount} to ${to.username}.`, "money");
+  log(next, `${from.username} transferred ${formatInr(amount)} to ${to.username}.`, "money");
   return next;
 }
 

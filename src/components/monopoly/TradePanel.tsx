@@ -114,7 +114,7 @@ export function TradePanel({
               selected={myProps}
               onToggle={toggle(setMyProps, myProps)}
             />
-            <label className="block mt-3 text-[10px] font-mono uppercase">Cash ($)</label>
+            <label className="block mt-3 text-[10px] font-mono uppercase">Cash (₹)</label>
             <input
               type="number"
               min={0}
@@ -135,7 +135,7 @@ export function TradePanel({
               selected={theirProps}
               onToggle={toggle(setTheirProps, theirProps)}
             />
-            <label className="block mt-3 text-[10px] font-mono uppercase">Cash ($)</label>
+            <label className="block mt-3 text-[10px] font-mono uppercase">Cash (₹)</label>
             <input
               type="number"
               min={0}

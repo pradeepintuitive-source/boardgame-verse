@@ -1,6 +1,7 @@
 import { Lock, Bot } from "lucide-react";
 import { BOARD, GROUP_COLORS } from "../../data/monopolyBoard";
 import type { MonopolyState, MonopolyPlayer } from "../../models/monopoly";
+import { formatInr } from "../../utils/monopolyEngine";
 
 export function PlayerPanel({
   state,
@@ -37,7 +38,7 @@ export function PlayerPanel({
             {isMe && <span className="text-[9px] font-mono text-accent-cyan">(YOU)</span>}
           </div>
           <div className="text-[10px] font-mono text-accent-amber">
-            ${player.cash.toLocaleString()}
+            {formatInr(player.cash)}
           </div>
         </div>
         {player.inJail && <Lock className="size-3.5 text-destructive" />}

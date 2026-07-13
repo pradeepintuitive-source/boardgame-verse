@@ -16,6 +16,7 @@ export interface Player {
   isHost: boolean;
   isAI: boolean;
   ready: boolean;
+  connected: boolean;
 }
 
 export interface Room {
@@ -28,6 +29,7 @@ export interface Room {
   isPrivate: boolean;
   isLan: boolean;
   hostId: string;
+  state: string;
   currentSessionId?: string | null;
   players: Player[];
   createdAt: number;
