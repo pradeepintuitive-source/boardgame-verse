@@ -191,6 +191,19 @@ class GameHubStompClient {
   }
 }
 
+/**
+ * Spring registers `/ws` with SockJS (not a raw STOMP WebSocket).
+ * Local uses `http(s)://…/ws` + SockJS; production must do the same.
+ * A `wss://…/ws` URL skips SockJS and the handshake fails immediately
+ * (browser shows endless CLOSED connections / RECONNECTING).
+ */
+function toSockJsUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("wss://")) return `https://${url.slice("wss://".length)}`;
+  if (url.startsWith("ws://")) return `http://${url.slice("ws://".length)}`;
+  return url;
+}
+
 const defaultSocketUrl = (() => {
   if (typeof window === "undefined") {
     return null;
@@ -201,14 +214,16 @@ const defaultSocketUrl = (() => {
     return "http://localhost:8080/ws";
   }
 
-  return "wss://api.pradeepkulal.click/ws";
+  return "https://api.pradeepkulal.click/ws";
 })();
 
 export const stomp = new GameHubStompClient();
 stomp.configure(
   typeof window !== "undefined"
-    ? ((import.meta.env.NEXT_PUBLIC_WS_URL as string | undefined) ??
-       (import.meta.env.VITE_STOMP_URL as string | undefined) ??
-       defaultSocketUrl)
+    ? toSockJsUrl(
+        (import.meta.env.NEXT_PUBLIC_WS_URL as string | undefined) ??
+          (import.meta.env.VITE_STOMP_URL as string | undefined) ??
+          defaultSocketUrl,
+      )
     : null,
 );
