@@ -81,12 +81,16 @@ class GameHubStompClient {
         this.client!.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
       },
       onConnect: () => {
+        console.log("ON CONNECT START");
         console.log("STOMP CONNECTED");
         this.emit(true, false);
         const entries = Array.from(this.subs.entries());
         this.subs.clear();
         entries.forEach(([dest, { handler }]) => this.subscribe(dest, handler));
+        console.log("About to subscribe ACK");
+        console.log(Topics.privateAcks);
         this.subscribe(Topics.privateAcks, (body) => {
+          console.log("ACK subscribed");
           console.log("******** ACK RECEIVED ********");
           console.log(body);
           const ack = body as { requestId?: string; action?: string; success?: boolean; errorCode?: string; message?: string } | null;
@@ -96,6 +100,7 @@ class GameHubStompClient {
           const requests = useWebsocketRequestStore.getState();
           if (ack.success) {
             requests.markAcknowledged(ack.requestId);
+            requests.completeRequest(ack.requestId);
           } else {
             requests.failRequest(ack.requestId, ack.errorCode, ack.message ?? "Action rejected by server");
           }
@@ -124,6 +129,7 @@ class GameHubStompClient {
   }
 
   subscribe(destination: string, handler: Handler) {
+    console.log("subscribe() called:", destination);
     if (!this.client?.connected) {
       // Queue the handler — onConnect will rebind.
       this.subs.set(destination, { stomp: {} as StompSubscription, handler });
