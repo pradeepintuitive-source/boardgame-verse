@@ -29,10 +29,13 @@ export function Board({
   state,
   onTileClick,
   highlightTile,
+  focusPlayerId,
 }: {
   state: MonopolyState;
   onTileClick?: (idx: number) => void;
   highlightTile?: number | null;
+  /** When set, ring that player's deeds + glow their token position */
+  focusPlayerId?: string | null;
 }) {
   const tokensByTile = useMemo(() => {
     const m: Record<number, typeof state.players> = {};
@@ -43,6 +46,28 @@ export function Board({
       });
     return m;
   }, [state.players]);
+
+  const seatById = useMemo(() => {
+    const map: Record<string, number> = {};
+    state.players.forEach((p, i) => {
+      map[p.id] = i + 1;
+    });
+    return map;
+  }, [state.players]);
+
+  const focusPlayer = focusPlayerId
+    ? state.players.find((p) => p.id === focusPlayerId)
+    : null;
+  const focusColor = focusPlayer?.avatarColor ?? "#00f2ff";
+  const focusOwned = useMemo(() => {
+    const set = new Set<number>();
+    if (!focusPlayerId) return set;
+    Object.entries(state.properties).forEach(([idx, prop]) => {
+      if (prop.ownerId === focusPlayerId) set.add(Number(idx));
+    });
+    return set;
+  }, [focusPlayerId, state.properties]);
+  const focusPosition = focusPlayer && !focusPlayer.bankrupt ? focusPlayer.position : null;
 
   return (
     <div className="relative aspect-square w-full max-w-[820px] mx-auto">
@@ -57,6 +82,8 @@ export function Board({
             ? state.players.find((p) => p.id === prop.ownerId)?.avatarColor
             : null;
           const tokens = tokensByTile[tile.index] ?? [];
+          const ownedByFocus = focusOwned.has(tile.index);
+          const isFocusPosition = focusPosition === tile.index;
           return (
             <div
               key={tile.index}
@@ -70,11 +97,21 @@ export function Board({
                 orientation={pos.orientation}
                 onClick={() => onTileClick?.(tile.index)}
                 highlight={highlightTile === tile.index}
+                focusOwned={ownedByFocus}
+                focusPosition={isFocusPosition}
+                focusColor={focusColor}
               />
               {tokens.length > 0 && (
                 <div className="absolute inset-0 pointer-events-none flex flex-wrap items-end justify-center p-1 gap-0.5">
-                  {tokens.map((p) => (
-                    <Token key={p.id} color={p.avatarColor} label={p.username} />
+                  {tokens.map((p, i) => (
+                    <Token
+                      key={p.id}
+                      color={p.avatarColor}
+                      label={p.username}
+                      stackIndex={i}
+                      seatNumber={seatById[p.id]}
+                      emphasized={focusPlayerId === p.id}
+                    />
                   ))}
                 </div>
               )}
@@ -93,6 +130,18 @@ export function Board({
             <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mt-2">
               GameHub Edition
             </div>
+            {focusPlayer ? (
+              <div
+                className="mt-3 text-[10px] font-mono uppercase tracking-widest px-3 py-1 border inline-block"
+                style={{
+                  color: focusColor,
+                  borderColor: `${focusColor}80`,
+                  background: `${focusColor}18`,
+                }}
+              >
+                Focusing {focusPlayer.username}
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

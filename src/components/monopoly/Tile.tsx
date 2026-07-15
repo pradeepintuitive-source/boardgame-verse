@@ -11,9 +11,25 @@ interface Props {
   onClick?: () => void;
   children?: ReactNode;
   highlight?: boolean;
+  /** Deed owned by focused player card */
+  focusOwned?: boolean;
+  /** Focused player's current board position */
+  focusPosition?: boolean;
+  focusColor?: string;
 }
 
-export function Tile({ tile, prop, ownerColor, orientation, onClick, children, highlight }: Props) {
+export function Tile({
+  tile,
+  prop,
+  ownerColor,
+  orientation,
+  onClick,
+  children,
+  highlight,
+  focusOwned,
+  focusPosition,
+  focusColor = "#00f2ff",
+}: Props) {
   const isCorner = orientation === "corner";
   const groupBar = tile.group ? GROUP_COLORS[tile.group] : null;
   const barPos =
@@ -27,12 +43,30 @@ export function Tile({ tile, prop, ownerColor, orientation, onClick, children, h
   const isVerticalBar = orientation === "left" || orientation === "right";
   const label = shortTileName(tile);
 
+  const ringClass = focusPosition
+    ? "ring-2 ring-offset-1 ring-offset-transparent"
+    : focusOwned
+      ? "ring-2"
+      : highlight
+        ? "ring-2 ring-accent-cyan"
+        : "";
+
   return (
     <button
       type="button"
       title={tile.name}
       onClick={onClick}
-      className={`relative w-full h-full glass-panel border border-white/10 p-1 text-left flex flex-col overflow-hidden hover:border-accent-cyan/60 transition-colors ${highlight ? "ring-2 ring-accent-cyan" : ""}`}
+      className={`relative w-full h-full glass-panel border border-white/10 p-1 text-left flex flex-col overflow-hidden hover:border-accent-cyan/60 transition-colors ${ringClass}`}
+      style={
+        focusOwned || focusPosition
+          ? {
+              boxShadow: focusPosition
+                ? `0 0 0 2px ${focusColor}, 0 0 18px ${focusColor}`
+                : `0 0 0 2px ${focusColor}, inset 0 0 24px ${focusColor}44`,
+              borderColor: `${focusColor}aa`,
+            }
+          : undefined
+      }
     >
       {groupBar && (
         <div

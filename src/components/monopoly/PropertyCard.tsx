@@ -97,30 +97,32 @@ export function PropertyCard({
 
           {tile.type === "property" && tile.rent && (
             <ul className="text-xs font-mono space-y-1 mb-4">
-              <li className="flex justify-between">
-                <span>Rent (Empty Land)</span>
-                <span>{formatInr(tile.rent[0])}</span>
-              </li>
-              <li className="flex justify-between">
-                <span>With Village</span>
-                <span>{formatInr(tile.rent[1])}</span>
-              </li>
-              <li className="flex justify-between">
-                <span>With Town</span>
-                <span>{formatInr(tile.rent[2])}</span>
-              </li>
-              <li className="flex justify-between">
-                <span>With City</span>
-                <span>{formatInr(tile.rent[3])}</span>
-              </li>
-              <li className="flex justify-between">
-                <span>With Metro</span>
-                <span>{formatInr(tile.rent[4])}</span>
-              </li>
-              <li className="flex justify-between">
-                <span>With Smart City</span>
-                <span>{formatInr(tile.rent[5])}</span>
-              </li>
+              {[
+                { label: "Rent (Empty Land)", level: 0 },
+                { label: "With Village", level: 1 },
+                { label: "With Town", level: 2 },
+                { label: "With City", level: 3 },
+                { label: "With Metro", level: 4 },
+                { label: "With Smart City", level: 5 },
+              ].map((row) => {
+                const active = houses === row.level;
+                return (
+                  <li
+                    key={row.level}
+                    className={`flex justify-between px-2 py-1 rounded-sm ${
+                      active
+                        ? "bg-accent-amber/20 text-accent-amber border border-accent-amber/50 font-bold"
+                        : "text-white/70"
+                    }`}
+                  >
+                    <span>
+                      {row.label}
+                      {active ? " · current" : ""}
+                    </span>
+                    <span>{formatInr(tile.rent![row.level])}</span>
+                  </li>
+                );
+              })}
               <li className="flex justify-between text-white/40 pt-2">
                 <span>Upgrade cost</span>
                 <span>{formatInr(houseCost)}</span>
@@ -133,12 +135,30 @@ export function PropertyCard({
           )}
           {tile.type === "railroad" && (
             <ul className="text-xs font-mono space-y-1 mb-4">
-              {RAILROAD_RENT.map((r, i) => (
-                <li key={i} className="flex justify-between">
-                  <span>{i + 1} Railway Owned</span>
-                  <span>{formatInr(r)}</span>
-                </li>
-              ))}
+              {RAILROAD_RENT.map((r, i) => {
+                const ownedCount = owner
+                  ? Object.entries(state.properties).filter(([idx, p]) => {
+                      const t = BOARD[Number(idx)];
+                      return p.ownerId === owner.id && t?.type === "railroad";
+                    }).length
+                  : 0;
+                const active = ownedCount === i + 1;
+                return (
+                  <li
+                    key={i}
+                    className={`flex justify-between px-2 py-1 rounded-sm ${
+                      active
+                        ? "bg-accent-amber/20 text-accent-amber border border-accent-amber/50 font-bold"
+                        : "text-white/70"
+                    }`}
+                  >
+                    <span>
+                      {i + 1} Railway Owned{active ? " · current" : ""}
+                    </span>
+                    <span>{formatInr(r)}</span>
+                  </li>
+                );
+              })}
               <li className="flex justify-between text-white/40 pt-2">
                 <span>Mortgage value</span>
                 <span>{formatInr(mortgageValue)}</span>
@@ -147,14 +167,38 @@ export function PropertyCard({
           )}
           {tile.type === "utility" && (
             <ul className="text-xs font-mono space-y-1 mb-4">
-              <li className="flex justify-between">
-                <span>1 Utility</span>
-                <span>4× dice</span>
-              </li>
-              <li className="flex justify-between">
-                <span>2 Utilities</span>
-                <span>10× dice</span>
-              </li>
+              {(() => {
+                const ownedUtils = owner
+                  ? Object.entries(state.properties).filter(([idx, p]) => {
+                      const t = BOARD[Number(idx)];
+                      return p.ownerId === owner.id && t?.type === "utility";
+                    }).length
+                  : 0;
+                return (
+                  <>
+                    <li
+                      className={`flex justify-between px-2 py-1 rounded-sm ${
+                        ownedUtils === 1
+                          ? "bg-accent-amber/20 text-accent-amber border border-accent-amber/50 font-bold"
+                          : "text-white/70"
+                      }`}
+                    >
+                      <span>1 Utility{ownedUtils === 1 ? " · current" : ""}</span>
+                      <span>4× dice</span>
+                    </li>
+                    <li
+                      className={`flex justify-between px-2 py-1 rounded-sm ${
+                        ownedUtils >= 2
+                          ? "bg-accent-amber/20 text-accent-amber border border-accent-amber/50 font-bold"
+                          : "text-white/70"
+                      }`}
+                    >
+                      <span>2 Utilities{ownedUtils >= 2 ? " · current" : ""}</span>
+                      <span>10× dice</span>
+                    </li>
+                  </>
+                );
+              })()}
               <li className="flex justify-between text-white/40 pt-2">
                 <span>Mortgage value</span>
                 <span>{formatInr(mortgageValue)}</span>

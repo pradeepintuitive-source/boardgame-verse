@@ -629,11 +629,13 @@ function MonopolyPage() {
   const user = useAuthStore((s) => s.user);
   const [hydrated, setHydrated] = useState(false);
   const [openTile, setOpenTile] = useState<number | null>(null);
+  const [focusPlayerId, setFocusPlayerId] = useState<string | null>(null);
   const [tradePartner, setTradePartner] = useState<string | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
   const [cardReveal, setCardReveal] = useState<CardReveal | null>(null);
   const seenCardLogRef = useRef<string | null>(null);
   const autoEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const auctionStartingRef = useRef(false);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasValidState = Boolean(state && state.players?.length > 0);
@@ -669,19 +671,45 @@ function MonopolyPage() {
     }
   }, [state?.log]);
 
-  // Auto-continue after passive landings
+  // Auto-continue after passive landings ONLY — never while buy/auction is available.
   useEffect(() => {
     if (autoEndTimer.current) {
       clearTimeout(autoEndTimer.current);
       autoEndTimer.current = null;
     }
     if (!state || !me || !isMyTurnPreview || !sessionId) return;
+    if (state.phase === "auction" || state.auction || auctionStartingRef.current) return;
     if (state.phase !== "landed") return;
     if (state.pendingPurchaseTile != null) return;
-    if (state.auction) return;
+
+    // Safety: unowned buyable tile under current player = Buy/Auction decision, not auto-end.
+    const curPlayer = state.players[state.currentPlayerIndex];
+    const pos = curPlayer?.position;
+    if (typeof pos === "number") {
+      const tile = BOARD[pos];
+      const prop = state.properties[pos];
+      const buyable =
+        tile &&
+        (tile.type === "property" || tile.type === "railroad" || tile.type === "utility") &&
+        prop &&
+        !prop.ownerId;
+      if (buyable) return;
+    }
+
     if (cardReveal || openTile != null || bankOpen || tradePartner) return;
 
     autoEndTimer.current = setTimeout(async () => {
+      // Re-check live store — auction may have started during the delay.
+      const live = useMonopolyStore.getState().games[gameId];
+      if (
+        !live ||
+        live.phase === "auction" ||
+        live.auction ||
+        auctionStartingRef.current ||
+        live.pendingPurchaseTile != null
+      ) {
+        return;
+      }
       try {
         const nextState = await monopolyApi.action<MonopolyBackendState>(sessionId, {
           type: "END_TURN",
@@ -706,7 +734,15 @@ function MonopolyPage() {
     bankOpen,
     tradePartner,
     applyMonopolyState,
+    gameId,
   ]);
+
+  // Clear "auction starting" latch once live auction state arrives (or timed out).
+  useEffect(() => {
+    if (state?.auction || state?.phase === "auction") {
+      auctionStartingRef.current = false;
+    }
+  }, [state?.auction, state?.phase]);
 
   // AI driver — runs whenever it's an AI's turn or AI auction bidder
   useEffect(() => {
@@ -833,11 +869,25 @@ function MonopolyPage() {
             : { action: "PASS" };
 
       const dest = Topics.send.auction(sessionId);
+      if (type === "START_AUCTION") {
+        // Block auto END_TURN until AUCTION_UPDATE arrives (STOMP can lag past 1.2s).
+        auctionStartingRef.current = true;
+        if (autoEndTimer.current) {
+          clearTimeout(autoEndTimer.current);
+          autoEndTimer.current = null;
+        }
+        window.setTimeout(() => {
+          if (!useMonopolyStore.getState().games[gameId]?.auction) {
+            auctionStartingRef.current = false;
+          }
+        }, 15_000);
+      }
       const { sent, requestId } = stomp.sendTrackedMessage(dest, auctionBody, type, { sessionId });
       if (sent) {
         console.debug("[game] sent auction action over STOMP", type, dest, auctionBody);
         return true;
       }
+      auctionStartingRef.current = false;
       useWebsocketRequestStore
         .getState()
         .failRequest(String(requestId), "CONNECTION_ERROR", "Unable to contact server");
@@ -921,13 +971,18 @@ function MonopolyPage() {
         <div className="grid xl:grid-cols-[280px_minmax(0,1fr)_320px] gap-4">
           {/* Left: players */}
           <aside className="space-y-2 order-2 xl:order-1">
-            {state.players.map((p) => (
+            {state.players.map((p, seatIdx) => (
               <PlayerPanel
                 key={p.id}
                 state={state}
                 player={p}
+                seatNumber={seatIdx + 1}
                 isCurrent={state.players[state.currentPlayerIndex].id === p.id}
                 isMe={p.id === me.id}
+                selected={focusPlayerId === p.id}
+                onSelectPlayer={() =>
+                  setFocusPlayerId((prev) => (prev === p.id ? null : p.id))
+                }
                 onSelectTile={(i) => setOpenTile(i)}
                 onProposeTrade={p.id !== me.id ? () => setTradePartner(p.id) : undefined}
               />
@@ -940,6 +995,7 @@ function MonopolyPage() {
               state={state}
               onTileClick={(i) => setOpenTile(i)}
               highlightTile={state.pendingPurchaseTile}
+              focusPlayerId={focusPlayerId}
             />
           </section>
 
