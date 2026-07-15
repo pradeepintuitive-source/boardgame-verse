@@ -56,11 +56,11 @@ export function PlayerPanel({
       ? "Rolling"
       : state.phase === "landed"
         ? pending != null
-          ? "Buy / Auction"
+          ? "Decide"
           : "Continue"
         : state.phase === "auction"
           ? "Auction"
-          : "In control";
+          : "Turn";
 
   return (
     <div
@@ -73,62 +73,90 @@ export function PlayerPanel({
           onSelectPlayer?.();
         }
       }}
-      className={`glass-panel ${compact ? "p-2" : "p-3"} border cursor-pointer transition-shadow ${
-        player.bankrupt ? "opacity-40" : ""
+      className={`relative overflow-hidden rounded-sm border cursor-pointer transition-all duration-200 ${
+        compact ? "p-2" : "p-3"
+      } ${player.bankrupt ? "opacity-40" : ""} ${
+        isCurrent
+          ? "bg-white/[0.04]"
+          : selected
+            ? "bg-white/[0.03]"
+            : "bg-black/30 hover:bg-white/[0.03]"
       }`}
       style={
         isCurrent
           ? {
-              borderColor: player.avatarColor,
-              boxShadow: `0 0 0 2px ${player.avatarColor}, 0 0 22px ${player.avatarColor}88`,
-              background: `${player.avatarColor}14`,
+              borderColor: `${player.avatarColor}cc`,
+              boxShadow: `inset 0 0 0 1px ${player.avatarColor}33, 0 0 18px ${player.avatarColor}40`,
             }
           : selected
             ? {
-                boxShadow: `0 0 0 2px ${player.avatarColor}, 0 0 16px ${player.avatarColor}55`,
+                borderColor: `${player.avatarColor}99`,
+                boxShadow: `0 0 12px ${player.avatarColor}35`,
               }
-            : undefined
+            : { borderColor: "rgba(255,255,255,0.1)" }
       }
     >
       {isCurrent ? (
         <div
-          className="text-[8px] font-mono uppercase tracking-[0.25em] mb-1 font-bold"
-          style={{ color: player.avatarColor }}
-        >
-          Turn · {phaseHint}
-        </div>
+          className="absolute left-0 top-0 bottom-0 w-0.5"
+          style={{ background: player.avatarColor, boxShadow: `0 0 8px ${player.avatarColor}` }}
+        />
       ) : null}
 
-      <div className="flex items-start gap-2 mb-1">
+      <div className="flex items-center gap-2 min-w-0">
         <div className="relative shrink-0">
           <div
-            className={`${compact ? "size-6" : "size-7"} rounded-full border-2 border-white/70 grid place-items-center font-mono text-[10px] font-bold text-black`}
+            className={`${compact ? "size-7" : "size-8"} rounded-full grid place-items-center font-mono text-[11px] font-bold text-black ring-2 ring-black/40`}
             style={{
               background: player.avatarColor,
-              boxShadow: isCurrent ? `0 0 14px ${player.avatarColor}` : `0 0 8px ${player.avatarColor}`,
+              boxShadow: isCurrent
+                ? `0 0 12px ${player.avatarColor}aa`
+                : `0 0 6px ${player.avatarColor}66`,
             }}
           >
             {player.username.slice(0, 1).toUpperCase()}
           </div>
-          <span className="absolute -bottom-1 -right-1 size-3.5 rounded-full bg-black border border-white/40 grid place-items-center text-[7px] font-mono text-white">
+          <span className="absolute -bottom-0.5 -right-0.5 size-3.5 rounded-full bg-[#0a0a0c] border border-white/25 grid place-items-center text-[7px] font-mono text-white/80">
             {seatNumber}
           </span>
         </div>
+
         <div className="flex-1 min-w-0">
-          <div className="text-sm font-bold truncate flex items-center gap-1">
-            {player.username}
-            {player.isAI && <Bot className="size-3 text-accent-cyan" />}
-            {isMe && <span className="text-[9px] font-mono text-accent-cyan">(YOU)</span>}
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className="text-[13px] font-semibold truncate leading-tight">{player.username}</span>
+            {player.isAI && <Bot className="size-3 text-accent-cyan shrink-0" />}
+            {isMe && (
+              <span className="text-[8px] font-mono uppercase tracking-wider text-accent-cyan shrink-0">
+                You
+              </span>
+            )}
+            {isCurrent && (
+              <span
+                className="ml-auto text-[7px] font-mono uppercase tracking-[0.2em] font-bold shrink-0 px-1.5 py-0.5 rounded-sm"
+                style={{
+                  color: player.avatarColor,
+                  background: `${player.avatarColor}22`,
+                  border: `1px solid ${player.avatarColor}55`,
+                }}
+              >
+                {phaseHint}
+              </span>
+            )}
+            {player.inJail && <Lock className="size-3 text-destructive shrink-0" />}
           </div>
-          <div className="text-[10px] font-mono text-accent-amber">{formatInr(player.cash)}</div>
-          <div className="text-[8px] font-mono text-white/40 truncate" title={tileName}>
-            At {tileName}
+          <div className="flex items-baseline gap-2 mt-0.5 min-w-0">
+            <span className="text-[12px] font-mono font-bold text-accent-amber tabular-nums">
+              {formatInr(player.cash)}
+            </span>
+            <span className="text-[8px] font-mono text-white/35 truncate" title={tileName}>
+              {tileName}
+            </span>
           </div>
         </div>
-        {player.inJail && <Lock className="size-3.5 text-destructive shrink-0" />}
+
         {showTurn ? (
           <div
-            className="shrink-0"
+            className="shrink-0 self-start"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
           >
@@ -138,15 +166,11 @@ export function PlayerPanel({
       </div>
 
       {props.length > 0 && (
-        <div
-          className={`flex flex-col gap-0.5 overflow-y-auto pr-1 ${
-            showTurn ? "max-h-12" : compact ? "max-h-14" : "max-h-24"
-          }`}
-        >
+        <div className={`mt-1.5 flex flex-wrap gap-1 ${showTurn ? "max-h-11" : "max-h-14"} overflow-y-auto`}>
           {props.map((i) => {
             const tile = BOARD[i];
             const prop = state.properties[i];
-            const color = tile.group ? GROUP_COLORS[tile.group] : "#666";
+            const color = tile.group ? GROUP_COLORS[tile.group] : "#888";
             const houses = prop?.houses ?? 0;
             return (
               <button
@@ -156,23 +180,18 @@ export function PlayerPanel({
                   e.stopPropagation();
                   onSelectTile?.(i);
                 }}
-                className="flex items-center gap-2 text-left text-[9px] font-mono px-1 py-0.5 hover:brightness-125"
-                style={{ background: `${color}18`, borderLeft: `3px solid ${color}` }}
+                className="inline-flex items-center gap-1 text-[8px] font-mono px-1.5 py-0.5 rounded-sm border border-white/10 hover:border-white/30 transition-colors"
+                style={{ background: `${color}22`, color }}
                 title={tile.name}
               >
-                <span className="flex-1 truncate" style={{ color }}>
-                  {shortTileName(tile)}
-                </span>
+                <span className="size-1.5 rounded-full shrink-0" style={{ background: color }} />
+                <span className="truncate max-w-[4.5rem]">{shortTileName(tile)}</span>
                 {prop?.mortgaged ? (
-                  <span className="text-destructive text-[8px]">MTG</span>
+                  <span className="text-destructive">M</span>
                 ) : houses >= 5 ? (
-                  <span className="size-1.5 bg-destructive rounded-sm" />
+                  <span className="text-destructive">H</span>
                 ) : houses > 0 ? (
-                  <span className="flex gap-0.5">
-                    {Array.from({ length: houses }).map((_, h) => (
-                      <span key={h} className="size-1 bg-accent-amber rounded-sm" />
-                    ))}
-                  </span>
+                  <span className="text-accent-amber">{houses}</span>
                 ) : null}
               </button>
             );
@@ -182,12 +201,12 @@ export function PlayerPanel({
 
       {showTurn && turnActions ? (
         <div
-          className="mt-1.5 pt-1.5 border-t border-white/10 flex flex-col gap-1.5"
+          className="mt-2 pt-2 border-t border-white/10 flex flex-col gap-1.5"
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         >
           {!myTurn && (
-            <div className="text-[8px] font-mono uppercase tracking-widest text-white/40 text-center">
+            <div className="text-[8px] font-mono uppercase tracking-[0.18em] text-white/35 text-center">
               Waiting for {player.username}…
             </div>
           )}
@@ -199,7 +218,7 @@ export function PlayerPanel({
                 size="sm"
                 onClick={turnActions.onRoll}
                 disabled={!myTurn}
-                className="flex-1 min-w-0 !text-[9px] !py-1"
+                className="flex-1 min-w-0 !text-[9px] !py-1 !px-2"
               >
                 <Dice5 className="inline size-3 mr-1" />
                 {player.inJail ? "Roll Doubles" : "Roll Dice"}
@@ -209,7 +228,7 @@ export function PlayerPanel({
                   variant="ghost"
                   size="sm"
                   onClick={turnActions.onPayJail}
-                  className="!text-[9px] !py-1"
+                  className="!text-[9px] !py-1 !px-2"
                 >
                   <Lock className="inline size-3 mr-1" /> Pay {formatInr(effectiveJailFee(state))}
                 </NeonButton>
@@ -219,7 +238,7 @@ export function PlayerPanel({
                   variant="ghost"
                   size="sm"
                   onClick={turnActions.onJailCard}
-                  className="!text-[9px] !py-1"
+                  className="!text-[9px] !py-1 !px-2"
                 >
                   <Ticket className="inline size-3 mr-1" /> Card
                 </NeonButton>
@@ -229,8 +248,9 @@ export function PlayerPanel({
 
           {myTurn && state.phase === "landed" && pending != null && pendingTile && (
             <div>
-              <div className="text-[10px] mb-1 leading-snug">
-                Buy <b>{pendingTile.name}</b> for {formatInr(price)}?
+              <div className="text-[10px] mb-1 leading-snug text-white/80">
+                Buy <span className="font-semibold text-white">{pendingTile.name}</span> for{" "}
+                <span className="text-accent-amber font-mono">{formatInr(price)}</span>?
               </div>
               <div className="flex gap-1">
                 <NeonButton
@@ -238,7 +258,7 @@ export function PlayerPanel({
                   size="sm"
                   onClick={turnActions.onBuy}
                   disabled={player.cash < price}
-                  className="flex-1 !text-[9px] !py-1"
+                  className="flex-1 !text-[9px] !py-1 !px-2"
                 >
                   <ShoppingBag className="inline size-3 mr-1" /> Buy
                 </NeonButton>
@@ -246,7 +266,7 @@ export function PlayerPanel({
                   variant="pink"
                   size="sm"
                   onClick={turnActions.onAuction}
-                  className="flex-1 !text-[9px] !py-1"
+                  className="flex-1 !text-[9px] !py-1 !px-2"
                 >
                   <Gavel className="inline size-3 mr-1" /> Auction
                 </NeonButton>
@@ -258,7 +278,7 @@ export function PlayerPanel({
             <NeonButton
               size="sm"
               onClick={turnActions.onEnd}
-              className="w-full !text-[9px] !py-1"
+              className="w-full !text-[9px] !py-1 !px-2"
             >
               Continue <ArrowRight className="inline size-3 ml-1" />
             </NeonButton>
@@ -273,7 +293,7 @@ export function PlayerPanel({
             e.stopPropagation();
             onProposeTrade();
           }}
-          className="mt-1 w-full text-[8px] font-mono uppercase tracking-widest border border-white/20 py-0.5 hover:border-accent-pink hover:text-accent-pink"
+          className="mt-1.5 w-full text-[8px] font-mono uppercase tracking-[0.2em] border border-white/15 text-white/55 py-1 rounded-sm hover:border-accent-pink/60 hover:text-accent-pink transition-colors"
         >
           Propose Trade
         </button>

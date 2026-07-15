@@ -72,7 +72,7 @@ export function Board({
   const turnPosition = turnPlayer && !turnPlayer.bankrupt ? turnPlayer.position : null;
 
   return (
-    <div className="relative aspect-square w-full max-h-full max-w-[min(100%,72vh)] mx-auto">
+    <div className="relative aspect-square h-full max-h-full w-auto max-w-full mx-auto">
       <div
         className="grid h-full w-full gap-px p-px bg-black/40 border border-white/10"
         style={{ gridTemplateColumns: "repeat(11, 1fr)", gridTemplateRows: "repeat(11, 1fr)" }}

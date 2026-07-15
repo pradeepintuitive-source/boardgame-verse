@@ -995,19 +995,27 @@ function MonopolyPage() {
         className="fixed inset-0 -z-10"
         style={{ background: "radial-gradient(circle at 50% 0%, #0a1a2e 0%, #050507 60%)" }}
       />
-      <main className="relative h-[100dvh] max-h-[100dvh] overflow-hidden px-3 pt-3 pb-3 max-w-[1800px] mx-auto flex flex-col gap-2">
-        <header className="flex items-center justify-between gap-3 shrink-0">
-          <div className="min-w-0">
-            <div className="text-[8px] font-mono uppercase tracking-[0.35em] text-accent-cyan">
-              Bharat Edition · Multiplayer
+      <main className="relative h-[100dvh] max-h-[100dvh] overflow-hidden px-2.5 pt-2 pb-2 max-w-[1800px] mx-auto flex flex-col gap-1.5">
+        <header className="flex items-center justify-between gap-2 shrink-0 min-h-0">
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="min-w-0 shrink">
+              <div className="text-[7px] font-mono uppercase tracking-[0.32em] text-accent-cyan/80 leading-none mb-0.5">
+                Bharat · Live
+              </div>
+              <h1 className="font-display text-lg md:text-xl italic uppercase neon-text-glow truncate leading-none">
+                Monopoly: India Edition
+              </h1>
             </div>
-            <h1 className="font-display text-2xl md:text-3xl italic uppercase neon-text-glow truncate leading-none">
-              Monopoly: India Edition
-            </h1>
+            <IndianEventBanner event={state.activeEvent} />
           </div>
-          <div className="flex gap-1.5 shrink-0">
-            <NeonButton variant="ghost" size="sm" onClick={() => setBankOpen(true)}>
-              <Banknote className="inline size-3.5 mr-1" /> Bank
+          <div className="flex gap-1 shrink-0">
+            <NeonButton
+              variant="ghost"
+              size="sm"
+              onClick={() => setBankOpen(true)}
+              className="!py-1 !px-2.5 !text-[10px]"
+            >
+              <Banknote className="inline size-3 mr-1" /> Bank
             </NeonButton>
             <NeonButton
               variant="ghost"
@@ -1015,6 +1023,7 @@ function MonopolyPage() {
               onClick={() => {
                 navigate({ to: "/" });
               }}
+              className="!py-1 !px-2.5 !text-[10px]"
             >
               Soft Exit
             </NeonButton>
@@ -1031,18 +1040,17 @@ function MonopolyPage() {
                   navigate({ to: "/" });
                 }
               }}
+              className="!py-1 !px-2.5 !text-[10px]"
             >
               Abandon
             </NeonButton>
           </div>
         </header>
 
-        <IndianEventBanner event={state.activeEvent} />
-
-        <div className="grid grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)] gap-2 flex-1 min-h-0 overflow-hidden">
+        <div className="grid grid-cols-1 xl:grid-cols-[250px_minmax(0,1fr)] gap-2 flex-1 min-h-0 overflow-hidden">
           {/* Left: players (turn lives on current player) + compact log */}
           <aside className="order-2 xl:order-1 min-h-0 flex flex-col gap-1.5 overflow-hidden">
-            <div className="space-y-1.5 min-h-0 overflow-y-auto flex-1">
+            <div className="space-y-1 min-h-0 overflow-y-auto flex-1">
               {state.players.map((p, seatIdx) => {
                 const isCurrent = state.players[state.currentPlayerIndex].id === p.id;
                 return (
