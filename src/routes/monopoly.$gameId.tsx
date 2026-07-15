@@ -15,6 +15,11 @@ import { TradePanel } from "../components/monopoly/TradePanel";
 import { EventLog } from "../components/monopoly/EventLog";
 import { BankManager } from "../components/monopoly/BankManager";
 import { IndianEventBanner } from "../components/monopoly/IndianEventBanner";
+import {
+  CardRevealModal,
+  parseCardLogLine,
+  type CardReveal,
+} from "../components/monopoly/CardRevealModal";
 import { useMonopolyStore } from "../store/monopolyStore";
 import { useAuthStore } from "../store/authStore";
 import { useGameSnapshot } from "../hooks/useGameSession";
@@ -33,7 +38,6 @@ import type {
 } from "../models/monopoly";
 import { toast } from "sonner";
 import { useWebsocketRequestStore } from "../store/requestStore";
-import { formatInr } from "../utils/monopolyEngine";
 import { useConnectionStore } from "../store/connectionStore";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -89,7 +93,7 @@ type MonopolyBackendState = {
   consecutiveDoubles?: number;
   assets?: Record<string, MonopolyAssetSnapshot>;
   owners?: Record<string, string>;
-  developments?: Record<string, { houses?: number }>;
+  developments?: Record<string, { houses?: number; hotel?: boolean }>;
   mortgagedTiles?: number[];
   board?: {
     chanceDeck?: number[];
@@ -128,6 +132,11 @@ type MonopolyActionPayload = {
   amount?: number | string | null;
   targetPlayerId?: string | null;
   metadata?: Record<string, unknown>;
+  playerId?: string | null;
+  delta?: number | string | null;
+  from?: string | null;
+  to?: string | null;
+  amt?: number | string | null;
   offer?: {
     toId: string;
     fromProps?: number[];
@@ -260,6 +269,12 @@ function buildMonopolyActionRequest(
     case "PROPOSE_TRADE":
       actionType = "TRADE";
       break;
+    case "BANK_ADJUST":
+      actionType = "BANK_ADJUST";
+      break;
+    case "BANK_TRANSFER":
+      actionType = "BANK_TRANSFER";
+      break;
     default:
       return null;
   }
@@ -269,6 +284,15 @@ function buildMonopolyActionRequest(
   if (p.tileIndex != null) requestBody.tilePosition = Number(p.tileIndex);
   if (p.amount != null) requestBody.amount = Number(p.amount);
   if (p.targetPlayerId != null) requestBody.targetPlayerId = String(p.targetPlayerId);
+  if (p.playerId != null && type === "BANK_ADJUST") {
+    requestBody.targetPlayerId = String(p.playerId);
+    if (p.delta != null) requestBody.amount = Number(p.delta);
+  }
+  if (type === "BANK_TRANSFER") {
+    requestBody.targetPlayerId = String(p.to);
+    requestBody.amount = Number(p.amt ?? p.amount ?? 0);
+    requestBody.metadata = { fromPlayerId: String(p.from) };
+  }
   if (p.metadata && typeof p.metadata === "object") {
     requestBody.metadata = normalizeMetadata(p.metadata as Record<string, unknown>);
   }
@@ -373,16 +397,18 @@ function mapSnapshotToState(
     });
   }
 
-  const developments: Record<string, { houses?: number }> = backend.developments ?? {};
+  const developments: Record<string, { houses?: number; hotel?: boolean }> =
+    backend.developments ?? {};
   const mortgaged = new Set<number>(backend.mortgagedTiles ?? []);
 
   Object.keys(owners).forEach((k) => {
     const pos = Number(k);
     const ownerId = owners[k] ? String(owners[k]) : null;
-    const dev = developments[pos] ?? null;
+    const dev = developments[pos] ?? developments[String(pos)] ?? null;
+    const houses = dev?.hotel ? 5 : (dev?.houses ?? 0);
     properties[pos] = {
       ownerId,
-      houses: dev ? (dev.houses ?? 0) : 0,
+      houses,
       mortgaged: mortgaged.has(pos),
     };
   });
@@ -436,12 +462,29 @@ function mapSnapshotToState(
     pendingCard: backend.pendingCard ?? null,
     auction: normalizeAuctionState(backend.auction, roomPlayers),
     trade: backend.trade ?? null,
-    log: (backend.log ?? []).map((t: string, i: number) => ({
-      id: String(i),
-      text: t,
-      ts: i,
-      kind: "info" as const,
-    })),
+    log: (backend.log ?? []).map((t: string, i: number) => {
+      let text = String(t);
+      for (const p of players) {
+        if (p.id) text = text.split(p.id).join(p.username);
+        if (p.userId) text = text.split(String(p.userId)).join(p.username);
+      }
+      const lower = text.toLowerCase();
+      const kind =
+        lower.includes("rent") ||
+        lower.includes("bank") ||
+        lower.includes("tax") ||
+        lower.includes("₹") ||
+        lower.includes("paid") ||
+        lower.includes("purchased") ||
+        lower.includes("mortgage")
+          ? ("money" as const)
+          : lower.includes("card") || lower.includes("event") || lower.includes("chance")
+            ? ("event" as const)
+            : lower.includes("trade")
+              ? ("trade" as const)
+              : ("info" as const);
+      return { id: String(i), text, ts: i, kind };
+    }),
     winnerId:
       resolveRoomPlayerId(
         backend.winnerId != null ? String(backend.winnerId) : null,
@@ -588,9 +631,82 @@ function MonopolyPage() {
   const [openTile, setOpenTile] = useState<number | null>(null);
   const [tradePartner, setTradePartner] = useState<string | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
+  const [cardReveal, setCardReveal] = useState<CardReveal | null>(null);
+  const seenCardLogRef = useRef<string | null>(null);
+  const autoEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hasValidState = Boolean(state && state.players?.length > 0);
+
+  // The logged-in user should be treated as "me" when present.
+  const me = useMemo(() => {
+    if (!state || !user) return undefined;
+    return (
+      state.players.find((p) => p.userId === user.id || p.username === user.username) ??
+      state.players.find((p) => p.id === user.id) ??
+      state.players.find((p) => !p.isAI) ??
+      state.players[0]
+    );
+  }, [state, user]);
+
+  const isMyTurnPreview = Boolean(
+    me &&
+      state &&
+      !state.players[state.currentPlayerIndex]?.isAI &&
+      !state.players[state.currentPlayerIndex]?.bankrupt &&
+      state.players[state.currentPlayerIndex]?.id === me.id,
+  );
+
+  // Detect Chance / Chest from game log
+  useEffect(() => {
+    if (!state?.log?.length) return;
+    const last = state.log[state.log.length - 1];
+    if (!last || last.text === seenCardLogRef.current) return;
+    const parsed = parseCardLogLine(last.text);
+    if (parsed) {
+      seenCardLogRef.current = last.text;
+      setCardReveal(parsed);
+    }
+  }, [state?.log]);
+
+  // Auto-continue after passive landings
+  useEffect(() => {
+    if (autoEndTimer.current) {
+      clearTimeout(autoEndTimer.current);
+      autoEndTimer.current = null;
+    }
+    if (!state || !me || !isMyTurnPreview || !sessionId) return;
+    if (state.phase !== "landed") return;
+    if (state.pendingPurchaseTile != null) return;
+    if (state.auction) return;
+    if (cardReveal || openTile != null || bankOpen || tradePartner) return;
+
+    autoEndTimer.current = setTimeout(async () => {
+      try {
+        const nextState = await monopolyApi.action<MonopolyBackendState>(sessionId, {
+          type: "END_TURN",
+        });
+        applyMonopolyState(nextState, sessionId);
+        toast.message("Turn passed");
+      } catch (e) {
+        console.error("[monopoly] auto continue failed", e);
+      }
+    }, 1200);
+
+    return () => {
+      if (autoEndTimer.current) clearTimeout(autoEndTimer.current);
+    };
+  }, [
+    state,
+    me,
+    isMyTurnPreview,
+    sessionId,
+    cardReveal,
+    openTile,
+    bankOpen,
+    tradePartner,
+    applyMonopolyState,
+  ]);
 
   // AI driver — runs whenever it's an AI's turn or AI auction bidder
   useEffect(() => {
@@ -602,18 +718,6 @@ function MonopolyPage() {
       if (timer) clearTimeout(timer);
     };
   }, [state, gameId]);
-
-  // The logged-in user should be treated as "me" when present. If the auth user is not
-  // part of this game session, fall back to the first available human player.
-  const me = useMemo(() => {
-    if (!state || !user) return undefined;
-    return (
-      state.players.find((p) => p.userId === user.id || p.username === user.username) ??
-      state.players.find((p) => p.id === user.id) ??
-      state.players.find((p) => !p.isAI) ??
-      state.players[0]
-    );
-  }, [state, user]);
 
   // Hydrate only when we have snapshot + room info
   useEffect(() => {
@@ -690,15 +794,23 @@ function MonopolyPage() {
 
   const cur = state.players[state.currentPlayerIndex] ?? state.players[0];
   const isMyTurn = !cur.isAI && !cur.bankrupt && cur.id === me.id;
+  const isRoomHost = Boolean(user?.id && roomQuery.data?.hostId === user.id);
 
   // Normal Monopoly actions are REST-authoritative; auctions remain STOMP-only.
   const sendGameAction = async (type: string, payload: Record<string, unknown> = {}) => {
     if (!sessionId) return false;
     const isAuctionAct = type === "PLACE_BID" || type === "PASS_BID";
-    if (!isMyTurn && !isAuctionAct) {
+    const isBankAct = type === "BANK_ADJUST" || type === "BANK_TRANSFER";
+    if (!isMyTurn && !isAuctionAct && !isBankAct) {
       console.warn(
         `[game] ignoring "${type}" — it's ${cur.username}'s turn, not yours (${me.username}).`,
       );
+      return false;
+    }
+    if (isBankAct && !isRoomHost) {
+      toast.error("Bank Manager locked", {
+        description: "Only the room host can adjust or transfer cash.",
+      });
       return false;
     }
 
@@ -738,13 +850,9 @@ function MonopolyPage() {
 
     const requestBody = buildMonopolyActionRequest(type, payload, state);
     if (!requestBody) {
-      const description =
-        type === "RESOLVE_TRADE"
-          ? "Trade responses are not part of the current backend Monopoly contract."
-          : type === "BANK_ADJUST" || type === "BANK_TRANSFER"
-            ? "Bank manager actions are not supported by the live backend Monopoly API."
-            : `Unsupported Monopoly action: ${type}`;
-      toast.error("Action unavailable", { description });
+      toast.error("Action unavailable", {
+        description: `Unsupported Monopoly action: ${type}`,
+      });
       return false;
     }
 
@@ -876,10 +984,22 @@ function MonopolyPage() {
       </main>
 
       <AnimatePresence>
+        {cardReveal && (
+          <CardRevealModal
+            card={cardReveal}
+            onContinue={() => {
+              setCardReveal(null);
+              void sendGameAction("END_TURN");
+            }}
+          />
+        )}
+
         {openTile != null && (
           <PropertyCard
             state={state}
             tileIndex={openTile}
+            isMyTurn={isMyTurn}
+            meId={me.id}
             onClose={() => setOpenTile(null)}
             onBuild={
               state.properties[openTile]?.ownerId === me.id
@@ -887,7 +1007,8 @@ function MonopolyPage() {
                 : undefined
             }
             onSell={
-              state.properties[openTile]?.ownerId === me.id && state.properties[openTile].houses > 0
+              state.properties[openTile]?.ownerId === me.id &&
+              (state.properties[openTile]?.houses ?? 0) > 0
                 ? () => sendGameAction("SELL_HOUSE", { tileIndex: openTile })
                 : undefined
             }
@@ -915,27 +1036,16 @@ function MonopolyPage() {
             partnerId={tradePartner}
             onClose={() => setTradePartner(null)}
             onPropose={(offer) => {
-              sendGameAction("PROPOSE_TRADE", { offer });
+              void sendGameAction("PROPOSE_TRADE", { offer });
               setTradePartner(null);
             }}
-          />
-        )}
-
-        {state.trade && state.trade.toId === me.id && (
-          <TradePanel
-            state={state}
-            meId={state.trade.toId}
-            partnerId={state.trade.fromId}
-            existingOffer={state.trade}
-            onClose={() => sendGameAction("RESOLVE_TRADE", { accept: false })}
-            onAccept={() => sendGameAction("RESOLVE_TRADE", { accept: true })}
-            onDecline={() => sendGameAction("RESOLVE_TRADE", { accept: false })}
           />
         )}
 
         {bankOpen && (
           <BankManager
             state={state}
+            canEdit={isRoomHost}
             onClose={() => setBankOpen(false)}
             onAdjust={(pid, delta) => sendGameAction("BANK_ADJUST", { playerId: pid, delta })}
             onTransfer={(from, to, amt) => sendGameAction("BANK_TRANSFER", { from, to, amt })}

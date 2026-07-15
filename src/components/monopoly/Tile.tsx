@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { GROUP_COLORS } from "../../data/monopolyBoard";
+import { GROUP_COLORS, shortTileName } from "../../data/monopolyBoard";
 import type { PropertyState, Tile as TileType } from "../../models/monopoly";
 import { formatInr } from "../../utils/monopolyEngine";
 
@@ -25,9 +25,12 @@ export function Tile({ tile, prop, ownerColor, orientation, onClick, children, h
           ? "right"
           : "left";
   const isVerticalBar = orientation === "left" || orientation === "right";
+  const label = shortTileName(tile);
 
   return (
     <button
+      type="button"
+      title={tile.name}
       onClick={onClick}
       className={`relative w-full h-full glass-panel border border-white/10 p-1 text-left flex flex-col overflow-hidden hover:border-accent-cyan/60 transition-colors ${highlight ? "ring-2 ring-accent-cyan" : ""}`}
     >
@@ -41,17 +44,19 @@ export function Tile({ tile, prop, ownerColor, orientation, onClick, children, h
         <div className="absolute inset-x-0 top-0 h-1" style={{ background: ownerColor }} />
       )}
       <div
-        className={`relative z-10 flex-1 flex flex-col ${isCorner ? "items-center justify-center text-center" : isVerticalBar ? "items-center justify-center text-center px-1" : "items-center justify-end text-center px-1 pb-1"}`}
+        className={`relative z-10 flex-1 flex flex-col ${isCorner ? "items-center justify-center text-center" : isVerticalBar ? "items-center justify-center text-center px-0.5" : "items-center justify-end text-center px-0.5 pb-1"}`}
       >
         <div
-          className={`font-mono uppercase tracking-tight leading-tight ${isCorner ? "text-[9px]" : "text-[7px]"} text-white/80`}
+          className={`font-mono uppercase tracking-tight leading-tight line-clamp-2 ${isCorner ? "text-[11px]" : "text-[10px]"} text-white/90`}
         >
-          {tile.name}
+          {label}
         </div>
         {tile.price != null && (
-          <div className="text-[7px] font-mono text-accent-cyan/70 mt-0.5">{formatInr(tile.price ?? 0)}</div>
+          <div className="text-[9px] font-mono text-accent-cyan/80 mt-0.5">
+            {formatInr(tile.price ?? 0)}
+          </div>
         )}
-        {prop?.mortgaged && <div className="text-[7px] font-mono text-destructive">MTG</div>}
+        {prop?.mortgaged && <div className="text-[8px] font-mono text-destructive">MTG</div>}
         {prop && prop.houses > 0 && prop.houses < 5 && (
           <div className="flex gap-0.5 mt-0.5">
             {Array.from({ length: prop.houses }).map((_, i) => (

@@ -1,20 +1,21 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeftRight, X } from "lucide-react";
-import { BOARD, GROUP_COLORS } from "../../data/monopolyBoard";
+import { BOARD, GROUP_COLORS, shortTileName } from "../../data/monopolyBoard";
 import type { MonopolyState, TradeOffer } from "../../models/monopoly";
 import { NeonButton } from "../common/NeonButton";
+import { formatInr } from "../../utils/monopolyEngine";
 
 function PropPicker({
   state,
   playerId,
   selected,
-  onToggle,
+  onSelect,
 }: {
   state: MonopolyState;
   playerId: string;
-  selected: number[];
-  onToggle: (i: number) => void;
+  selected: number | null;
+  onSelect: (i: number | null) => void;
 }) {
   const tiles = Object.entries(state.properties)
     .filter(([, p]) => p.ownerId === playerId)
@@ -23,23 +24,25 @@ function PropPicker({
     return <div className="text-[10px] font-mono text-white/30">No properties.</div>;
   }
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap gap-1 max-h-40 overflow-y-auto">
       {tiles.map((i) => {
         const t = BOARD[i];
         const color = t.group ? GROUP_COLORS[t.group] : "#666";
-        const on = selected.includes(i);
+        const on = selected === i;
         return (
           <button
             key={i}
-            onClick={() => onToggle(i)}
-            className="text-[9px] font-mono px-1.5 py-1"
+            type="button"
+            onClick={() => onSelect(on ? null : i)}
+            className="text-[10px] font-mono px-2 py-1"
             style={{
               background: on ? color : `${color}20`,
               color: on ? "#000" : color,
               border: `1px solid ${color}`,
             }}
+            title={t.name}
           >
-            {t.name}
+            {shortTileName(t)}
           </button>
         );
       })}
@@ -51,35 +54,19 @@ interface Props {
   state: MonopolyState;
   meId: string;
   partnerId: string;
-  existingOffer?: TradeOffer | null;
   onClose: () => void;
   onPropose?: (offer: Omit<TradeOffer, "id" | "status">) => void;
-  onAccept?: () => void;
-  onDecline?: () => void;
 }
 
-export function TradePanel({
-  state,
-  meId,
-  partnerId,
-  existingOffer,
-  onClose,
-  onPropose,
-  onAccept,
-  onDecline,
-}: Props) {
+export function TradePanel({ state, meId, partnerId, onClose, onPropose }: Props) {
   const me = state.players.find((p) => p.id === meId)!;
   const partner = state.players.find((p) => p.id === partnerId)!;
 
-  const [myProps, setMyProps] = useState<number[]>(existingOffer?.fromProps ?? []);
-  const [theirProps, setTheirProps] = useState<number[]>(existingOffer?.toProps ?? []);
-  const [myCash, setMyCash] = useState(existingOffer?.fromCash ?? 0);
-  const [theirCash, setTheirCash] = useState(existingOffer?.toCash ?? 0);
+  const [myProp, setMyProp] = useState<number | null>(null);
+  const [theirProp, setTheirProp] = useState<number | null>(null);
+  const [myCash, setMyCash] = useState(0);
 
-  const isReview = !!existingOffer;
-
-  const toggle = (set: typeof setMyProps, arr: number[]) => (i: number) =>
-    set(arr.includes(i) ? arr.filter((x) => x !== i) : [...arr, i]);
+  const canConfirm = myProp != null && theirProp != null && myCash >= 0 && myCash <= me.cash;
 
   return (
     <motion.div
@@ -98,32 +85,31 @@ export function TradePanel({
           <h3 className="font-display text-2xl italic uppercase">
             Trade <ArrowLeftRight className="inline size-5 mx-2" /> {partner.username}
           </h3>
-          <button onClick={onClose}>
+          <button type="button" onClick={onClose}>
             <X className="size-4" />
           </button>
         </div>
+
+        <p className="text-[11px] font-mono text-white/45 mb-4">
+          Swap one property each way. Optional cash you pay them. Executes immediately on your turn.
+        </p>
 
         <div className="grid md:grid-cols-2 gap-4">
           <section>
             <div className="text-[10px] font-mono uppercase tracking-widest text-accent-cyan mb-2">
               You give ({me.username})
             </div>
-            <PropPicker
-              state={state}
-              playerId={meId}
-              selected={myProps}
-              onToggle={toggle(setMyProps, myProps)}
-            />
-            <label className="block mt-3 text-[10px] font-mono uppercase">Cash (₹)</label>
+            <PropPicker state={state} playerId={meId} selected={myProp} onSelect={setMyProp} />
+            <label className="block mt-3 text-[10px] font-mono uppercase">Cash you pay (₹)</label>
             <input
               type="number"
               min={0}
               max={me.cash}
               value={myCash}
-              onChange={(e) => setMyCash(+e.target.value)}
-              disabled={isReview}
+              onChange={(e) => setMyCash(Math.max(0, Math.min(me.cash, +e.target.value || 0)))}
               className="w-full bg-black/40 border border-white/20 px-2 py-1 font-mono text-accent-amber"
             />
+            <div className="text-[10px] font-mono text-white/40 mt-1">Your cash {formatInr(me.cash)}</div>
           </section>
           <section>
             <div className="text-[10px] font-mono uppercase tracking-widest text-accent-pink mb-2">
@@ -132,51 +118,34 @@ export function TradePanel({
             <PropPicker
               state={state}
               playerId={partnerId}
-              selected={theirProps}
-              onToggle={toggle(setTheirProps, theirProps)}
-            />
-            <label className="block mt-3 text-[10px] font-mono uppercase">Cash (₹)</label>
-            <input
-              type="number"
-              min={0}
-              max={partner.cash}
-              value={theirCash}
-              onChange={(e) => setTheirCash(+e.target.value)}
-              disabled={isReview}
-              className="w-full bg-black/40 border border-white/20 px-2 py-1 font-mono text-accent-amber"
+              selected={theirProp}
+              onSelect={setTheirProp}
             />
           </section>
         </div>
 
         <div className="flex gap-2 mt-6 justify-end">
-          {isReview ? (
-            <>
-              <NeonButton variant="ghost" size="sm" onClick={onDecline}>
-                Decline
-              </NeonButton>
-              <NeonButton variant="cyan" size="sm" onClick={onAccept}>
-                Accept
-              </NeonButton>
-            </>
-          ) : (
-            <NeonButton
-              variant="cyan"
-              onClick={() =>
-                onPropose?.({
-                  fromId: meId,
-                  toId: partnerId,
-                  fromProps: myProps,
-                  toProps: theirProps,
-                  fromCash: myCash,
-                  toCash: theirCash,
-                  fromJailCards: 0,
-                  toJailCards: 0,
-                })
-              }
-            >
-              Send Offer
-            </NeonButton>
-          )}
+          <NeonButton variant="ghost" size="sm" onClick={onClose}>
+            Cancel
+          </NeonButton>
+          <NeonButton
+            variant="cyan"
+            disabled={!canConfirm}
+            onClick={() =>
+              onPropose?.({
+                fromId: meId,
+                toId: partnerId,
+                fromProps: myProp != null ? [myProp] : [],
+                toProps: theirProp != null ? [theirProp] : [],
+                fromCash: myCash,
+                toCash: 0,
+                fromJailCards: 0,
+                toJailCards: 0,
+              })
+            }
+          >
+            Confirm Trade
+          </NeonButton>
         </div>
       </motion.div>
     </motion.div>

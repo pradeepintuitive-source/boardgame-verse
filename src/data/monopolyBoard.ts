@@ -12,7 +12,7 @@ export const BOARD: Tile[] = [
     rent: [20, 100, 300, 900, 1600, 2500],
     housePrice: 500,
   },
-  { index: 2, name: "Community Chest", type: "chest" },
+  { index: 2, name: "Community Chest", shortName: "Chest", type: "chest" },
   {
     index: 3,
     name: "Ranchi",
@@ -23,7 +23,7 @@ export const BOARD: Tile[] = [
     housePrice: 500,
   },
   { index: 4, name: "Income Tax", type: "tax", taxAmount: 2000 },
-  { index: 5, name: "Indian Railways", type: "railroad", price: 2000 },
+  { index: 5, name: "Indian Railways", shortName: "IR", type: "railroad", price: 2000 },
   {
     index: 6,
     name: "Varanasi",
@@ -62,7 +62,7 @@ export const BOARD: Tile[] = [
     rent: [100, 500, 1500, 4500, 6250, 7500],
     housePrice: 1000,
   },
-  { index: 12, name: "Electricity Board", type: "utility", price: 1500 },
+  { index: 12, name: "Electricity Board", shortName: "Power", type: "utility", price: 1500 },
   {
     index: 13,
     name: "Lucknow",
@@ -81,7 +81,7 @@ export const BOARD: Tile[] = [
     rent: [120, 600, 1800, 5000, 7000, 9000],
     housePrice: 1000,
   },
-  { index: 15, name: "Southern Railway", type: "railroad", price: 2000 },
+  { index: 15, name: "Southern Railway", shortName: "S. Rail", type: "railroad", price: 2000 },
   {
     index: 16,
     name: "Surat",
@@ -91,7 +91,7 @@ export const BOARD: Tile[] = [
     rent: [140, 700, 2000, 5500, 7500, 9500],
     housePrice: 1000,
   },
-  { index: 17, name: "Community Chest", type: "chest" },
+  { index: 17, name: "Community Chest", shortName: "Chest", type: "chest" },
   {
     index: 18,
     name: "Coimbatore",
@@ -110,7 +110,7 @@ export const BOARD: Tile[] = [
     rent: [160, 800, 2200, 6000, 8000, 10000],
     housePrice: 1000,
   },
-  { index: 20, name: "Free Parking", type: "free-parking" },
+  { index: 20, name: "Free Parking", shortName: "Events", type: "free-parking" },
   {
     index: 21,
     name: "Kolkata",
@@ -139,7 +139,7 @@ export const BOARD: Tile[] = [
     rent: [200, 1000, 3000, 7500, 9250, 11000],
     housePrice: 1500,
   },
-  { index: 25, name: "Western Railway", type: "railroad", price: 2000 },
+  { index: 25, name: "Western Railway", shortName: "W. Rail", type: "railroad", price: 2000 },
   {
     index: 26,
     name: "Chennai",
@@ -158,17 +158,18 @@ export const BOARD: Tile[] = [
     rent: [220, 1100, 3300, 8000, 9750, 11500],
     housePrice: 1500,
   },
-  { index: 28, name: "Water Board", type: "utility", price: 1500 },
+  { index: 28, name: "Water Board", shortName: "Water", type: "utility", price: 1500 },
   {
     index: 29,
     name: "Panaji (Goa)",
+    shortName: "Panaji",
     type: "property",
     group: "yellow",
     price: 2800,
     rent: [240, 1200, 3600, 8500, 10250, 12000],
     housePrice: 1500,
   },
-  { index: 30, name: "Go To Jail", type: "go-to-jail" },
+  { index: 30, name: "Go To Jail", shortName: "To Jail", type: "go-to-jail" },
   {
     index: 31,
     name: "Gurugram",
@@ -187,7 +188,7 @@ export const BOARD: Tile[] = [
     rent: [260, 1300, 3900, 9000, 11000, 12750],
     housePrice: 2000,
   },
-  { index: 33, name: "Community Chest", type: "chest" },
+  { index: 33, name: "Community Chest", shortName: "Chest", type: "chest" },
   {
     index: 34,
     name: "Whitefield",
@@ -197,11 +198,12 @@ export const BOARD: Tile[] = [
     rent: [280, 1500, 4500, 10000, 12000, 14000],
     housePrice: 2000,
   },
-  { index: 35, name: "Northern Railway", type: "railroad", price: 2000 },
+  { index: 35, name: "Northern Railway", shortName: "N. Rail", type: "railroad", price: 2000 },
   { index: 36, name: "Chance", type: "chance" },
   {
     index: 37,
     name: "Connaught Place",
+    shortName: "C. Place",
     type: "property",
     group: "darkblue",
     price: 3500,
@@ -212,6 +214,7 @@ export const BOARD: Tile[] = [
   {
     index: 39,
     name: "Nariman Point",
+    shortName: "Nariman",
     type: "property",
     group: "darkblue",
     price: 4000,
@@ -274,6 +277,12 @@ export function developmentLabel(houses: number): string {
   if (houses >= 5) return DEVELOPMENT_LABELS[5];
   if (houses <= 0) return DEVELOPMENT_LABELS[0];
   return DEVELOPMENT_LABELS[houses];
+}
+
+export function shortTileName(tile: { name: string; shortName?: string }): string {
+  if (tile.shortName) return tile.shortName;
+  if (tile.name.length <= 10) return tile.name;
+  return `${tile.name.slice(0, 9)}…`;
 }
 
 export const TOKEN_COLORS = ["#00f2ff", "#ff00e5", "#facc15", "#4ade80", "#fb923c", "#a78bfa"];

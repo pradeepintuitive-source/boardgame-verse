@@ -460,7 +460,7 @@ export function buyPending(state: MonopolyState): MonopolyState {
     },
     pendingPurchaseTile: null,
   };
-  log(next, `${buyer.username} bought ${tile.name} for ${formatInr(tile.price)}.`, "money");
+  log(next, `${buyer.username} bought ${tile.name} for ${formatInr(tile.price ?? 0)}.`, "money");
   return next;
 }
 

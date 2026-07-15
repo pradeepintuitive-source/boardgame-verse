@@ -8,18 +8,58 @@ import { formatInr } from "../../utils/monopolyEngine";
 interface Props {
   state: MonopolyState;
   tileIndex: number;
+  isMyTurn: boolean;
+  meId: string;
   onClose: () => void;
   onBuild?: () => void;
   onSell?: () => void;
   onMortgage?: () => void;
 }
 
-export function PropertyCard({ state, tileIndex, onClose, onBuild, onSell, onMortgage }: Props) {
+export function PropertyCard({
+  state,
+  tileIndex,
+  isMyTurn,
+  meId,
+  onClose,
+  onBuild,
+  onSell,
+  onMortgage,
+}: Props) {
   const tile = BOARD[tileIndex];
   const prop = state.properties[tileIndex];
   if (!tile) return null;
   const owner = prop?.ownerId ? state.players.find((p) => p.id === prop.ownerId) : null;
+  const me = state.players.find((p) => p.id === meId);
   const bar = tile.group ? GROUP_COLORS[tile.group] : "#444";
+  const isOwner = prop?.ownerId === meId;
+  const isColorProperty = tile.type === "property";
+  const houseCost = tile.housePrice ?? 0;
+  const mortgageValue = Math.floor((tile.price ?? 0) / 2);
+  const unmortgageCost = Math.ceil(mortgageValue * 1.1);
+  const houses = prop?.houses ?? 0;
+  const hasDev = houses > 0;
+
+  let buildDisabledReason: string | null = null;
+  if (!isMyTurn) buildDisabledReason = "Not your turn";
+  else if (!isColorProperty) buildDisabledReason = "Only color properties can be upgraded";
+  else if (prop?.mortgaged) buildDisabledReason = "Unmortgage before upgrading";
+  else if (houses >= 5) buildDisabledReason = "Fully developed";
+  else if ((me?.cash ?? 0) < houseCost) buildDisabledReason = "Need more cash";
+
+  let sellDisabledReason: string | null = null;
+  if (!isMyTurn) sellDisabledReason = "Not your turn";
+  else if (!isColorProperty || !hasDev) sellDisabledReason = "Nothing to sell";
+
+  let mortgageDisabledReason: string | null = null;
+  if (!isMyTurn) mortgageDisabledReason = "Not your turn";
+  else if (prop?.mortgaged && (me?.cash ?? 0) < unmortgageCost) {
+    mortgageDisabledReason = "Need more cash to unmortgage";
+  } else if (!prop?.mortgaged && hasDev) {
+    mortgageDisabledReason = "Sell developments first";
+  }
+
+  const showActions = isOwner && (onBuild || onSell || onMortgage);
 
   return (
     <motion.div
@@ -36,6 +76,7 @@ export function PropertyCard({ state, tileIndex, onClose, onBuild, onSell, onMor
         className="relative w-full max-w-sm glass-panel border border-white/15 p-0 overflow-hidden"
       >
         <button
+          type="button"
           onClick={onClose}
           className="absolute top-2 right-2 z-10 size-7 grid place-items-center hover:text-accent-pink"
         >
@@ -82,11 +123,11 @@ export function PropertyCard({ state, tileIndex, onClose, onBuild, onSell, onMor
               </li>
               <li className="flex justify-between text-white/40 pt-2">
                 <span>Upgrade cost</span>
-                <span>{formatInr(tile.housePrice ?? 0)}</span>
+                <span>{formatInr(houseCost)}</span>
               </li>
               <li className="flex justify-between text-white/40">
-                <span>Mortgage</span>
-                <span>{formatInr(Math.floor((tile.price ?? 0) / 2))}</span>
+                <span>Mortgage value</span>
+                <span>{formatInr(mortgageValue)}</span>
               </li>
             </ul>
           )}
@@ -98,6 +139,10 @@ export function PropertyCard({ state, tileIndex, onClose, onBuild, onSell, onMor
                   <span>{formatInr(r)}</span>
                 </li>
               ))}
+              <li className="flex justify-between text-white/40 pt-2">
+                <span>Mortgage value</span>
+                <span>{formatInr(mortgageValue)}</span>
+              </li>
             </ul>
           )}
           {tile.type === "utility" && (
@@ -110,39 +155,82 @@ export function PropertyCard({ state, tileIndex, onClose, onBuild, onSell, onMor
                 <span>2 Utilities</span>
                 <span>10× dice</span>
               </li>
+              <li className="flex justify-between text-white/40 pt-2">
+                <span>Mortgage value</span>
+                <span>{formatInr(mortgageValue)}</span>
+              </li>
             </ul>
           )}
 
-          <div className="text-[10px] font-mono uppercase tracking-widest mb-4">
+          <div className="text-[10px] font-mono uppercase tracking-widest mb-2">
             Owner:{" "}
             {owner ? (
               <span style={{ color: owner.avatarColor }}>{owner.username}</span>
             ) : (
               <span className="text-white/40">Bank</span>
             )}
-            {prop && prop.houses > 0 ? (
-              <span className="ml-3 text-accent-amber">{developmentLabel(prop.houses)}</span>
+            {prop && houses > 0 ? (
+              <span className="ml-3 text-accent-amber">{developmentLabel(houses)}</span>
             ) : null}
             {prop?.mortgaged && <span className="ml-3 text-destructive">MORTGAGED</span>}
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {onBuild && (
-              <NeonButton variant="cyan" size="sm" onClick={onBuild}>
-                Upgrade
-              </NeonButton>
-            )}
-            {onSell && (
-              <NeonButton variant="ghost" size="sm" onClick={onSell}>
-                Sell Development
-              </NeonButton>
-            )}
-            {onMortgage && (
-              <NeonButton variant="ghost" size="sm" onClick={onMortgage}>
-                {prop?.mortgaged ? "Unmortgage" : "Mortgage"}
-              </NeonButton>
-            )}
-          </div>
+          {showActions ? (
+            <p className="text-[10px] font-mono text-white/40 mb-3">
+              Mortgage / Upgrade on your turn before Continue.
+            </p>
+          ) : null}
+
+          {showActions ? (
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2">
+                {isColorProperty && onBuild ? (
+                  <NeonButton
+                    variant="cyan"
+                    size="sm"
+                    disabled={!!buildDisabledReason}
+                    onClick={onBuild}
+                    title={buildDisabledReason ?? undefined}
+                  >
+                    Upgrade
+                  </NeonButton>
+                ) : null}
+                {isColorProperty && onSell ? (
+                  <NeonButton
+                    variant="ghost"
+                    size="sm"
+                    disabled={!!sellDisabledReason}
+                    onClick={onSell}
+                    title={sellDisabledReason ?? undefined}
+                  >
+                    Sell Development
+                  </NeonButton>
+                ) : null}
+                {onMortgage ? (
+                  <NeonButton
+                    variant="ghost"
+                    size="sm"
+                    disabled={!!mortgageDisabledReason}
+                    onClick={onMortgage}
+                    title={mortgageDisabledReason ?? undefined}
+                  >
+                    {prop?.mortgaged ? "Unmortgage" : "Mortgage"}
+                  </NeonButton>
+                ) : null}
+              </div>
+              {(buildDisabledReason || sellDisabledReason || mortgageDisabledReason) && isMyTurn === false ? (
+                <div className="text-[10px] font-mono text-accent-amber/80">Not your turn</div>
+              ) : (
+                <div className="text-[10px] font-mono text-white/35 space-y-0.5">
+                  {isColorProperty && buildDisabledReason ? <div>{buildDisabledReason}</div> : null}
+                  {isColorProperty && sellDisabledReason && hasDev ? (
+                    <div>{sellDisabledReason}</div>
+                  ) : null}
+                  {mortgageDisabledReason ? <div>{mortgageDisabledReason}</div> : null}
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       </motion.div>
     </motion.div>

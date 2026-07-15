@@ -7,6 +7,7 @@ import { formatInr } from "../../utils/monopolyEngine";
 
 interface Props {
   state: MonopolyState;
+  canEdit: boolean;
   onClose: () => void;
   onAdjust: (playerId: string, delta: number) => void;
   onTransfer: (fromId: string, toId: string, amount: number) => void;
@@ -14,7 +15,7 @@ interface Props {
 
 const QUICK = [50, 100, 200, 500];
 
-export function BankManager({ state, onClose, onAdjust, onTransfer }: Props) {
+export function BankManager({ state, canEdit, onClose, onAdjust, onTransfer }: Props) {
   const players = state.players.filter((p) => !p.bankrupt);
   const [fromId, setFromId] = useState(players[0]?.id ?? "");
   const [toId, setToId] = useState(players[1]?.id ?? players[0]?.id ?? "");
@@ -54,110 +55,129 @@ export function BankManager({ state, onClose, onAdjust, onTransfer }: Props) {
         </div>
 
         <p className="text-[11px] font-mono text-white/50 mb-4 leading-relaxed">
-          Pay players from the bank (+), collect to the bank (−), or transfer between players. Use
-          this for house rules, mistakes, or local pass-and-play adjustments.
+          {canEdit
+            ? "Pay players from the bank (+), collect to the bank (−), or transfer between players. Host-only house rules and corrections."
+            : "Balances only — ask the room host to adjust cash."}
         </p>
 
-        <div className="space-y-2 mb-6">
+        <div className="space-y-3 mb-6">
           {players.map((p) => (
             <div
               key={p.id}
-              className="grid grid-cols-[1fr_auto_auto] gap-3 items-center bg-black/30 border border-white/10 p-3"
+              className="bg-black/30 border border-white/10 p-4 space-y-3"
             >
-              <div>
-                <div className="font-bold text-sm" style={{ color: p.avatarColor }}>
-                  {p.username}
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-bold text-sm" style={{ color: p.avatarColor }}>
+                    {p.username}
+                  </div>
+                  <div className="font-display text-2xl italic text-accent-amber tabular-nums">
+                    {formatInr(p.cash)}
+                  </div>
                 </div>
-                <div className="font-mono text-xs text-accent-amber">{formatInr(p.cash)}</div>
               </div>
-              <div className="flex flex-wrap gap-1 justify-end">
-                {QUICK.map((q) => (
-                  <button
-                    key={`m${q}`}
-                    onClick={() => onAdjust(p.id, -q)}
-                    className="px-2 py-1 border border-accent-pink/40 hover:bg-accent-pink/20 font-mono text-[10px] text-accent-pink"
-                  >
-                    −{formatInr(q)}
-                  </button>
-                ))}
-                {QUICK.map((q) => (
-                  <button
-                    key={`p${q}`}
-                    onClick={() => onAdjust(p.id, q)}
-                    className="px-2 py-1 border border-accent-cyan/40 hover:bg-accent-cyan/20 font-mono text-[10px] text-accent-cyan"
-                  >
-                    +{formatInr(q)}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-1">
-                <input
-                  type="number"
-                  value={customDelta[p.id] ?? ""}
-                  placeholder="amt"
-                  onChange={(e) => setCustomDelta({ ...customDelta, [p.id]: +e.target.value })}
-                  className="w-20 bg-black/40 border border-white/20 px-2 py-1 font-mono text-xs"
-                />
-                <button
-                  onClick={() => {
-                    const v = customDelta[p.id] || 0;
-                    if (v) onAdjust(p.id, v);
-                  }}
-                  className="px-2 py-1 border border-white/30 hover:border-accent-amber font-mono text-[10px]"
-                >
-                  Apply
-                </button>
-              </div>
+              {canEdit ? (
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap gap-1">
+                    {QUICK.map((q) => (
+                      <button
+                        key={`m${q}`}
+                        type="button"
+                        onClick={() => onAdjust(p.id, -q)}
+                        disabled={p.cash < q}
+                        className="px-2 py-1 border border-accent-pink/40 hover:bg-accent-pink/20 font-mono text-[10px] text-accent-pink disabled:opacity-30"
+                      >
+                        −{formatInr(q)}
+                      </button>
+                    ))}
+                    {QUICK.map((q) => (
+                      <button
+                        key={`p${q}`}
+                        type="button"
+                        onClick={() => onAdjust(p.id, q)}
+                        className="px-2 py-1 border border-accent-cyan/40 hover:bg-accent-cyan/20 font-mono text-[10px] text-accent-cyan"
+                      >
+                        +{formatInr(q)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex gap-1">
+                    <input
+                      type="number"
+                      value={customDelta[p.id] ?? ""}
+                      placeholder="Custom ± amt"
+                      onChange={(e) =>
+                        setCustomDelta({ ...customDelta, [p.id]: +e.target.value })
+                      }
+                      className="flex-1 bg-black/40 border border-white/20 px-2 py-1.5 font-mono text-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const v = customDelta[p.id] || 0;
+                        if (v) onAdjust(p.id, v);
+                      }}
+                      className="px-3 py-1.5 border border-white/30 hover:border-accent-amber font-mono text-[10px]"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
 
-        <div className="border-t border-white/10 pt-4">
-          <div className="text-[10px] font-mono uppercase tracking-widest text-accent-cyan mb-3">
-            Player → Player Transfer
+        {canEdit ? (
+          <div className="border-t border-white/10 pt-4">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-accent-cyan mb-3">
+              Player → Player Transfer
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_1fr] gap-2 items-center mb-3">
+              <select
+                value={fromId}
+                onChange={(e) => setFromId(e.target.value)}
+                className="bg-black/40 border border-white/20 px-2 py-2 font-mono text-xs"
+              >
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.username} ({formatInr(p.cash)})
+                  </option>
+                ))}
+              </select>
+              <ArrowRight className="size-4 text-white/40 justify-self-center hidden sm:block" />
+              <select
+                value={toId}
+                onChange={(e) => setToId(e.target.value)}
+                className="bg-black/40 border border-white/20 px-2 py-2 font-mono text-xs"
+              >
+                {players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.username}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex gap-2 items-center">
+              <input
+                type="number"
+                min={1}
+                value={amount}
+                onChange={(e) => setAmount(+e.target.value)}
+                className="flex-1 bg-black/40 border border-white/20 px-2 py-2 font-mono text-xs"
+              />
+              <NeonButton
+                size="sm"
+                variant="cyan"
+                onClick={() => {
+                  if (amount > 0 && fromId && toId) onTransfer(fromId, toId, amount);
+                }}
+              >
+                Send
+              </NeonButton>
+            </div>
           </div>
-          <div className="grid grid-cols-[1fr_auto_1fr_auto_auto] gap-2 items-center">
-            <select
-              value={fromId}
-              onChange={(e) => setFromId(e.target.value)}
-              className="bg-black/40 border border-white/20 px-2 py-2 font-mono text-xs"
-            >
-              {players.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.username} ({formatInr(p.cash)})
-                </option>
-              ))}
-            </select>
-            <ArrowRight className="size-4 text-white/40" />
-            <select
-              value={toId}
-              onChange={(e) => setToId(e.target.value)}
-              className="bg-black/40 border border-white/20 px-2 py-2 font-mono text-xs"
-            >
-              {players.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.username}
-                </option>
-              ))}
-            </select>
-            <input
-              type="number"
-              min={1}
-              value={amount}
-              onChange={(e) => setAmount(+e.target.value)}
-              className="w-24 bg-black/40 border border-white/20 px-2 py-2 font-mono text-xs"
-            />
-            <NeonButton
-              size="sm"
-              variant="cyan"
-              onClick={() => {
-                if (amount > 0) onTransfer(fromId, toId, amount);
-              }}
-            >
-              Send
-            </NeonButton>
-          </div>
-        </div>
+        ) : null}
       </motion.div>
     </motion.div>
   );

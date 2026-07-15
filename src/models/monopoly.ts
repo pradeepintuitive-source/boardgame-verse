@@ -18,6 +18,8 @@ export type ColorGroup =
 export interface Tile {
   index: number; // 0..39
   name: string;
+  /** Short board label when name is too long for the cell */
+  shortName?: string;
   type: TileType;
   price?: number;
   rent?: number[]; // [base, 1h, 2h, 3h, 4h, hotel] (properties)
@@ -89,6 +91,8 @@ export type MonopolyActionType =
   | "USE_JAIL_CARD"
   | "TRADE"
   | "AUCTION"
+  | "BANK_ADJUST"
+  | "BANK_TRANSFER"
   | "END_TURN";
 
 export interface MonopolyActionRequest {

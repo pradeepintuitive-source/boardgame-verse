@@ -99,7 +99,7 @@ export function ActionBar({
 
       {isMyTurn && state.phase === "landed" && pending == null && (
         <NeonButton onClick={onEnd}>
-          End Turn <ArrowRight className="inline size-4 ml-1" />
+          Continue <ArrowRight className="inline size-4 ml-1" />
         </NeonButton>
       )}
     </div>

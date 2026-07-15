@@ -1,5 +1,5 @@
 import { Lock, Bot } from "lucide-react";
-import { BOARD, GROUP_COLORS } from "../../data/monopolyBoard";
+import { BOARD, GROUP_COLORS, shortTileName } from "../../data/monopolyBoard";
 import type { MonopolyState, MonopolyPlayer } from "../../models/monopoly";
 import { formatInr } from "../../utils/monopolyEngine";
 
@@ -37,26 +37,40 @@ export function PlayerPanel({
             {player.isAI && <Bot className="size-3 text-accent-cyan" />}
             {isMe && <span className="text-[9px] font-mono text-accent-cyan">(YOU)</span>}
           </div>
-          <div className="text-[10px] font-mono text-accent-amber">
-            {formatInr(player.cash)}
-          </div>
+          <div className="text-[10px] font-mono text-accent-amber">{formatInr(player.cash)}</div>
         </div>
         {player.inJail && <Lock className="size-3.5 text-destructive" />}
       </div>
       {props.length > 0 && (
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-col gap-1 max-h-36 overflow-y-auto pr-1">
           {props.map((i) => {
             const tile = BOARD[i];
+            const prop = state.properties[i];
             const color = tile.group ? GROUP_COLORS[tile.group] : "#666";
+            const houses = prop?.houses ?? 0;
             return (
               <button
                 key={i}
+                type="button"
                 onClick={() => onSelectTile?.(i)}
-                className="text-[8px] font-mono px-1.5 py-0.5 rounded-sm hover:scale-110 transition-transform"
-                style={{ background: `${color}30`, color, border: `1px solid ${color}` }}
+                className="flex items-center gap-2 text-left text-[10px] font-mono px-1.5 py-1 hover:brightness-125"
+                style={{ background: `${color}18`, borderLeft: `3px solid ${color}` }}
                 title={tile.name}
               >
-                {tile.name.slice(0, 6)}
+                <span className="flex-1 truncate" style={{ color }}>
+                  {shortTileName(tile)}
+                </span>
+                {prop?.mortgaged ? (
+                  <span className="text-destructive text-[9px]">MTG</span>
+                ) : houses >= 5 ? (
+                  <span className="size-2 bg-destructive rounded-sm" />
+                ) : houses > 0 ? (
+                  <span className="flex gap-0.5">
+                    {Array.from({ length: houses }).map((_, h) => (
+                      <span key={h} className="size-1.5 bg-accent-amber rounded-sm" />
+                    ))}
+                  </span>
+                ) : null}
               </button>
             );
           })}
@@ -64,11 +78,12 @@ export function PlayerPanel({
       )}
       {player.jailCards > 0 && (
         <div className="text-[9px] font-mono text-accent-amber mt-1">
-          🎫 {player.jailCards} Jail Card
+          {player.jailCards} Jail Card
         </div>
       )}
       {onProposeTrade && !isMe && !player.bankrupt && (
         <button
+          type="button"
           onClick={onProposeTrade}
           className="mt-2 w-full text-[9px] font-mono uppercase tracking-widest border border-white/20 py-1 hover:border-accent-pink hover:text-accent-pink"
         >
