@@ -100,6 +100,7 @@ type MonopolyBackendState = {
     chestDeck?: number[];
   };
   pendingPurchaseTile?: number | null;
+  declinedPurchaseTile?: number | null;
   pendingCard?: MonopolyState["pendingCard"];
   auction?: MonopolyAuctionSnapshot | null;
   trade?: MonopolyState["trade"];
@@ -427,16 +428,25 @@ function mapSnapshotToState(
   curPlayerIndex = Math.min(curPlayerIndex, Math.max(players.length - 1, 0));
 
   const mappedPhase = mapPhase(backend.phase);
+  const declinedPurchaseTile =
+    mappedPhase === "rolling"
+      ? null
+      : backend.declinedPurchaseTile != null
+        ? Number(backend.declinedPurchaseTile)
+        : (previous?.declinedPurchaseTile ?? null);
   let pendingPurchaseTile: number | null = backend.pendingPurchaseTile ?? null;
   if (pendingPurchaseTile == null && mappedPhase === "landed") {
     const currentPosition = players[curPlayerIndex]?.position;
     const tile = typeof currentPosition === "number" ? BOARD[currentPosition] : null;
     const property = typeof currentPosition === "number" ? properties[currentPosition] : null;
+    const purchaseClosed =
+      declinedPurchaseTile != null && declinedPurchaseTile === currentPosition;
     if (
       tile &&
       property &&
       (tile.type === "property" || tile.type === "railroad" || tile.type === "utility") &&
-      !property.ownerId
+      !property.ownerId &&
+      !purchaseClosed
     ) {
       pendingPurchaseTile = currentPosition;
     }
@@ -474,6 +484,7 @@ function mapSnapshotToState(
     chanceDeck: backend.board?.chanceDeck ?? [],
     chestDeck: backend.board?.chestDeck ?? [],
     pendingPurchaseTile,
+    declinedPurchaseTile,
     pendingCard: backend.pendingCard ?? null,
     auction: normalizeAuctionState(backend.auction, roomPlayers),
     trade: backend.trade ?? null,
@@ -613,13 +624,22 @@ function MonopolyPage() {
             roomDataRef.current?.players ?? current?.players ?? [],
           );
           if (current) {
+            const clearedTile =
+              !auction && current.phase === "auction"
+                ? (current.auction?.tileIndex ?? current.pendingPurchaseTile)
+                : null;
             setGame(gameId!, {
               ...current,
               auction,
               phase: auction ? "auction" : current.phase === "auction" ? "landed" : current.phase,
+              // Auction finished (incl. unsold) — never reopen Buy/Auction for that tile.
               pendingPurchaseTile: auction
                 ? (auction.tileIndex ?? current.pendingPurchaseTile)
-                : current.pendingPurchaseTile,
+                : null,
+              declinedPurchaseTile:
+                clearedTile != null
+                  ? clearedTile
+                  : current.declinedPurchaseTile,
             });
           } else if (auction) {
             // Seed a minimal game shell if auction arrives before hydrate finishes
@@ -727,12 +747,15 @@ function MonopolyPage() {
     if (state.pendingPurchaseTile != null) return;
 
     // Safety: unowned buyable tile under current player = Buy/Auction decision, not auto-end.
+    // Skip once auction/buy offer was already closed for this tile.
     const curPlayer = state.players[state.currentPlayerIndex];
     const pos = curPlayer?.position;
     if (typeof pos === "number") {
       const tile = BOARD[pos];
       const prop = state.properties[pos];
+      const offerClosed = state.declinedPurchaseTile === pos;
       const buyable =
+        !offerClosed &&
         tile &&
         (tile.type === "property" || tile.type === "railroad" || tile.type === "utility") &&
         prop &&

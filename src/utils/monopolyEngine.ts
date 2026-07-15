@@ -74,6 +74,7 @@ export function initMonopolyGame(gameId: string, players: Player[]): MonopolySta
     chanceDeck: shuffle(CHANCE_CARDS.map((_, i) => i)),
     chestDeck: shuffle(CHEST_CARDS.map((_, i) => i)),
     pendingPurchaseTile: null,
+    declinedPurchaseTile: null,
     pendingCard: null,
     auction: null,
     trade: null,
@@ -459,6 +460,7 @@ export function buyPending(state: MonopolyState): MonopolyState {
       [tileIdx]: { ownerId: buyer.id, houses: 0, mortgaged: false },
     },
     pendingPurchaseTile: null,
+    declinedPurchaseTile: null,
   };
   log(next, `${buyer.username} bought ${tile.name} for ${formatInr(tile.price ?? 0)}.`, "money");
   return next;
@@ -520,7 +522,12 @@ export function settleAuction(state: MonopolyState): MonopolyState {
   if (!state.auction) return state;
   const a = state.auction;
   const tile = BOARD[a.tileIndex];
-  let next: MonopolyState = { ...state, auction: null, phase: "landed" };
+  let next: MonopolyState = {
+    ...state,
+    auction: null,
+    phase: "landed",
+    pendingPurchaseTile: null,
+  };
   if (a.highestBidderId && a.highestBid > 0) {
     const buyer = next.players.find((p) => p.id === a.highestBidderId)!;
     next = updatePlayer(next, buyer.id, { cash: buyer.cash - a.highestBid });
@@ -530,9 +537,11 @@ export function settleAuction(state: MonopolyState): MonopolyState {
         ...next.properties,
         [a.tileIndex]: { ownerId: buyer.id, houses: 0, mortgaged: false },
       },
+      declinedPurchaseTile: null,
     };
     log(next, `${buyer.username} won the auction for ${tile.name} at ${formatInr(a.highestBid)}.`, "money");
   } else {
+    next = { ...next, declinedPurchaseTile: a.tileIndex };
     log(next, `Auction for ${tile.name} ended with no bids.`, "event");
   }
   return next;
@@ -660,7 +669,13 @@ export function endTurn(state: MonopolyState): MonopolyState {
     state.consecutiveDoubles > 0 &&
     !state.players[state.currentPlayerIndex].inJail;
   if (justDoubled) {
-    return { ...state, phase: "rolling", pendingPurchaseTile: null, lastRoll: null };
+    return {
+      ...state,
+      phase: "rolling",
+      pendingPurchaseTile: null,
+      declinedPurchaseTile: null,
+      lastRoll: null,
+    };
   }
   let idx = state.currentPlayerIndex;
   for (let i = 0; i < state.players.length; i++) {
@@ -672,6 +687,7 @@ export function endTurn(state: MonopolyState): MonopolyState {
     currentPlayerIndex: idx,
     phase: "rolling",
     pendingPurchaseTile: null,
+    declinedPurchaseTile: null,
     consecutiveDoubles: 0,
     lastRoll: null,
   };

@@ -137,6 +137,8 @@ export interface MonopolyState {
   chanceDeck: number[];
   chestDeck: number[];
   pendingPurchaseTile: number | null;
+  /** Tile where buy offer was closed (auction ended unsold); blocks re-prompt until next roll. */
+  declinedPurchaseTile: number | null;
   pendingCard: { deck: "chance" | "chest"; index: number } | null;
   auction: Auction | null;
   trade: TradeOffer | null;
