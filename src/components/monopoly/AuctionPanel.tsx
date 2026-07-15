@@ -2,11 +2,19 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Gavel } from "lucide-react";
 import { BOARD, GROUP_COLORS } from "../../data/monopolyBoard";
-import type { MonopolyState } from "../../models/monopoly";
+import type { MonopolyPlayer, MonopolyState } from "../../models/monopoly";
 import { NeonButton } from "../common/NeonButton";
 import { formatInr } from "../../utils/monopolyEngine";
 
 const BID_CHIPS = [50, 100, 200, 500, 1000];
+
+function samePlayer(playerId: string | null | undefined, me: MonopolyPlayer | undefined) {
+  if (!playerId || !me) return false;
+  return (
+    String(playerId) === String(me.id) ||
+    (me.userId != null && String(playerId) === String(me.userId))
+  );
+}
 
 export function AuctionPanel({
   state,
@@ -21,19 +29,19 @@ export function AuctionPanel({
 }) {
   const a = state.auction;
   const minBid = a ? a.highestBid + 10 : 10;
-  const me = state.players.find((p) => p.id === meId) ?? state.players[0];
+  const me =
+    state.players.find((p) => p.id === meId) ??
+    state.players.find((p) => p.userId === meId) ??
+    state.players[0];
   const cash = me?.cash ?? 0;
   const maxBid = cash;
   const [amount, setAmount] = useState(minBid);
 
   const currentBidderId = a?.activePlayerIds[a.currentBidderIndex] ?? a?.activePlayerIds[0];
-  const isMyBid = Boolean(
-    a &&
-      currentBidderId === meId &&
-      me &&
-      !me.bankrupt &&
-      a.activePlayerIds.includes(meId),
+  const inAuction = Boolean(
+    a && me && a.activePlayerIds.some((id) => samePlayer(id, me)),
   );
+  const isMyBid = Boolean(a && samePlayer(currentBidderId, me) && me && !me.bankrupt && inAuction);
 
   useEffect(() => {
     if (!a) return;
@@ -45,11 +53,14 @@ export function AuctionPanel({
   const tile = BOARD[a.tileIndex];
   const clamped = Math.min(Math.max(amount || minBid, minBid), maxBid);
   const canBid = isMyBid && maxBid >= minBid && clamped >= minBid && clamped <= maxBid;
-  const bidderName =
-    state.players.find((p) => p.id === currentBidderId)?.username ?? "Waiting for bids";
-  const highestName = a.highestBidderId
-    ? (state.players.find((p) => p.id === a.highestBidderId)?.username ?? "—")
-    : null;
+  const bidder =
+    state.players.find((p) => samePlayer(currentBidderId, p)) ??
+    state.players.find((p) => String(p.id) === String(currentBidderId));
+  const bidderName = bidder?.username ?? "Waiting for bids";
+  const highest =
+    a.highestBidderId != null
+      ? state.players.find((p) => samePlayer(a.highestBidderId, p))
+      : null;
   const groupColor = tile?.group ? GROUP_COLORS[tile.group] : "#ff00e5";
 
   const addChip = (chip: number) => {
@@ -81,8 +92,8 @@ export function AuctionPanel({
         <div className="font-display text-5xl italic text-accent-amber mb-2">
           {formatInr(a.highestBid)}
         </div>
-        {highestName ? (
-          <div className="text-xs font-mono mb-4">by {highestName}</div>
+        {highest ? (
+          <div className="text-xs font-mono mb-4">by {highest.username}</div>
         ) : (
           <div className="text-xs font-mono mb-4 text-white/40">No bids yet</div>
         )}
@@ -95,7 +106,7 @@ export function AuctionPanel({
           <div className="flex flex-col gap-3">
             {maxBid < minBid ? (
               <div className="text-xs font-mono text-destructive">
-                Not enough cash to bid (need {formatInr(minBid)})
+                Not enough cash to bid (need {formatInr(minBid)}). Pass instead.
               </div>
             ) : (
               <>
@@ -144,14 +155,18 @@ export function AuctionPanel({
               Pass
             </NeonButton>
           </div>
+        ) : inAuction ? (
+          <div className="text-xs font-mono text-white/50 animate-pulse">
+            Waiting for {bidderName} to bid or pass…
+          </div>
         ) : (
-          <div className="text-xs font-mono text-white/50 animate-pulse">Waiting for bids…</div>
+          <div className="text-xs font-mono text-white/50">You are out of this auction.</div>
         )}
 
         <div className="mt-6 pt-4 border-t border-white/10 text-[10px] font-mono text-white/40">
           Remaining:{" "}
           {a.activePlayerIds
-            .map((id) => state.players.find((p) => p.id === id)?.username ?? "—")
+            .map((id) => state.players.find((p) => samePlayer(id, p))?.username ?? "—")
             .join(" · ")}
         </div>
       </motion.div>

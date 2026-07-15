@@ -593,24 +593,51 @@ function MonopolyPage() {
           const current = useMonopolyStore.getState().games[gameId];
           const auction = normalizeAuctionState(
             (envelope.payload as MonopolyAuctionSnapshot | null | undefined) ?? null,
-            roomDataRef.current?.players ?? [],
+            roomDataRef.current?.players ?? current?.players ?? [],
           );
           if (current) {
             setGame(gameId!, {
               ...current,
               auction,
-              phase: auction ? "auction" : current.phase,
-              pendingPurchaseTile: auction?.tileIndex ?? current.pendingPurchaseTile,
+              phase: auction ? "auction" : current.phase === "auction" ? "landed" : current.phase,
+              pendingPurchaseTile: auction
+                ? (auction.tileIndex ?? current.pendingPurchaseTile)
+                : current.pendingPurchaseTile,
             });
+          } else if (auction) {
+            // Seed a minimal game shell if auction arrives before hydrate finishes
+            applyMonopolyState(
+              {
+                sessionId,
+                phase: "WAITING_FOR_AUCTION",
+                auction: envelope.payload as MonopolyAuctionSnapshot,
+              } as MonopolyBackendState,
+              sessionId,
+            );
           }
           return;
         }
+        const prevAuction = useMonopolyStore.getState().games[gameId]?.auction ?? null;
         const rawState = extractSocketState(msg);
         if (!rawState) return;
         const mapped = applyMonopolyState(
           rawState,
           envelope?.sessionId ?? rawState.sessionId ?? sessionId,
         );
+        // Monopoly REST/STOMP state payloads omit live auctions (in-memory only).
+        // Keep the in-progress auction unless this message settled it (type AUCTION).
+        if (
+          envelope?.type !== "AUCTION" &&
+          !mapped.auction &&
+          prevAuction &&
+          mapped.phase !== "ended"
+        ) {
+          setGame(gameId!, {
+            ...mapped,
+            auction: prevAuction,
+            phase: "auction",
+          });
+        }
         console.log(
           "[monopoly] ✅ Mapped — phase:",
           mapped.phase,
@@ -762,6 +789,12 @@ function MonopolyPage() {
       const session = snapshot.data;
       const room = roomQuery.data;
       const mapped = mapSnapshotToState(session, room, gameId);
+      const prevAuction = useMonopolyStore.getState().games[gameId]?.auction ?? null;
+      // Live auctions are STOMP-only / in-memory — don't wipe them on REST rehydrate.
+      if (!mapped.auction && prevAuction) {
+        mapped.auction = prevAuction;
+        mapped.phase = "auction";
+      }
       setGame(gameId!, mapped);
       setHydrated(true);
     } catch (e) {
