@@ -55,10 +55,11 @@ export function Board({
     return map;
   }, [state.players]);
 
+  const turnPlayer = state.players[state.currentPlayerIndex] ?? null;
   const focusPlayer = focusPlayerId
     ? state.players.find((p) => p.id === focusPlayerId)
     : null;
-  const focusColor = focusPlayer?.avatarColor ?? "#00f2ff";
+  const focusColor = focusPlayer?.avatarColor ?? turnPlayer?.avatarColor ?? "#00f2ff";
   const focusOwned = useMemo(() => {
     const set = new Set<number>();
     if (!focusPlayerId) return set;
@@ -68,11 +69,12 @@ export function Board({
     return set;
   }, [focusPlayerId, state.properties]);
   const focusPosition = focusPlayer && !focusPlayer.bankrupt ? focusPlayer.position : null;
+  const turnPosition = turnPlayer && !turnPlayer.bankrupt ? turnPlayer.position : null;
 
   return (
-    <div className="relative aspect-square w-full max-w-[820px] mx-auto">
+    <div className="relative aspect-square w-full max-h-full max-w-[min(100%,72vh)] mx-auto">
       <div
-        className="grid h-full w-full gap-[2px] p-[2px] bg-black/40 border border-white/10"
+        className="grid h-full w-full gap-px p-px bg-black/40 border border-white/10"
         style={{ gridTemplateColumns: "repeat(11, 1fr)", gridTemplateRows: "repeat(11, 1fr)" }}
       >
         {BOARD.map((tile) => {
@@ -84,6 +86,7 @@ export function Board({
           const tokens = tokensByTile[tile.index] ?? [];
           const ownedByFocus = focusOwned.has(tile.index);
           const isFocusPosition = focusPosition === tile.index;
+          const isTurnPosition = !focusPlayerId && turnPosition === tile.index;
           return (
             <div
               key={tile.index}
@@ -98,8 +101,8 @@ export function Board({
                 onClick={() => onTileClick?.(tile.index)}
                 highlight={highlightTile === tile.index}
                 focusOwned={ownedByFocus}
-                focusPosition={isFocusPosition}
-                focusColor={focusColor}
+                focusPosition={isFocusPosition || isTurnPosition}
+                focusColor={isFocusPosition || ownedByFocus ? focusColor : (turnPlayer?.avatarColor ?? focusColor)}
               />
               {tokens.length > 0 && (
                 <div className="absolute inset-0 pointer-events-none flex flex-wrap items-end justify-center p-1 gap-0.5">
@@ -110,7 +113,10 @@ export function Board({
                       label={p.username}
                       stackIndex={i}
                       seatNumber={seatById[p.id]}
-                      emphasized={focusPlayerId === p.id}
+                      emphasized={
+                        focusPlayerId === p.id ||
+                        (!focusPlayerId && turnPlayer?.id === p.id)
+                      }
                     />
                   ))}
                 </div>
@@ -124,10 +130,10 @@ export function Board({
           className="relative grid place-items-center pointer-events-none"
         >
           <div className="text-center">
-            <div className="font-display text-5xl md:text-7xl italic uppercase neon-text-glow">
+            <div className="font-display text-3xl md:text-5xl lg:text-6xl italic uppercase neon-text-glow">
               MONOPOLY
             </div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mt-2">
+            <div className="text-[9px] font-mono uppercase tracking-[0.35em] text-accent-cyan mt-1">
               GameHub Edition
             </div>
             {focusPlayer ? (

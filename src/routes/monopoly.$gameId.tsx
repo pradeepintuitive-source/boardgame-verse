@@ -338,6 +338,7 @@ function mapSnapshotToState(
   session: MonopolySessionSnapshot,
   room: RoomSnapshotData | null | undefined,
   gameId: string,
+  previous?: MonopolyState | null,
 ): MonopolyState {
   // session can be either:
   //  A) GameSession wrapper (initial REST snapshot):
@@ -441,12 +442,26 @@ function mapSnapshotToState(
     }
   }
 
-  // lastDiceTotal → lastRoll (two dice that sum to the total, for display)
+  // lastDiceTotal → lastRoll. Only bump rolledAt when the total changes so
+  // turn switches / remaps do not replay the roll animation.
   const total: number = backend.lastDiceTotal ?? 0;
   const d1 = total > 0 ? Math.ceil(total / 2) : 1;
   const d2 = total > 0 ? Math.floor(total / 2) : 1;
+  const prevTotal = previous?.lastRoll
+    ? previous.lastRoll.d1 + previous.lastRoll.d2
+    : null;
   const lastRoll: import("../models/monopoly").DiceRoll | null =
-    total > 0 ? { d1, d2, isDouble: d1 === d2, rolledAt: Date.now() } : null;
+    total > 0
+      ? {
+          d1,
+          d2,
+          isDouble: d1 === d2,
+          rolledAt:
+            previous?.lastRoll && prevTotal === total
+              ? previous.lastRoll.rolledAt
+              : Date.now(),
+        }
+      : null;
 
   return {
     gameId: String(resolvedSessionId),
@@ -572,10 +587,12 @@ function MonopolyPage() {
 
   const applyMonopolyState = useCallback(
     (nextState: MonopolyBackendState, nextSessionId?: string) => {
+      const previous = useMonopolyStore.getState().games[gameId] ?? null;
       const mapped = mapSnapshotToState(
         { sessionId: nextSessionId ?? nextState?.sessionId ?? sessionId, state: nextState },
         roomDataRef.current,
         gameId,
+        previous,
       );
       setGame(gameId!, mapped);
       return mapped;
@@ -788,7 +805,7 @@ function MonopolyPage() {
     try {
       const session = snapshot.data;
       const room = roomQuery.data;
-      const mapped = mapSnapshotToState(session, room, gameId);
+      const mapped = mapSnapshotToState(session, room, gameId, useMonopolyStore.getState().games[gameId] ?? null);
       const prevAuction = useMonopolyStore.getState().games[gameId]?.auction ?? null;
       // Live auctions are STOMP-only / in-memory — don't wipe them on REST rehydrate.
       if (!mapped.auction && prevAuction) {
@@ -956,25 +973,24 @@ function MonopolyPage() {
         className="fixed inset-0 -z-10"
         style={{ background: "radial-gradient(circle at 50% 0%, #0a1a2e 0%, #050507 60%)" }}
       />
-      <main className="relative px-4 pt-20 pb-32 max-w-[1600px] mx-auto">
-        <header className="flex items-end justify-between mb-4">
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-1">
+      <main className="relative h-[100dvh] max-h-[100dvh] overflow-hidden px-3 pt-3 pb-3 max-w-[1800px] mx-auto flex flex-col gap-2">
+        <header className="flex items-center justify-between gap-3 shrink-0">
+          <div className="min-w-0">
+            <div className="text-[8px] font-mono uppercase tracking-[0.35em] text-accent-cyan">
               Bharat Edition · Multiplayer
             </div>
-            <h1 className="font-display text-4xl md:text-5xl italic uppercase neon-text-glow">
+            <h1 className="font-display text-2xl md:text-3xl italic uppercase neon-text-glow truncate leading-none">
               Monopoly: India Edition
             </h1>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5 shrink-0">
             <NeonButton variant="ghost" size="sm" onClick={() => setBankOpen(true)}>
-              <Banknote className="inline size-4 mr-1" /> Bank
+              <Banknote className="inline size-3.5 mr-1" /> Bank
             </NeonButton>
             <NeonButton
               variant="ghost"
               size="sm"
               onClick={() => {
-                // Soft Exit: keep seat + resume token for later return
                 navigate({ to: "/" });
               }}
             >
@@ -1001,15 +1017,16 @@ function MonopolyPage() {
 
         <IndianEventBanner event={state.activeEvent} />
 
-        <div className="grid xl:grid-cols-[280px_minmax(0,1fr)_320px] gap-4">
+        <div className="grid grid-cols-1 xl:grid-cols-[220px_minmax(0,1fr)_240px] gap-2 flex-1 min-h-0 overflow-hidden">
           {/* Left: players */}
-          <aside className="space-y-2 order-2 xl:order-1">
+          <aside className="space-y-1.5 order-2 xl:order-1 min-h-0 overflow-y-auto">
             {state.players.map((p, seatIdx) => (
               <PlayerPanel
                 key={p.id}
                 state={state}
                 player={p}
                 seatNumber={seatIdx + 1}
+                compact
                 isCurrent={state.players[state.currentPlayerIndex].id === p.id}
                 isMe={p.id === me.id}
                 selected={focusPlayerId === p.id}
@@ -1023,7 +1040,7 @@ function MonopolyPage() {
           </aside>
 
           {/* Center: board */}
-          <section className="order-1 xl:order-2">
+          <section className="order-1 xl:order-2 min-h-0 h-full flex items-center justify-center overflow-hidden">
             <Board
               state={state}
               onTileClick={(i) => setOpenTile(i)}
@@ -1033,7 +1050,7 @@ function MonopolyPage() {
           </section>
 
           {/* Right: action + log */}
-          <aside className="space-y-4 order-3">
+          <aside className="space-y-2 order-3 min-h-0 flex flex-col overflow-hidden">
             <ActionBar
               state={state}
               me={me}
@@ -1051,7 +1068,7 @@ function MonopolyPage() {
               onPayJail={() => sendGameAction("PAY_JAIL")}
               onJailCard={() => sendGameAction("USE_JAIL_CARD")}
             />
-            <EventLog log={state.log} />
+            <EventLog log={state.log} compact />
           </aside>
         </div>
 

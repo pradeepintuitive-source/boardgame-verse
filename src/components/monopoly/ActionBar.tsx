@@ -45,28 +45,39 @@ export function ActionBar({
   const price = tile?.price ?? 0;
 
   return (
-    <div className="glass-panel border border-accent-cyan/30 p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-white/40">Turn</div>
-          <div className="font-bold" style={{ color: cur.avatarColor }}>
+    <div
+      className="glass-panel border p-3 flex flex-col gap-2 shrink-0"
+      style={{
+        borderColor: `${cur.avatarColor}99`,
+        boxShadow: `0 0 18px ${cur.avatarColor}33`,
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="text-[8px] font-mono uppercase tracking-[0.3em] text-white/40">Turn</div>
+          <div className="font-bold truncate" style={{ color: cur.avatarColor }}>
             {cur.username}
+            {isMyTurn ? (
+              <span className="ml-2 text-[8px] font-mono uppercase tracking-widest text-white/50">
+                (you)
+              </span>
+            ) : null}
           </div>
         </div>
         <Dice roll={state.lastRoll} />
       </div>
 
       {!isMyTurn && (
-        <div className="text-[10px] font-mono uppercase tracking-widest text-white/40 text-center py-2">
+        <div className="text-[9px] font-mono uppercase tracking-widest text-white/40 text-center py-1">
           Waiting for {cur.username}…
         </div>
       )}
 
       {state.phase === "rolling" && (
-        <div className="flex flex-wrap gap-2">
-          <NeonButton variant="cyan" onClick={onRoll} disabled={!isMyTurn}>
-            <Dice5 className="inline size-4 mr-1" />
-            {me.inJail ? "Roll for Doubles" : "Roll Dice"}
+        <div className="flex flex-wrap gap-1.5">
+          <NeonButton variant="cyan" size="sm" onClick={onRoll} disabled={!isMyTurn}>
+            <Dice5 className="inline size-3.5 mr-1" />
+            {me.inJail ? "Roll Doubles" : "Roll Dice"}
           </NeonButton>
           {me.inJail && me.cash >= effectiveJailFee(state) && (
             <NeonButton variant="ghost" size="sm" onClick={onPayJail}>
@@ -83,10 +94,10 @@ export function ActionBar({
 
       {isMyTurn && state.phase === "landed" && pending != null && tile && (
         <div>
-          <div className="text-xs mb-2">
+          <div className="text-[11px] mb-1.5">
             Buy <b>{tile.name}</b> for {formatInr(price)}?
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             <NeonButton variant="cyan" size="sm" onClick={onBuy} disabled={me.cash < price}>
               <ShoppingBag className="inline size-3 mr-1" /> Buy
             </NeonButton>
@@ -98,8 +109,8 @@ export function ActionBar({
       )}
 
       {isMyTurn && state.phase === "landed" && pending == null && (
-        <NeonButton onClick={onEnd}>
-          Continue <ArrowRight className="inline size-4 ml-1" />
+        <NeonButton size="sm" onClick={onEnd}>
+          Continue <ArrowRight className="inline size-3.5 ml-1" />
         </NeonButton>
       )}
     </div>

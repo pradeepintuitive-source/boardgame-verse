@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import type { DiceRoll } from "../../models/monopoly";
 
@@ -14,37 +15,54 @@ const PIP_MAP: Record<number, boolean[]> = {
   6: [true, false, true, true, false, true, true, false, true],
 };
 
-function Die({ value, spinKey }: { value: number; spinKey: number }) {
+function Die({ value, spinning }: { value: number; spinning: boolean }) {
   return (
     <motion.div
-      key={spinKey + ":" + value}
-      initial={{ rotate: 0, scale: 0.6 }}
-      animate={{ rotate: 360, scale: 1 }}
-      transition={{ duration: 0.5 }}
-      className="size-10 bg-white rounded-md grid grid-cols-3 grid-rows-3 p-1.5 gap-0.5 shadow-[0_0_20px_rgba(0,242,255,0.5)]"
+      animate={spinning ? { rotate: [0, 360], scale: [0.65, 1.05, 1] } : { rotate: 0, scale: 1 }}
+      transition={spinning ? { duration: 0.55, ease: "easeOut" } : { duration: 0 }}
+      className="size-8 sm:size-9 bg-white rounded-md grid grid-cols-3 grid-rows-3 p-1.5 gap-0.5 shadow-[0_0_16px_rgba(0,242,255,0.45)]"
     >
-      {PIP_MAP[value].map((on, i) => (
+      {(PIP_MAP[value] ?? PIP_MAP[1]).map((on, i) => (
         <Pip key={i} on={on} />
       ))}
     </motion.div>
   );
 }
 
+/** Animates only when a new roll timestamp arrives (actual ROLL_DICE), not on remaps/turn change. */
 export function Dice({ roll }: { roll: DiceRoll | null }) {
+  const prevRolledAt = useRef<number | null>(null);
+  const [spinning, setSpinning] = useState(false);
+
+  useEffect(() => {
+    if (!roll) {
+      prevRolledAt.current = null;
+      setSpinning(false);
+      return;
+    }
+    if (prevRolledAt.current !== roll.rolledAt) {
+      prevRolledAt.current = roll.rolledAt;
+      setSpinning(true);
+      const t = window.setTimeout(() => setSpinning(false), 600);
+      return () => window.clearTimeout(t);
+    }
+  }, [roll?.rolledAt, roll]);
+
   if (!roll) {
     return (
-      <div className="flex gap-3">
-        <div className="size-10 border-2 border-dashed border-white/20 rounded-md" />
-        <div className="size-10 border-2 border-dashed border-white/20 rounded-md" />
+      <div className="flex gap-2">
+        <div className="size-8 sm:size-9 border-2 border-dashed border-white/20 rounded-md" />
+        <div className="size-8 sm:size-9 border-2 border-dashed border-white/20 rounded-md" />
       </div>
     );
   }
+
   return (
-    <div className="flex gap-3 items-center">
-      <Die value={roll.d1} spinKey={roll.rolledAt} />
-      <Die value={roll.d2} spinKey={roll.rolledAt + 1} />
+    <div className="flex gap-2 items-center">
+      <Die value={roll.d1} spinning={spinning} />
+      <Die value={roll.d2} spinning={spinning} />
       {roll.isDouble && (
-        <span className="text-[10px] font-mono uppercase tracking-widest text-accent-amber">
+        <span className="text-[9px] font-mono uppercase tracking-widest text-accent-amber">
           DOUBLE!
         </span>
       )}
