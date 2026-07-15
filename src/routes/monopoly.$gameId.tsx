@@ -6,7 +6,6 @@ import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { ChatDrawer } from "../components/chat/ChatDrawer";
 import { Board } from "../components/monopoly/Board";
-import { ActionBar } from "../components/monopoly/ActionBar";
 import { PlayerPanel } from "../components/monopoly/PlayerPanel";
 import { PropertyCard } from "../components/monopoly/PropertyCard";
 import { AuctionPanel } from "../components/monopoly/AuctionPanel";
@@ -1040,29 +1039,54 @@ function MonopolyPage() {
 
         <IndianEventBanner event={state.activeEvent} />
 
-        <div className="grid grid-cols-1 xl:grid-cols-[220px_minmax(0,1fr)_240px] gap-2 flex-1 min-h-0 overflow-hidden">
-          {/* Left: players */}
-          <aside className="space-y-1.5 order-2 xl:order-1 min-h-0 overflow-y-auto">
-            {state.players.map((p, seatIdx) => (
-              <PlayerPanel
-                key={p.id}
-                state={state}
-                player={p}
-                seatNumber={seatIdx + 1}
-                compact
-                isCurrent={state.players[state.currentPlayerIndex].id === p.id}
-                isMe={p.id === me.id}
-                selected={focusPlayerId === p.id}
-                onSelectPlayer={() =>
-                  setFocusPlayerId((prev) => (prev === p.id ? null : p.id))
-                }
-                onSelectTile={(i) => setOpenTile(i)}
-                onProposeTrade={p.id !== me.id ? () => setTradePartner(p.id) : undefined}
-              />
-            ))}
+        <div className="grid grid-cols-1 xl:grid-cols-[260px_minmax(0,1fr)] gap-2 flex-1 min-h-0 overflow-hidden">
+          {/* Left: players (turn lives on current player) + compact log */}
+          <aside className="order-2 xl:order-1 min-h-0 flex flex-col gap-1.5 overflow-hidden">
+            <div className="space-y-1.5 min-h-0 overflow-y-auto flex-1">
+              {state.players.map((p, seatIdx) => {
+                const isCurrent = state.players[state.currentPlayerIndex].id === p.id;
+                return (
+                  <PlayerPanel
+                    key={p.id}
+                    state={state}
+                    player={p}
+                    seatNumber={seatIdx + 1}
+                    compact
+                    isCurrent={isCurrent}
+                    isMe={p.id === me.id}
+                    selected={focusPlayerId === p.id}
+                    onSelectPlayer={() =>
+                      setFocusPlayerId((prev) => (prev === p.id ? null : p.id))
+                    }
+                    onSelectTile={(i) => setOpenTile(i)}
+                    onProposeTrade={p.id !== me.id ? () => setTradePartner(p.id) : undefined}
+                    turnActions={
+                      isCurrent
+                        ? {
+                            isMyTurn,
+                            onRoll: () => void sendGameAction("ROLL"),
+                            onBuy: () =>
+                              void sendGameAction("BUY", {
+                                tileIndex: state.pendingPurchaseTile ?? undefined,
+                              }),
+                            onAuction: () =>
+                              void sendGameAction("START_AUCTION", {
+                                tileIndex: state.pendingPurchaseTile ?? undefined,
+                              }),
+                            onEnd: () => void sendGameAction("END_TURN"),
+                            onPayJail: () => void sendGameAction("PAY_JAIL"),
+                            onJailCard: () => void sendGameAction("USE_JAIL_CARD"),
+                          }
+                        : undefined
+                    }
+                  />
+                );
+              })}
+            </div>
+            <EventLog log={state.log} compact />
           </aside>
 
-          {/* Center: board */}
+          {/* Board gets the remaining width for full visibility */}
           <section className="order-1 xl:order-2 min-h-0 h-full flex items-center justify-center overflow-hidden">
             <Board
               state={state}
@@ -1071,28 +1095,6 @@ function MonopolyPage() {
               focusPlayerId={focusPlayerId}
             />
           </section>
-
-          {/* Right: action + log */}
-          <aside className="space-y-2 order-3 min-h-0 flex flex-col overflow-hidden">
-            <ActionBar
-              state={state}
-              me={me}
-              isMyTurn={isMyTurn}
-              onRoll={() => sendGameAction("ROLL")}
-              onBuy={() =>
-                sendGameAction("BUY", { tileIndex: state.pendingPurchaseTile ?? undefined })
-              }
-              onAuction={() =>
-                sendGameAction("START_AUCTION", {
-                  tileIndex: state.pendingPurchaseTile ?? undefined,
-                })
-              }
-              onEnd={() => sendGameAction("END_TURN")}
-              onPayJail={() => sendGameAction("PAY_JAIL")}
-              onJailCard={() => sendGameAction("USE_JAIL_CARD")}
-            />
-            <EventLog log={state.log} compact />
-          </aside>
         </div>
 
         {state.phase === "ended" && (

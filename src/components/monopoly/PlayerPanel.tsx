@@ -1,7 +1,19 @@
-import { Lock, Bot } from "lucide-react";
+import { ArrowRight, Bot, Dice5, Gavel, Lock, ShoppingBag, Ticket } from "lucide-react";
 import { BOARD, GROUP_COLORS, shortTileName } from "../../data/monopolyBoard";
 import type { MonopolyState, MonopolyPlayer } from "../../models/monopoly";
-import { formatInr } from "../../utils/monopolyEngine";
+import { effectiveJailFee, formatInr } from "../../utils/monopolyEngine";
+import { NeonButton } from "../common/NeonButton";
+import { Dice } from "./Dice";
+
+export type PlayerTurnActions = {
+  isMyTurn: boolean;
+  onRoll: () => void;
+  onBuy: () => void;
+  onAuction: () => void;
+  onEnd: () => void;
+  onPayJail: () => void;
+  onJailCard: () => void;
+};
 
 export function PlayerPanel({
   state,
@@ -13,6 +25,7 @@ export function PlayerPanel({
   onSelectPlayer,
   onSelectTile,
   onProposeTrade,
+  turnActions,
   compact = false,
 }: {
   state: MonopolyState;
@@ -24,6 +37,7 @@ export function PlayerPanel({
   onSelectPlayer?: () => void;
   onSelectTile?: (idx: number) => void;
   onProposeTrade?: () => void;
+  turnActions?: PlayerTurnActions;
   compact?: boolean;
 }) {
   const props = Object.entries(state.properties)
@@ -31,6 +45,22 @@ export function PlayerPanel({
     .map(([i]) => +i);
 
   const tileName = BOARD[player.position]?.name ?? `Tile ${player.position}`;
+  const pending = state.pendingPurchaseTile;
+  const pendingTile = pending != null ? BOARD[pending] : null;
+  const price = pendingTile?.price ?? 0;
+  const showTurn = Boolean(isCurrent && turnActions);
+  const myTurn = Boolean(turnActions?.isMyTurn);
+
+  const phaseHint =
+    state.phase === "rolling"
+      ? "Rolling"
+      : state.phase === "landed"
+        ? pending != null
+          ? "Buy / Auction"
+          : "Continue"
+        : state.phase === "auction"
+          ? "Auction"
+          : "In control";
 
   return (
     <div
@@ -65,10 +95,11 @@ export function PlayerPanel({
           className="text-[8px] font-mono uppercase tracking-[0.25em] mb-1 font-bold"
           style={{ color: player.avatarColor }}
         >
-          In control · Rolling
+          Turn · {phaseHint}
         </div>
       ) : null}
-      <div className="flex items-center gap-2 mb-1">
+
+      <div className="flex items-start gap-2 mb-1">
         <div className="relative shrink-0">
           <div
             className={`${compact ? "size-6" : "size-7"} rounded-full border-2 border-white/70 grid place-items-center font-mono text-[10px] font-bold text-black`}
@@ -94,11 +125,23 @@ export function PlayerPanel({
             At {tileName}
           </div>
         </div>
-        {player.inJail && <Lock className="size-3.5 text-destructive" />}
+        {player.inJail && <Lock className="size-3.5 text-destructive shrink-0" />}
+        {showTurn ? (
+          <div
+            className="shrink-0"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <Dice roll={state.lastRoll} compact />
+          </div>
+        ) : null}
       </div>
+
       {props.length > 0 && (
         <div
-          className={`flex flex-col gap-0.5 overflow-y-auto pr-1 ${compact ? "max-h-14" : "max-h-24"}`}
+          className={`flex flex-col gap-0.5 overflow-y-auto pr-1 ${
+            showTurn ? "max-h-12" : compact ? "max-h-14" : "max-h-24"
+          }`}
         >
           {props.map((i) => {
             const tile = BOARD[i];
@@ -136,6 +179,93 @@ export function PlayerPanel({
           })}
         </div>
       )}
+
+      {showTurn && turnActions ? (
+        <div
+          className="mt-1.5 pt-1.5 border-t border-white/10 flex flex-col gap-1.5"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          {!myTurn && (
+            <div className="text-[8px] font-mono uppercase tracking-widest text-white/40 text-center">
+              Waiting for {player.username}…
+            </div>
+          )}
+
+          {state.phase === "rolling" && (
+            <div className="flex flex-wrap gap-1">
+              <NeonButton
+                variant="cyan"
+                size="sm"
+                onClick={turnActions.onRoll}
+                disabled={!myTurn}
+                className="flex-1 min-w-0 !text-[9px] !py-1"
+              >
+                <Dice5 className="inline size-3 mr-1" />
+                {player.inJail ? "Roll Doubles" : "Roll Dice"}
+              </NeonButton>
+              {myTurn && player.inJail && player.cash >= effectiveJailFee(state) && (
+                <NeonButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={turnActions.onPayJail}
+                  className="!text-[9px] !py-1"
+                >
+                  <Lock className="inline size-3 mr-1" /> Pay {formatInr(effectiveJailFee(state))}
+                </NeonButton>
+              )}
+              {myTurn && player.inJail && player.jailCards > 0 && (
+                <NeonButton
+                  variant="ghost"
+                  size="sm"
+                  onClick={turnActions.onJailCard}
+                  className="!text-[9px] !py-1"
+                >
+                  <Ticket className="inline size-3 mr-1" /> Card
+                </NeonButton>
+              )}
+            </div>
+          )}
+
+          {myTurn && state.phase === "landed" && pending != null && pendingTile && (
+            <div>
+              <div className="text-[10px] mb-1 leading-snug">
+                Buy <b>{pendingTile.name}</b> for {formatInr(price)}?
+              </div>
+              <div className="flex gap-1">
+                <NeonButton
+                  variant="cyan"
+                  size="sm"
+                  onClick={turnActions.onBuy}
+                  disabled={player.cash < price}
+                  className="flex-1 !text-[9px] !py-1"
+                >
+                  <ShoppingBag className="inline size-3 mr-1" /> Buy
+                </NeonButton>
+                <NeonButton
+                  variant="pink"
+                  size="sm"
+                  onClick={turnActions.onAuction}
+                  className="flex-1 !text-[9px] !py-1"
+                >
+                  <Gavel className="inline size-3 mr-1" /> Auction
+                </NeonButton>
+              </div>
+            </div>
+          )}
+
+          {myTurn && state.phase === "landed" && pending == null && (
+            <NeonButton
+              size="sm"
+              onClick={turnActions.onEnd}
+              className="w-full !text-[9px] !py-1"
+            >
+              Continue <ArrowRight className="inline size-3 ml-1" />
+            </NeonButton>
+          )}
+        </div>
+      ) : null}
+
       {onProposeTrade && !isMe && !player.bankrupt && (
         <button
           type="button"
