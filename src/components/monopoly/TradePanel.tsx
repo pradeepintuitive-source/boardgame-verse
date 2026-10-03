@@ -91,7 +91,7 @@ export function TradePanel({ state, meId, partnerId, onClose, onPropose }: Props
         </div>
 
         <p className="text-[11px] font-mono text-white/45 mb-4">
-          Swap one property each way. Optional cash you pay them. Executes immediately on your turn.
+          Swap one property each way and optionally add cash. The recipient must review the offer.
         </p>
 
         <div className="grid md:grid-cols-2 gap-4">
@@ -147,6 +147,78 @@ export function TradePanel({ state, meId, partnerId, onClose, onPropose }: Props
             Confirm Trade
           </NeonButton>
         </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+export function TradeReviewPanel({
+  state,
+  trade,
+  meId,
+  onResolve,
+}: {
+  state: MonopolyState;
+  trade: TradeOffer;
+  meId: string;
+  onResolve: (accepted: boolean) => void;
+}) {
+  const from = state.players.find((player) => player.id === trade.fromId);
+  const to = state.players.find((player) => player.id === trade.toId);
+  const isRecipient = trade.toId === meId;
+  const propertyNames = (positions: number[]) =>
+    positions.map((position) => BOARD[position]?.name ?? `Tile ${position}`).join(", ") || "None";
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm grid place-items-center p-4"
+    >
+      <motion.div
+        initial={{ scale: 0.9 }}
+        animate={{ scale: 1 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trade-review-title"
+        className="glass-panel border border-accent-cyan/40 p-6 max-w-xl w-full"
+      >
+        <div className="text-[10px] font-mono uppercase tracking-[0.35em] text-accent-cyan mb-2">
+          Trade Offer
+        </div>
+        <h2 id="trade-review-title" className="font-display text-2xl italic uppercase mb-4">
+          {from?.username ?? "Player"} → {to?.username ?? "Player"}
+        </h2>
+        <div className="grid sm:grid-cols-2 gap-3 text-xs font-mono">
+          <section className="border border-white/10 bg-black/25 p-3">
+            <div className="text-accent-cyan uppercase mb-2">{from?.username ?? "Offer"} gives</div>
+            <div>Properties: {propertyNames(trade.fromProps)}</div>
+            <div>Cash: {formatInr(trade.fromCash)}</div>
+            <div>Jail cards: {trade.fromJailCards}</div>
+          </section>
+          <section className="border border-white/10 bg-black/25 p-3">
+            <div className="text-accent-pink uppercase mb-2">
+              {to?.username ?? "Recipient"} gives
+            </div>
+            <div>Properties: {propertyNames(trade.toProps)}</div>
+            <div>Cash: {formatInr(trade.toCash)}</div>
+            <div>Jail cards: {trade.toJailCards}</div>
+          </section>
+        </div>
+        {isRecipient ? (
+          <div className="flex justify-end gap-2 mt-5">
+            <NeonButton variant="pink" size="sm" onClick={() => onResolve(false)}>
+              Reject
+            </NeonButton>
+            <NeonButton variant="cyan" size="sm" onClick={() => onResolve(true)}>
+              Accept
+            </NeonButton>
+          </div>
+        ) : (
+          <p className="mt-5 text-xs font-mono text-white/50">
+            Waiting for {to?.username ?? "the recipient"} to respond.
+          </p>
+        )}
       </motion.div>
     </motion.div>
   );

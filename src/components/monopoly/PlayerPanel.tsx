@@ -60,7 +60,9 @@ export function PlayerPanel({
           : "Continue"
         : state.phase === "auction"
           ? "Auction"
-          : "Turn";
+          : state.phase === "paused"
+            ? "Paused"
+            : "Turn";
 
   return (
     <div
@@ -150,6 +152,12 @@ export function PlayerPanel({
             </span>
             <span className="text-[8px] font-mono text-white/35 truncate" title={tileName}>
               {tileName}
+            </span>
+            <span
+              className="text-[8px] font-mono text-accent-cyan shrink-0"
+              title="Get Out of Jail Free cards"
+            >
+              {player.jailCards} jail card{player.jailCards === 1 ? "" : "s"}
             </span>
           </div>
         </div>
@@ -268,7 +276,7 @@ export function PlayerPanel({
                   onClick={turnActions.onAuction}
                   className="flex-1 !text-[9px] !py-1 !px-2"
                 >
-                  <Gavel className="inline size-3 mr-1" /> Auction
+                  <Gavel className="inline size-3 mr-1" /> Decline
                 </NeonButton>
               </div>
             </div>

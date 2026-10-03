@@ -390,3 +390,7 @@ This document details the REST API endpoints of the external Spring Boot backend
 
 - **Success Response (200 OK)**: Returns the updated Monopoly state immediately. The same state is later echoed on `/topic/game/{roomId}` as an idempotent confirmation broadcast.
 - **Frontend Service Mapping**: `monopolyApi.action()` inside `monopoly.ts`
+
+### Trade decision contract status
+
+The frontend currently sends trade responses as `type: "TRADE"`, with the proposer in `targetPlayerId` and `metadata: { "action": "ACCEPT" | "DECLINE", "tradeId": "..." }`. This request shape is an implementation assumption; confirm it against the Spring controller/service before production use. The proposal payload is documented in the Monopoly route mapping but the backend response contract is not available in this workspace.

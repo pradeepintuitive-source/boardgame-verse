@@ -102,7 +102,7 @@ export function ActionBar({
               <ShoppingBag className="inline size-3 mr-1" /> Buy
             </NeonButton>
             <NeonButton variant="pink" size="sm" onClick={onAuction}>
-              <Gavel className="inline size-3 mr-1" /> Auction
+              <Gavel className="inline size-3 mr-1" /> Decline
             </NeonButton>
           </div>
         </div>

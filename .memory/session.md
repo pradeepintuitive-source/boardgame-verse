@@ -1,5 +1,11 @@
 # Session Summary: 2026-07-11 (session.md)
 
+## 2026-10-03 - Monopoly Phase and Action UI
+
+Implemented explicit `PAUSED` mapping with a blocking overlay and host-only pause/resume controls. Added trade offer review and recipient decisions, expanded card popup handling to use `pendingCard`, and improved build validation, hotel dispatch, jail-card visibility, ownership indication, and mortgage styling. Bank Manager is now only exposed to the room host.
+
+Validation: the production build succeeds and editor diagnostics are clean. ESLint has no findings with the Prettier rule disabled; normal lint still reports formatting violations in touched files, including pre-existing surrounding code. Trade decision requests currently send `type: TRADE` with `metadata.action` and `metadata.tradeId`; confirm these keys with the Spring backend before relying on accept/reject in production.
+
 ## What Changed
 
 During this session, the Monopoly frontend was realigned to the backend's canonical action contract. Normal actions like Roll Dice, Buy Property, End Turn, jail actions, builds, and mortgage changes now go through `POST /api/monopoly/{sessionId}/action`, apply the returned state immediately, and then reconcile the later `/topic/game/{roomId}` broadcast idempotently. Auction controls remain STOMP-only on `/app/games/{sessionId}/auction`. We also removed the stale `/topic/games/{sessionId}` fallback assumption and updated project memory to document the corrected Monopoly flow.

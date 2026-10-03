@@ -1,15 +1,15 @@
-# Current Task: Synchronize Runtime Configuration and Memory Documentation
+# Current Task: Complete Monopoly Phase and Action UI
 
 ## Objective
-Align the client runtime configuration with the current repository implementation by preferring direct backend URLs from `NEXT_PUBLIC_*` environment variables, keeping Vercel rewrite rules empty, and updating the memory documents so they reflect the live code.
+Implement the missing Monopoly frontend phase controls, trade review, and requested player/board asset cues while preserving the authoritative backend flow.
 
 ## Subtasks
-* [x] Add `envPrefix` support for `NEXT_PUBLIC_` values in `vite.config.ts`.
-* [x] Configure Axios base URL selection in `src/services/api.ts` to prefer `NEXT_PUBLIC_API_URL`, then fall back to `VITE_API_URL` and the direct backend endpoint.
-* [x] Keep STOMP URL selection in `src/websocket/stompClient.ts` aligned with the direct backend endpoint flow.
-* [x] Keep `vercel.json` free of rewrite rules so the frontend targets the backend directly.
-* [x] Verify the production build completes without compilation errors.
-* [x] Synchronize the memory documents with the repository state.
+* [x] Map `PAUSED` distinctly and add host pause/resume controls with a blocking overlay.
+* [x] Add incoming trade review and recipient accept/reject controls.
+* [x] Render pending cards and jail-card counts; enforce full-set and even-build UI rules.
+* [x] Add hotel action dispatch, ownership borders, and stronger mortgage styling.
+* [x] Restrict Bank Manager to the room host and update project memory.
+* [x] Build and run focused source diagnostics.
 
 ## Status
-Completed. The repository now documents the current direct-backend routing model and the associated runtime environment variables.
+Implemented. Confirm the trade response metadata contract with the Spring backend before production use. Production build succeeds; standard lint still reports Prettier formatting violations in touched files.

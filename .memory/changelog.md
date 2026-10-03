@@ -2,6 +2,15 @@
 
 All notable changes to the GameHub project will be documented in this file.
 
+## [2026-10-03] - Complete Monopoly Phase and Action UI
+
+### Added
+
+- Added a distinct paused Monopoly phase, host-only pause/resume controls, and a blocking Game Paused overlay using the existing game lifecycle endpoints.
+- Added incoming trade review with recipient-only accept/reject controls, server player-ID normalization, and metadata-based decision requests. The decision metadata shape still needs confirmation against the Spring implementation.
+- Added pending-card rendering from the backend `pendingCard` field, visible jail-card counts, even-building/full-group checks, explicit hotel actions, owner-colored tile borders, and stronger mortgage styling.
+- Restricted Bank Manager access to the room host and labeled the property-decline action.
+
 ## [2026-07-11] - Fixed Monopoly Action Contract Mismatches
 
 ### Fixed

@@ -56,7 +56,7 @@ export function Tile({
       type="button"
       title={tile.name}
       onClick={onClick}
-      className={`relative w-full h-full glass-panel border border-white/10 p-1 text-left flex flex-col overflow-hidden hover:border-accent-cyan/60 transition-colors ${ringClass}`}
+      className={`relative w-full h-full glass-panel border border-white/10 p-1 text-left flex flex-col overflow-hidden hover:border-accent-cyan/60 transition-colors ${prop?.mortgaged ? "grayscale opacity-60" : ""} ${ringClass}`}
       style={
         focusOwned || focusPosition
           ? {
@@ -65,7 +65,9 @@ export function Tile({
                 : `0 0 0 2px ${focusColor}, inset 0 0 24px ${focusColor}44`,
               borderColor: `${focusColor}aa`,
             }
-          : undefined
+          : ownerColor
+            ? { borderColor: `${ownerColor}aa`, boxShadow: `inset 0 0 0 1px ${ownerColor}33` }
+            : undefined
       }
     >
       {groupBar && (

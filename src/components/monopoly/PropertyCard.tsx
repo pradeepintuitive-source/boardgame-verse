@@ -1,6 +1,12 @@
 import { motion } from "framer-motion";
 import { X } from "lucide-react";
-import { BOARD, GROUP_COLORS, RAILROAD_RENT, developmentLabel } from "../../data/monopolyBoard";
+import {
+  BOARD,
+  GROUP_COLORS,
+  GROUP_TILES,
+  RAILROAD_RENT,
+  developmentLabel,
+} from "../../data/monopolyBoard";
 import type { MonopolyState } from "../../models/monopoly";
 import { NeonButton } from "../common/NeonButton";
 import { formatInr } from "../../utils/monopolyEngine";
@@ -39,12 +45,20 @@ export function PropertyCard({
   const unmortgageCost = Math.ceil(mortgageValue * 1.1);
   const houses = prop?.houses ?? 0;
   const hasDev = houses > 0;
+  const groupTiles = tile.group ? (GROUP_TILES[tile.group] ?? []) : [];
+  const ownsFullGroup =
+    groupTiles.length > 0 && groupTiles.every((index) => state.properties[index]?.ownerId === meId);
+  const fewestGroupHouses = groupTiles.length
+    ? Math.min(...groupTiles.map((index) => state.properties[index]?.houses ?? 0))
+    : 0;
 
   let buildDisabledReason: string | null = null;
   if (!isMyTurn) buildDisabledReason = "Not your turn";
   else if (!isColorProperty) buildDisabledReason = "Only color properties can be upgraded";
+  else if (!ownsFullGroup) buildDisabledReason = "Own the full color group first";
   else if (prop?.mortgaged) buildDisabledReason = "Unmortgage before upgrading";
   else if (houses >= 5) buildDisabledReason = "Fully developed";
+  else if (houses > fewestGroupHouses) buildDisabledReason = "Build evenly across the color group";
   else if ((me?.cash ?? 0) < houseCost) buildDisabledReason = "Need more cash";
 
   let sellDisabledReason: string | null = null;

@@ -117,6 +117,7 @@ export type MonopolyPhase =
   | "landed" // awaiting action on landed tile
   | "auction"
   | "trade"
+  | "paused"
   | "ended";
 
 export interface MonopolyLog {

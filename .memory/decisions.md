@@ -61,3 +61,9 @@ This log records major design and architectural choices made in the codebase, al
 - **Trade-offs**:
   - **Pros**: Roll Dice, Buy, End Turn, jail actions, and property actions now succeed or fail deterministically from the initiating client, and the later room-topic broadcast becomes an idempotent confirmation.
   - **Cons**: The client now uses two transport paths for Monopoly: REST for normal actions and STOMP for auctions.
+
+  ## 7. Monopoly Pause and Trade Review UI
+
+  - **Why it exists**: The UI must represent backend pause state distinctly and give the trade recipient a review/decision surface instead of leaving `WAITING_FOR_TRADE` without controls.
+  - **Implementation**: Pause/resume use the existing game lifecycle REST endpoints. Trade decisions use the existing `TRADE` action with `metadata.action` (`ACCEPT` or `DECLINE`) and `metadata.tradeId`.
+  - **Contract caveat**: The Spring trade decision request shape is not documented in this frontend repository. Verify the metadata keys and action values against the backend before treating the response flow as production-confirmed.
