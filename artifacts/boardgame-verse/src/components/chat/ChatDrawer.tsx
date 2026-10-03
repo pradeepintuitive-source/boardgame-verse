@@ -3,7 +3,6 @@ import { MessageSquare, X, Send, Mic, MicOff, Volume2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useChatStore } from "../../store/chatStore";
 import { useAuthStore } from "../../store/authStore";
-import { useAuthStore } from "../../store/authStore";
 import { Avatar } from "../common/Avatar";
 import { useStompSubscription } from "../../hooks/useStompSubscription";
 import { Topics } from "../../websocket/topics";
@@ -43,9 +42,10 @@ export function ChatDrawer({ roomId }: { roomId: string }) {
 
   useStompSubscription(
     roomId ? Topics.roomChat(roomId) : null,
-    (msg) => {
-      if (!msg || msg.type !== "CHAT_MESSAGE") return;
-      const payload = msg.payload ?? msg;
+    (msg: Record<string, unknown>) => {
+      if (!msg || msg["type"] !== "CHAT_MESSAGE") return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payload = (msg["payload"] ?? msg) as any;
       receiveMessage(roomId, payload);
     },
     !!roomId,
