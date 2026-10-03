@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Trophy, Banknote, Pause, Play, BookOpen } from "lucide-react";
+import { Trophy, Banknote, Pause, Play } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { ChatDrawer } from "../components/chat/ChatDrawer";
@@ -739,7 +739,7 @@ function MonopolyPage() {
   const [focusPlayerId, setFocusPlayerId] = useState<string | null>(null);
   const [tradePartner, setTradePartner] = useState<string | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
-  const [cardCatalogOpen, setCardCatalogOpen] = useState(false);
+  const [cardCatalogDeck, setCardCatalogDeck] = useState<"chance" | "chest" | null>(null);
   const [cardReveal, setCardReveal] = useState<CardReveal | null>(null);
   const seenCardLogRef = useRef<string | null>(null);
   const seenPendingCardRef = useRef<string | null>(null);
@@ -1130,14 +1130,6 @@ function MonopolyPage() {
             )}
           </div>
           <div className="flex gap-1 shrink-0">
-            <NeonButton
-              variant="ghost"
-              size="sm"
-              onClick={() => setCardCatalogOpen(true)}
-              className="!py-1 !px-2.5 !text-[10px]"
-            >
-              <BookOpen className="inline size-3 mr-1" /> Cards
-            </NeonButton>
             {isRoomHost && (
               <>
                 <NeonButton
@@ -1243,6 +1235,11 @@ function MonopolyPage() {
             <Board
               state={state}
               onTileClick={(i) => setOpenTile(i)}
+              onOpenDeck={setCardCatalogDeck}
+              isMyTurn={isMyTurn}
+              onRoll={() => void sendGameAction("ROLL")}
+              onPayJail={() => void sendGameAction("PAY_JAIL")}
+              onJailCard={() => void sendGameAction("USE_JAIL_CARD")}
               highlightTile={state.pendingPurchaseTile}
               focusPlayerId={focusPlayerId}
             />
@@ -1267,7 +1264,7 @@ function MonopolyPage() {
       </main>
 
       <AnimatePresence>
-        {cardCatalogOpen && <CardCatalogModal onClose={() => setCardCatalogOpen(false)} />}
+        {cardCatalogDeck && <CardCatalogModal initialDeck={cardCatalogDeck} onClose={() => setCardCatalogDeck(null)} />}
 
         {cardReveal && (
           <CardRevealModal

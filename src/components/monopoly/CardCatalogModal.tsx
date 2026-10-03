@@ -68,8 +68,8 @@ function isPositiveOutcome(action: DeckCard["action"]): boolean {
   return action.kind === "move" && action.collectGoIfPass === true;
 }
 
-export function CardCatalogModal({ onClose }: { onClose: () => void }) {
-  const [deck, setDeck] = useState<"chance" | "chest">("chance");
+export function CardCatalogModal({ onClose, initialDeck = "chest" }: { onClose: () => void; initialDeck?: "chance" | "chest" }) {
+  const [deck, setDeck] = useState<"chance" | "chest">(initialDeck);
   const [filter, setFilter] = useState<EffectFilter>("all");
   const [search, setSearch] = useState("");
   const [expandedCard, setExpandedCard] = useState<number | null>(null);

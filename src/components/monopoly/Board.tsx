@@ -3,6 +3,10 @@ import { BOARD } from "../../data/monopolyBoard";
 import type { MonopolyState } from "../../models/monopoly";
 import { Tile } from "./Tile";
 import { Token } from "./Token";
+import { Dice5, Lock, Ticket, Boxes, Sparkles } from "lucide-react";
+import { NeonButton } from "../common/NeonButton";
+import { Dice } from "./Dice";
+import { effectiveJailFee, formatInr } from "../../utils/monopolyEngine";
 
 /**
  * Board layout: 11x11 CSS grid. Corners are 1x1; edges occupy the 9 cells between them.
@@ -30,12 +34,22 @@ export function Board({
   onTileClick,
   highlightTile,
   focusPlayerId,
+  onOpenDeck,
+  isMyTurn,
+  onRoll,
+  onPayJail,
+  onJailCard,
 }: {
   state: MonopolyState;
   onTileClick?: (idx: number) => void;
   highlightTile?: number | null;
   /** When set, ring that player's deeds + glow their token position */
   focusPlayerId?: string | null;
+  onOpenDeck?: (deck: "chance" | "chest") => void;
+  isMyTurn?: boolean;
+  onRoll?: () => void;
+  onPayJail?: () => void;
+  onJailCard?: () => void;
 }) {
   const players = state.players;
   const properties = state.properties;
@@ -118,7 +132,7 @@ export function Board({
                 prop={prop}
                 ownerColor={ownerColor ?? null}
                 orientation={pos.orientation}
-                onClick={() => onTileClick?.(tile.index)}
+                onClick={() => tile.type === "chest" || tile.type === "chance" ? onOpenDeck?.(tile.type) : onTileClick?.(tile.index)}
                 highlight={highlightTile === tile.index}
                 focusOwned={ownedByFocus}
                 focusPosition={isFocusPosition || isTurnPosition}
@@ -152,7 +166,7 @@ export function Board({
           <div className="w-full max-w-xl px-2 sm:px-5">
             {turnPlayer && (
               <div
-                className="border bg-black/85 p-3 sm:p-4"
+                className="border bg-card/95 p-3 sm:p-4"
                 style={{
                   borderColor: `${turnPlayer.avatarColor}bb`,
                   boxShadow: `0 0 24px ${turnPlayer.avatarColor}35, inset 0 0 28px ${turnPlayer.avatarColor}12`,
@@ -191,6 +205,27 @@ export function Board({
                   </div>
                 </div>
 
+                {state.phase === "rolling" && (
+                  <div className="pointer-events-auto mt-3 pt-3 border-t border-border flex flex-wrap items-center justify-between gap-2">
+                    <Dice roll={state.lastRoll} compact />
+                    <div className="flex flex-wrap gap-1.5">
+                      {turnPlayer.inJail && isMyTurn && turnPlayer.cash >= effectiveJailFee(state) && (
+                        <NeonButton variant="ghost" size="sm" onClick={onPayJail} className="!px-2 !py-1.5 !text-[9px]">
+                          <Lock className="inline size-3 mr-1" /> Pay {formatInr(effectiveJailFee(state))}
+                        </NeonButton>
+                      )}
+                      {turnPlayer.inJail && isMyTurn && turnPlayer.jailCards > 0 && (
+                        <NeonButton variant="ghost" size="sm" onClick={onJailCard} className="!px-2 !py-1.5 !text-[9px]">
+                          <Ticket className="inline size-3 mr-1" /> Use Card
+                        </NeonButton>
+                      )}
+                      <NeonButton variant="cyan" size="sm" onClick={onRoll} disabled={!isMyTurn} className="!px-3 !py-1.5 !text-[10px]">
+                        <Dice5 className="inline size-4 mr-1" /> {turnPlayer.inJail ? "Roll Doubles" : "Roll Dice"}
+                      </NeonButton>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-3">
                   {[
                     { label: "Position", value: turnTile?.name ?? `Tile ${turnPlayer.position}` },
@@ -221,6 +256,14 @@ export function Board({
               <div className="text-[8px] font-mono uppercase tracking-[0.35em] text-accent-cyan mt-0.5">
                 GameHub Edition
               </div>
+            </div>
+            <div className="pointer-events-auto mt-3 flex justify-center gap-2">
+              <NeonButton variant="ghost" size="sm" onClick={() => onOpenDeck?.("chest")} className="!px-2 !py-1 !text-[9px]">
+                <Boxes className="inline size-3 mr-1" /> Chest
+              </NeonButton>
+              <NeonButton variant="ghost" size="sm" onClick={() => onOpenDeck?.("chance")} className="!px-2 !py-1 !text-[9px]">
+                <Sparkles className="inline size-3 mr-1" /> Chance
+              </NeonButton>
             </div>
             {focusPlayer ? (
               <div
