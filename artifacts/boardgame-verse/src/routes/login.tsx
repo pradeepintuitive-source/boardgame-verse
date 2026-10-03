@@ -56,10 +56,8 @@ function LoginPage() {
     <AppShell>
       <div className="min-h-screen grid place-items-center px-6 pt-32 pb-20">
         <form onSubmit={submit} className="w-full max-w-md glass-panel p-8">
-          <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-2">
-            Authenticate
-          </div>
-          <h1 className="font-display text-5xl italic uppercase mb-8">Sign In</h1>
+          <p className="eyebrow">Welcome back</p>
+          <h1 className="page-title mb-8">Sign in</h1>
 
           {errorMessage ? (
             <div className="mb-4 border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive font-mono">
@@ -68,25 +66,21 @@ function LoginPage() {
           ) : null}
 
           <label className="block mb-4">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
-              Username or Email
-            </span>
+            <span className="text-xs font-medium text-white/55">Username or email</span>
             <input
               value={username}
               onChange={(e) => setU(e.target.value)}
-              className="mt-1 w-full bg-background border border-white/10 px-3 py-3 focus:border-accent-cyan outline-none font-mono"
+              className="field"
               autoFocus
             />
           </label>
           <label className="block mb-8">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
-              Password
-            </span>
+            <span className="text-xs font-medium text-white/55">Password</span>
             <input
               type="password"
               value={password}
               onChange={(e) => setP(e.target.value)}
-              className="mt-1 w-full bg-background border border-white/10 px-3 py-3 focus:border-accent-cyan outline-none font-mono"
+              className="field"
             />
           </label>
 
@@ -97,7 +91,7 @@ function LoginPage() {
             Play as Guest
           </NeonButton>
 
-          <p className="mt-6 text-xs font-mono text-white/40 text-center">
+          <p className="mt-6 text-center text-sm text-white/50">
             New player?{" "}
             <Link to="/register" className="text-accent-cyan hover:underline">
               Create an account

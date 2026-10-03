@@ -22,21 +22,24 @@ interface VoiceStore {
 
 export const useVoiceStore = create<VoiceStore>((set) => ({
   joined: false,
-  selfMuted: false,
+  selfMuted: true,
   participants: {},
   setJoined: (joined) => set({ joined }),
   setSelfMuted: (muted) => set({ selfMuted: muted }),
   setParticipants: (ids) =>
-    set({
+    set((state) => ({
       participants: Object.fromEntries(
-        ids.map((id) => [id, { userId: id, muted: false, speaking: false }]),
+        ids.map((id) => [
+          id,
+          state.participants[id] ?? { userId: id, muted: true, speaking: false },
+        ]),
       ),
-    }),
+    })),
   addParticipant: (userId) =>
     set((state) => ({
       participants: {
         ...state.participants,
-        [userId]: { userId, muted: false, speaking: false },
+        [userId]: { userId, muted: true, speaking: false },
       },
     })),
   removeParticipant: (userId) =>
@@ -67,5 +70,5 @@ export const useVoiceStore = create<VoiceStore>((set) => ({
         },
       },
     })),
-  reset: () => set({ joined: false, selfMuted: false, participants: {} }),
+  reset: () => set({ joined: false, selfMuted: true, participants: {} }),
 }));

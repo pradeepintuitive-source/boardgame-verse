@@ -1144,93 +1144,125 @@ function MonopolyPage() {
         className="fixed inset-0 -z-10"
         style={{ background: "radial-gradient(circle at 50% 0%, #0a1a2e 0%, #050507 60%)" }}
       />
-      <main className="relative h-[100dvh] max-h-[100dvh] overflow-hidden px-2.5 pt-2 pb-2 max-w-[1800px] mx-auto flex flex-col gap-1.5">
-        <header className="flex items-center justify-between gap-2 shrink-0 min-h-0">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="min-w-0 shrink">
-              <div className="text-[7px] font-mono uppercase tracking-[0.32em] text-accent-cyan/80 leading-none mb-0.5">
-                Bharat · Live
+      <main className="relative mx-auto flex h-[100dvh] max-h-[100dvh] max-w-[1800px] flex-col gap-2 overflow-hidden px-2 py-2 sm:px-3">
+        <header className="flex shrink-0 flex-col gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent-cyan">
+                India Edition
               </div>
-              <h1 className="font-display text-lg md:text-xl italic uppercase neon-text-glow truncate leading-none">
-                Monopoly: India Edition
+              <h1 className="truncate font-display text-2xl italic uppercase leading-none sm:text-3xl">
+                Monopoly
               </h1>
             </div>
-            {roomId && (
-              <VoiceChatPanel
-                compact
-                roomId={roomId}
-                selfUserId={me.userId ?? me.id}
-                userLookup={voiceUserLookup}
-              />
-            )}
-            <IndianEventBanner event={state.activeEvent} />
-            {state.phase === "paused" && !isRoomHost && (
-              <div
-                role="status"
-                className="flex items-center gap-1.5 border border-accent-amber/40 bg-accent-amber/10 px-2 py-1 text-[9px] font-mono uppercase tracking-widest text-accent-amber"
-              >
-                <Pause className="size-3" /> Game paused by host
-              </div>
-            )}
-          </div>
-          <div className="flex gap-1 shrink-0">
-            {isRoomHost && (
-              <>
-                <NeonButton
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setBankOpen(true)}
-                  className="!py-1 !px-2.5 !text-[10px]"
-                >
-                  <Banknote className="inline size-3 mr-1" /> Bank Manager
-                </NeonButton>
-                {state.phase !== "paused" && state.phase !== "ended" && (
+            <div className="flex flex-wrap items-center justify-end gap-1.5">
+              {roomId && (
+                <VoiceChatPanel
+                  compact
+                  roomId={roomId}
+                  selfUserId={me.userId ?? me.id}
+                  userLookup={voiceUserLookup}
+                />
+              )}
+              {isRoomHost && (
+                <>
                   <NeonButton
                     variant="ghost"
                     size="sm"
-                    disabled={pauseGame.isPending}
-                    onClick={() => void setGamePaused(true)}
-                    className="!py-1 !px-2.5 !text-[10px]"
+                    onClick={() => setBankOpen(true)}
+                    className="!px-2.5 !py-1.5"
+                    aria-label="Bank manager"
                   >
-                    <Pause className="inline size-3 mr-1" /> Pause
+                    <Banknote className="inline size-3.5 sm:mr-1" />
+                    <span className="hidden sm:inline">Bank</span>
                   </NeonButton>
-                )}
-              </>
-            )}
-            <NeonButton
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                navigate({ to: "/" });
-              }}
-              className="!py-1 !px-2.5 !text-[10px]"
-            >
-              Soft Exit
-            </NeonButton>
-            <NeonButton
-              variant="pink"
-              size="sm"
-              onClick={() => {
-                localStorage.removeItem("gamehub:resume-session");
-                if (roomId) {
-                  leaveRoomMut.mutate(roomId, {
-                    onSettled: () => navigate({ to: "/" }),
-                  });
-                } else {
+                  {state.phase !== "paused" && state.phase !== "ended" && (
+                    <NeonButton
+                      variant="ghost"
+                      size="sm"
+                      disabled={pauseGame.isPending}
+                      onClick={() => void setGamePaused(true)}
+                      className="!px-2.5 !py-1.5"
+                      aria-label="Pause game"
+                    >
+                      <Pause className="inline size-3.5 sm:mr-1" />
+                      <span className="hidden sm:inline">Pause</span>
+                    </NeonButton>
+                  )}
+                </>
+              )}
+              <NeonButton
+                variant="ghost"
+                size="sm"
+                onClick={() => {
                   navigate({ to: "/" });
-                }
-              }}
-              className="!py-1 !px-2.5 !text-[10px]"
-            >
-              Abandon
-            </NeonButton>
+                }}
+                className="!px-2.5 !py-1.5"
+              >
+                Leave
+              </NeonButton>
+              <NeonButton
+                variant="pink"
+                size="sm"
+                onClick={() => {
+                  localStorage.removeItem("gamehub:resume-session");
+                  if (roomId) {
+                    leaveRoomMut.mutate(roomId, {
+                      onSettled: () => navigate({ to: "/" }),
+                    });
+                  } else {
+                    navigate({ to: "/" });
+                  }
+                }}
+                className="!px-2.5 !py-1.5"
+              >
+                <span className="sm:hidden">Quit</span>
+                <span className="hidden sm:inline">Abandon</span>
+              </NeonButton>
+            </div>
           </div>
+          <IndianEventBanner event={state.activeEvent} />
+          {state.phase === "paused" && !isRoomHost && (
+            <div
+              role="status"
+              className="flex items-center gap-1.5 rounded-full border border-accent-amber/40 bg-accent-amber/10 px-3 py-1 text-xs text-accent-amber"
+            >
+              <Pause className="size-3" /> Paused by the host
+            </div>
+          )}
         </header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[250px_minmax(0,1fr)] gap-2 flex-1 min-h-0 overflow-hidden">
-          {/* Left: players (turn lives on current player) + compact log */}
-          <aside className="order-2 xl:order-1 min-h-0 flex flex-col gap-1.5 overflow-hidden">
-            <div className="space-y-1 min-h-0 overflow-y-auto flex-1">
+        <div className="flex shrink-0 gap-2 overflow-x-auto pb-0.5 xl:hidden">
+          {state.players.map((p) => {
+            const isCurrent = state.players[state.currentPlayerIndex]?.id === p.id;
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setFocusPlayerId((prev) => (prev === p.id ? null : p.id))}
+                className="flex shrink-0 items-center gap-2 rounded-full border bg-white/[0.04] px-2.5 py-1.5"
+                style={{
+                  borderColor: isCurrent ? p.avatarColor : "rgba(255,255,255,0.12)",
+                }}
+              >
+                <span
+                  className="grid size-6 place-items-center rounded-full text-[11px] font-bold text-black"
+                  style={{ background: p.avatarColor }}
+                >
+                  {p.username.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="max-w-24 truncate text-xs font-medium">{p.username}</span>
+                <span className="text-[11px] tabular-nums text-accent-amber">
+                  ₹{p.cash.toLocaleString("en-IN")}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden xl:grid-cols-[260px_minmax(0,1fr)]">
+          <aside className="hidden min-h-0 flex-col gap-1.5 overflow-hidden xl:flex">
+            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
               {state.players.map((p, seatIdx) => {
                 const isCurrent = state.players[state.currentPlayerIndex].id === p.id;
                 return (
@@ -1255,8 +1287,7 @@ function MonopolyPage() {
             <EventLog log={state.log} compact />
           </aside>
 
-          {/* Board gets the remaining width for full visibility */}
-          <section className="order-1 xl:order-2 min-h-0 h-full flex items-center justify-center overflow-hidden">
+          <section className="flex h-full min-h-0 items-center justify-center overflow-hidden">
             <Board
               state={state}
               onTileClick={(i) => setOpenTile(i)}
@@ -1281,6 +1312,9 @@ function MonopolyPage() {
               focusPlayerId={focusPlayerId}
             />
           </section>
+        </div>
+        <div className="shrink-0 xl:hidden">
+          <EventLog log={state.log} compact />
         </div>
 
         {state.phase === "ended" && (

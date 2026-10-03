@@ -80,7 +80,7 @@ export function PlayerPanel({
           onSelectPlayer?.();
         }
       }}
-      className={`relative overflow-hidden rounded-sm border cursor-pointer transition-all duration-200 ${
+      className={`relative cursor-pointer overflow-hidden rounded-2xl border transition-all duration-200 ${
         compact ? "p-2" : "p-3"
       } ${player.bankrupt ? "opacity-40" : ""} ${
         isCurrent

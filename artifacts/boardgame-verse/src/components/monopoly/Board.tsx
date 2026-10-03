@@ -117,7 +117,7 @@ export function Board({
   return (
     <div className="relative aspect-square h-full max-h-full w-auto max-w-full mx-auto">
       <div
-        className="grid h-full w-full gap-px p-px bg-black/40 border border-white/10"
+        className="grid h-full w-full gap-px overflow-hidden rounded-2xl border border-white/10 bg-black/40 p-px"
         style={{ gridTemplateColumns: "repeat(11, 1fr)", gridTemplateRows: "repeat(11, 1fr)" }}
       >
         {BOARD.map((tile) => {
@@ -172,10 +172,10 @@ export function Board({
           style={{ gridRow: "2 / span 9", gridColumn: "2 / span 9" }}
           className="relative grid place-items-center pointer-events-none"
         >
-          <div className="w-full max-w-xl px-2 sm:px-5">
+            <div className="w-full max-w-xl px-1 sm:px-5">
             {turnPlayer && (
               <div
-                className="border bg-card/95 p-3 sm:p-4"
+                className="rounded-2xl border bg-card/95 p-2 sm:p-4"
                 style={{
                   borderColor: `${turnPlayer.avatarColor}bb`,
                   boxShadow: `0 0 24px ${turnPlayer.avatarColor}35, inset 0 0 28px ${turnPlayer.avatarColor}12`,
@@ -183,7 +183,7 @@ export function Board({
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <div
-                    className="size-11 sm:size-13 shrink-0 grid place-items-center rounded-full border-2 font-display text-xl text-black"
+                    className="grid size-8 shrink-0 place-items-center rounded-full border-2 font-display text-base text-black sm:size-12 sm:text-xl"
                     style={{
                       backgroundColor: turnPlayer.avatarColor,
                       borderColor: `${turnPlayer.avatarColor}aa`,
@@ -215,7 +215,7 @@ export function Board({
                 </div>
 
                 {state.lastRoll && (
-                  <div className="mt-3 flex items-center gap-2 border-y border-white/10 py-2">
+                  <div className="mt-2 hidden items-center gap-2 border-y border-white/10 py-2 sm:flex">
                     <Dice5 className="size-4 text-accent-cyan" />
                     <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-white/45">
                       Last roll
@@ -226,7 +226,7 @@ export function Board({
                   </div>
                 )}
 
-                <div className="pointer-events-auto mt-3 rounded-sm border border-white/10 bg-black/35 p-3 sm:p-4">
+                <div className="pointer-events-auto mt-2 rounded-xl border border-white/10 bg-black/35 p-2 sm:mt-3 sm:p-4">
                   <div className="text-[8px] font-mono uppercase tracking-[0.24em] text-accent-cyan">
                     Live action · {phaseLabel}
                   </div>
@@ -247,7 +247,7 @@ export function Board({
                                   ? "Match complete"
                                   : "Movement in progress"}
                   </div>
-                  <p className="mt-1 text-[10px] sm:text-xs leading-relaxed text-white/60">
+                  <p className="mt-1 hidden text-[10px] leading-relaxed text-white/60 sm:block sm:text-xs">
                     {state.phase === "rolling"
                       ? isMyTurn
                         ? `Roll to move from ${turnTile?.name ?? "your current space"}.`
@@ -317,7 +317,7 @@ export function Board({
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-3">
+                <div className="mt-3 hidden grid-cols-2 gap-1.5 sm:grid sm:grid-cols-4">
                   {[
                     { label: "Position", value: turnTile?.name ?? `Tile ${turnPlayer.position}` },
                     { label: "Properties", value: String(turnOwnedCount) },
@@ -340,7 +340,7 @@ export function Board({
               </div>
             )}
 
-            <div className="text-center mt-3">
+            <div className="mt-3 hidden text-center md:block">
               <div className="font-display text-2xl sm:text-3xl italic uppercase neon-text-glow">
                 MONOPOLY
               </div>
@@ -348,7 +348,7 @@ export function Board({
                 GameHub Edition
               </div>
             </div>
-            <div className="pointer-events-auto mt-3 flex justify-center gap-2">
+            <div className="pointer-events-auto mt-2 hidden justify-center gap-2 sm:flex">
               <NeonButton variant="ghost" size="sm" onClick={() => onOpenDeck?.("chest")} className="!px-2 !py-1 !text-[9px]">
                 <Boxes className="inline size-3 mr-1" /> Chest
               </NeonButton>

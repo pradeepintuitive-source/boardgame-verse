@@ -31,7 +31,7 @@ export function ModeratorPanel({ log }: { log: ModeratorMessage[] }) {
   const latest = log[log.length - 1];
 
   return (
-    <div className="glass-panel border border-accent-cyan/30 p-5 flex flex-col gap-3 max-h-[420px]">
+    <div className="glass-panel flex max-h-[280px] flex-col gap-3 border border-accent-cyan/30 p-4 sm:max-h-[420px] sm:p-5">
       <div className="flex items-center gap-2 pb-2 border-b border-white/5">
         <Bot className="size-4 text-accent-cyan" />
         <span className="text-[10px] font-mono uppercase tracking-widest text-accent-cyan">

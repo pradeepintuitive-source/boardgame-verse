@@ -20,7 +20,7 @@ export function PlayerSeat({ player, isMe, selectable, selected, onSelect, voteC
       whileTap={selectable ? { scale: 0.97 } : {}}
       disabled={!selectable}
       onClick={onSelect}
-      className={`relative flex items-center gap-3 p-3 glass-panel border text-left transition-all w-full
+      className={`relative flex w-full items-center gap-2 rounded-2xl p-2.5 text-left transition-all glass-panel sm:gap-3 sm:p-3
         ${player.alive ? "border-white/10" : "border-destructive/30 grayscale opacity-50"}
         ${selectable ? "cursor-pointer hover:border-accent-cyan/60" : ""}
         ${selected ? "border-accent-cyan ring-2 ring-accent-cyan/50" : ""}

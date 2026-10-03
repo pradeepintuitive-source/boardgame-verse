@@ -82,39 +82,33 @@ function CreateRoomPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen px-6 pt-32 pb-20 max-w-2xl mx-auto">
-        <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-2">
-          <span className="text-white/60 ml-2">debug instrumentation active</span>
-        </div>
-        <h1 className="font-display text-5xl italic uppercase mb-8">Create Room</h1>
+      <div className="mx-auto min-h-screen max-w-2xl px-6 pb-20 pt-28">
+        <p className="eyebrow">New match</p>
+        <h1 className="page-title mb-8">Create room</h1>
 
-        <form onSubmit={submit} className="glass-panel p-6 space-y-5">
+        <form onSubmit={submit} className="glass-panel space-y-5 p-6 md:p-8">
           <label className="block">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
-              Room Name
-            </span>
+            <span className="text-xs font-medium text-white/55">Room name</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full bg-background border border-white/10 px-3 py-3 font-mono focus:border-accent-cyan outline-none"
+              className="field"
               required
             />
           </label>
 
           <div>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
-              Game Type
-            </span>
+            <span className="text-xs font-medium text-white/55">Game</span>
             <div className="mt-2 grid grid-cols-2 gap-3">
               {(["mafia", "monopoly"] as GameType[]).map((g) => (
                 <button
                   key={g}
                   type="button"
                   onClick={() => setGameType(g)}
-                  className={`p-4 border font-display text-2xl italic uppercase transition-all cursor-pointer ${
+                  className={`cursor-pointer rounded-2xl border p-4 text-left font-display text-2xl italic uppercase transition-all ${
                     gameType === g
-                      ? "border-accent-cyan text-accent-cyan shadow-[var(--shadow-neon-cyan)]"
-                      : "border-white/10 text-white/60 hover:border-white/40"
+                      ? "border-accent-cyan/70 bg-accent-cyan/10 text-accent-cyan"
+                      : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/30"
                   }`}
                 >
                   {g}
@@ -125,9 +119,7 @@ function CreateRoomPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <label className="block">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
-                Max Players
-              </span>
+              <span className="text-xs font-medium text-white/55">Max players</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -137,14 +129,12 @@ function CreateRoomPage() {
                   setMax(normalizeIntegerInput(e.target.value));
                   setInputError("");
                 }}
-                className="mt-1 w-full bg-background border border-white/10 px-3 py-3 font-mono focus:border-accent-cyan outline-none"
+                className="field"
                 required
               />
             </label>
             <label className="block">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
-                AI Players
-              </span>
+              <span className="text-xs font-medium text-white/55">AI players</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -154,7 +144,7 @@ function CreateRoomPage() {
                   setAi(normalizeIntegerInput(e.target.value));
                   setInputError("");
                 }}
-                className="mt-1 w-full bg-background border border-white/10 px-3 py-3 font-mono focus:border-accent-cyan outline-none"
+                className="field"
                 required
               />
             </label>
@@ -166,23 +156,23 @@ function CreateRoomPage() {
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            <label className="flex items-center gap-3 p-3 border border-white/10 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
               <input
                 type="checkbox"
                 checked={isPrivate}
                 onChange={(e) => setPrivate(e.target.checked)}
                 className="accent-[var(--accent-cyan)] size-4"
               />
-              <span className="text-sm font-mono uppercase tracking-widest">Private</span>
+              <span className="text-sm font-medium">Private</span>
             </label>
-            <label className="flex items-center gap-3 p-3 border border-white/10 cursor-pointer">
+            <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
               <input
                 type="checkbox"
                 checked={isLan}
                 onChange={(e) => setLan(e.target.checked)}
                 className="accent-[var(--accent-cyan)] size-4"
               />
-              <span className="text-sm font-mono uppercase tracking-widest">LAN Mode</span>
+              <span className="text-sm font-medium">LAN mode</span>
             </label>
           </div>
 

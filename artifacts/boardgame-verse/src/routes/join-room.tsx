@@ -55,33 +55,27 @@ function JoinRoomPage() {
     <AppShell>
       <div className="min-h-screen grid place-items-center px-6 pt-32 pb-20">
         <form onSubmit={submit} className="w-full max-w-md glass-panel p-8">
-          <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-pink mb-2">
-            Join Lobby
-          </div>
-          <h1 className="font-display text-5xl italic uppercase mb-8">Enter Code</h1>
+          <p className="eyebrow">Join a table</p>
+          <h1 className="page-title mb-8">Enter code</h1>
 
           {!user && (
             <label className="block mb-4">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
-                Your Name
-              </span>
+              <span className="text-xs font-medium text-white/55">Your name</span>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full bg-background border border-white/10 px-3 py-3 font-mono focus:border-accent-cyan outline-none"
+                className="field"
               />
             </label>
           )}
 
           <label className="block mb-2">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
-              Room Code
-            </span>
+            <span className="text-xs font-medium text-white/55">Room code</span>
             <input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               maxLength={6}
-              className="mt-1 w-full bg-background border border-white/10 px-3 py-3 font-display text-3xl tracking-[0.5em] text-center focus:border-accent-cyan outline-none uppercase"
+              className="field text-center font-display text-3xl uppercase tracking-[0.4em]"
               autoFocus
               required
             />

@@ -50,7 +50,7 @@ export function ChatDrawer({ roomId }: { roomId: string }) {
       <button
         onClick={toggleDrawer}
         aria-label="Toggle chat"
-        className="fixed bottom-20 right-6 z-50 size-14 rounded-full bg-accent-cyan text-black grid place-items-center shadow-[var(--shadow-neon-cyan)] hover:scale-110 transition-transform"
+        className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-50 grid size-12 place-items-center rounded-full bg-accent-cyan text-black shadow-[var(--shadow-neon-cyan)] transition-transform hover:scale-105 sm:right-6 sm:size-14"
       >
         <MessageSquare className="size-6" />
         {unreadCount > 0 && (

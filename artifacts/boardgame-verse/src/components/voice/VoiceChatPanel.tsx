@@ -81,8 +81,10 @@ export function VoiceChatPanel({ roomId, selfUserId, userLookup = {}, compact = 
                   </div>
                 ) : (
                   <p className="mb-3 text-[10px] font-mono text-white/45">
-                    You’re connected. Waiting for other players to join voice.
-                  </p>
+                  {selfMuted
+                    ? "You’re in the channel, muted. Unmute when you want to talk."
+                    : "You’re connected. Waiting for other players to join voice."}
+                </p>
                 )}
                 <div className="flex items-center justify-between gap-2">
                   <MicButton muted={selfMuted} onToggle={toggleMute} />
@@ -98,7 +100,7 @@ export function VoiceChatPanel({ roomId, selfUserId, userLookup = {}, compact = 
             ) : (
               <>
                 <p className="mb-3 text-[10px] font-mono leading-relaxed text-white/55">
-                  Join voice to talk with players in this room. Your browser will ask for microphone access.
+                  Voice joins automatically and starts muted. Allow the microphone if the browser asks.
                 </p>
                 <button
                   type="button"
@@ -142,7 +144,13 @@ export function VoiceChatPanel({ roomId, selfUserId, userLookup = {}, compact = 
         </div>
       ) : (
         <div className="mb-3 rounded-xl border border-dashed border-white/10 bg-white/3 px-3 py-3 text-[10px] font-mono uppercase tracking-[0.25em] text-white/35">
-          {joined ? "Waiting for peers" : "Join to enable audio"}
+          {joined
+            ? selfMuted
+              ? "Muted · waiting for peers"
+              : "Waiting for peers"
+            : connected
+              ? "Connecting…"
+              : "Waiting for connection"}
         </div>
       )}
 

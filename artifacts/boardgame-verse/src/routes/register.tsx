@@ -42,10 +42,8 @@ function RegisterPage() {
     <AppShell>
       <div className="min-h-screen grid place-items-center px-6 pt-32 pb-20">
         <form onSubmit={submit} className="w-full max-w-md glass-panel p-8">
-          <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-pink mb-2">
-            New Operator
-          </div>
-          <h1 className="font-display text-5xl italic uppercase mb-8">Register</h1>
+          <p className="eyebrow">New player</p>
+          <h1 className="page-title mb-8">Register</h1>
 
           {errorMessage ? (
             <div className="mb-4 border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive font-mono">
@@ -59,14 +57,12 @@ function RegisterPage() {
             { label: "Password", v: p, set: setP, type: "password" },
           ].map((f) => (
             <label key={f.label} className="block mb-4">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
-                {f.label}
-              </span>
+              <span className="text-xs font-medium text-white/55">{f.label}</span>
               <input
                 type={f.type}
                 value={f.v}
                 onChange={(ev) => f.set(ev.target.value)}
-                className="mt-1 w-full bg-background border border-white/10 px-3 py-3 focus:border-accent-cyan outline-none font-mono"
+                className="field"
                 required
               />
             </label>
@@ -76,7 +72,7 @@ function RegisterPage() {
             {loading ? "Creating..." : "Create Account"}
           </NeonButton>
 
-          <p className="mt-6 text-xs font-mono text-white/40 text-center">
+          <p className="mt-6 text-center text-sm text-white/50">
             Already registered?{" "}
             <Link to="/login" className="text-accent-cyan hover:underline">
               Sign in

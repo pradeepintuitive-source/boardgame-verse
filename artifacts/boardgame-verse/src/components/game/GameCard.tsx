@@ -33,49 +33,48 @@ export function GameCard({
     <motion.div
       whileHover={{ y: -12 }}
       transition={{ duration: 0.5, ease: [0.19, 1, 0.22, 1] }}
-      className={`group relative w-full max-w-[400px] ${offset ? "md:translate-y-12" : ""}`}
+      className={`group relative w-full max-w-[420px] ${offset ? "md:mt-10" : ""}`}
     >
       <div
-        className={`absolute -inset-1 ${glow} opacity-0 group-hover:opacity-40 blur-2xl transition-all duration-700 pointer-events-none`}
+        className={`absolute -inset-3 ${glow} opacity-0 group-hover:opacity-20 blur-3xl transition-all duration-700 pointer-events-none rounded-[2rem]`}
       />
-      <div className="relative aspect-[3/4] glass-panel border border-white/10 p-6 flex flex-col overflow-hidden">
-        <div className="relative w-full aspect-[4/3] mb-6 overflow-hidden bg-neutral-900">
+      <div className="relative flex h-full flex-col overflow-hidden glass-panel p-4">
+        <div className="relative mb-5 aspect-[16/10] w-full overflow-hidden rounded-2xl bg-neutral-900">
           <img
             src={image}
             alt={`${title} key art`}
             loading="lazy"
             width={800}
             height={600}
-            className="h-full w-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-105 group-hover:scale-110"
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
           {badge && (
             <span
-              className={`absolute top-3 left-3 px-2 py-1 text-[10px] font-mono uppercase tracking-widest ${accent === "cyan" ? "bg-accent-cyan/20 text-accent-cyan border border-accent-cyan/40" : "bg-accent-pink/20 text-accent-pink border border-accent-pink/40"}`}
+              className={`absolute top-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-medium ${accent === "cyan" ? "bg-black/55 text-accent-cyan" : "bg-black/55 text-accent-pink"}`}
             >
               {badge}
             </span>
           )}
         </div>
-        <div className="flex justify-between items-start mb-3">
-          <h3 className={`font-display text-4xl uppercase italic transition-colors ${titleHover}`}>
+        <div className="flex items-start justify-between gap-3 px-2 mb-2">
+          <h3 className={`font-display text-[2rem] leading-none uppercase italic transition-colors ${titleHover}`}>
             {title}
           </h3>
-          <span className="font-mono text-[10px] border border-white/20 px-2 py-1 inline-flex items-center gap-1">
+          <span className="shrink-0 inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-white/70">
             <Users className="size-3" /> {players}
           </span>
         </div>
-        <p className="text-white/60 text-sm leading-relaxed mb-6 flex-grow">{description}</p>
-        <div className="flex justify-between items-end">
-          <div className="font-mono text-[10px] text-white/40 inline-flex items-center gap-1">
-            <Clock className="size-3" /> {duration}
+        <p className="px-2 text-sm leading-relaxed text-white/65 mb-6 flex-grow">{description}</p>
+        <div className="mt-auto flex items-center justify-between px-2 pb-2">
+          <div className="inline-flex items-center gap-1.5 text-xs text-white/45">
+            <Clock className="size-3.5" /> {duration}
           </div>
           <Link to={to as any}>
             <NeonButton variant={accent} size="sm">
-              Play Now
+              Play now
             </NeonButton>
           </Link>
         </div>
-        <div className="absolute inset-0 pointer-events-none scanlines opacity-10" />
       </div>
     </motion.div>
   );

@@ -35,11 +35,9 @@ function ProfilePage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen px-6 pt-32 pb-20 max-w-2xl mx-auto">
-        <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-2">
-          Operator
-        </div>
-        <h1 className="font-display text-5xl italic uppercase mb-8">Profile</h1>
+      <div className="mx-auto min-h-screen max-w-2xl px-6 pb-20 pt-28">
+        <p className="eyebrow">Account</p>
+        <h1 className="page-title mb-8">Profile</h1>
 
         <div className="glass-panel p-6 flex items-center gap-6 mb-6">
           <Avatar name={user.username} color={user.avatarColor} size={80} ring />
@@ -52,13 +50,11 @@ function ProfilePage() {
         </div>
 
         <label className="block mb-6 glass-panel p-6">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
-            Display Name
-          </span>
+          <span className="text-xs font-medium text-white/55">Display name</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-2 w-full bg-background border border-white/10 px-3 py-3 focus:border-accent-cyan outline-none font-mono"
+            className="field"
           />
           <div className="mt-3 flex justify-end">
             <NeonButton

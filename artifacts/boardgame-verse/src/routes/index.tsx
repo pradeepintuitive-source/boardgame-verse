@@ -52,26 +52,29 @@ function Index() {
 
   return (
     <AppShell>
-      <main className="relative flex flex-col items-center pt-32 pb-32 px-6">
+      <main className="relative mx-auto flex max-w-6xl flex-col items-center px-6 pb-16 pt-28">
         <motion.section
           variants={pageFade}
           initial="hidden"
           animate="show"
-          className="text-center mb-20 md:mb-24"
+          className="mb-14 text-center md:mb-16"
         >
+          <p className="mb-4 text-xs font-medium uppercase tracking-[0.28em] text-accent-cyan">
+            Mafia and Monopoly
+          </p>
           <motion.h1
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 1, delay: 0.1 }}
-            className="font-display text-7xl md:text-9xl tracking-tighter italic text-white neon-text-glow leading-none mb-4 uppercase"
-            style={{ animation: "flicker 3s ease-out both" }}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.05 }}
+            className="font-display text-6xl leading-[0.9] tracking-tight text-white uppercase italic md:text-8xl"
           >
             GameHub
           </motion.h1>
-          <p className="text-accent-cyan/60 font-mono text-xs md:text-sm tracking-[0.4em] uppercase mb-12">
-            Digital Classics Pradeep &bull; Premium Board Gaming
+          <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-white/65 md:text-lg">
+            Host a table in a few clicks. Play on one device, over the local network, or online
+            with friends and AI.
           </p>
-          <div className="flex flex-wrap gap-4 justify-center">
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
             {resumeSession && resumeLabel ? (
               <Link to="/monopoly/$gameId" params={{ gameId: resumeSession.sessionId }}>
                 <NeonButton size="lg">{resumeLabel}</NeonButton>
@@ -92,14 +95,14 @@ function Index() {
           variants={stagger}
           initial="hidden"
           animate="show"
-          className="flex flex-col md:flex-row gap-8 md:gap-12 w-full max-w-6xl items-center md:items-start justify-center"
+          className="flex w-full flex-col items-stretch justify-center gap-6 md:flex-row md:items-start md:gap-8"
         >
           <motion.div variants={riseItem}>
             <GameCard
               title="Mafia"
               description="The original social deduction game. Find the imposters before they take over the city. Trust no one."
               players="6-12"
-              duration="EST. 45 MIN"
+              duration="About 45 min"
               image={mafiaArt}
               accent="pink"
               badge="Available"
@@ -111,11 +114,10 @@ function Index() {
               title="Monopoly: India Edition"
               description="The ultimate property trading game. Build your Bharat empire with Indian cities, ₹ currency, and a modern India-themed board."
               players="2-6"
-              duration="EST. 90 MIN"
+              duration="About 90 min"
               image={monopolyArt}
               accent="cyan"
               badge="Available"
-              offset
               to="/create-room?game=monopoly"
             />
           </motion.div>

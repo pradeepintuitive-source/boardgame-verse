@@ -68,54 +68,55 @@
 }
 
 :root {
-  --radius: 0.25rem;
-  /* GameHub Arcade Director — dark by default */
-  --background: #050507;
-  --foreground: #f8fafc;
-  --card: #0b0b10;
-  --card-foreground: #f8fafc;
-  --popover: #0b0b10;
-  --popover-foreground: #f8fafc;
-  --primary: #00f2ff;
-  --primary-foreground: #050507;
-  --secondary: #14141c;
-  --secondary-foreground: #f8fafc;
-  --muted: #14141c;
-  --muted-foreground: #94a3b8;
-  --accent: #1a1a24;
-  --accent-foreground: #f8fafc;
+  --radius: 0.875rem;
+  /* Deep navy arcade, softer than pure black + full-blast neon */
+  --background: #070910;
+  --foreground: #f4f7fb;
+  --card: #10151f;
+  --card-foreground: #f4f7fb;
+  --popover: #121826;
+  --popover-foreground: #f4f7fb;
+  --primary: #3ee0f0;
+  --primary-foreground: #071016;
+  --secondary: #161c28;
+  --secondary-foreground: #f4f7fb;
+  --muted: #161c28;
+  --muted-foreground: #9aa6b8;
+  --accent: #1c2433;
+  --accent-foreground: #f4f7fb;
   --destructive: #ff3366;
   --destructive-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.1);
-  --ring: #00f2ff;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #3ee0f0;
   --chart-1: #00f2ff;
   --chart-2: #ff00e5;
   --chart-3: #facc15;
   --chart-4: #4ade80;
   --chart-5: #a78bfa;
-  --sidebar: #0b0b10;
-  --sidebar-foreground: #f8fafc;
-  --sidebar-primary: #00f2ff;
-  --sidebar-primary-foreground: #050507;
-  --sidebar-accent: #14141c;
-  --sidebar-accent-foreground: #f8fafc;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: #00f2ff;
+  --sidebar: #10151f;
+  --sidebar-foreground: #f4f7fb;
+  --sidebar-primary: #3ee0f0;
+  --sidebar-primary-foreground: #071016;
+  --sidebar-accent: #161c28;
+  --sidebar-accent-foreground: #f4f7fb;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #3ee0f0;
 
-  /* Brand neon */
-  --accent-cyan: #00f2ff;
-  --accent-pink: #ff00e5;
-  --accent-amber: #facc15;
+  /* Brand accents — saturated, but not blinding */
+  --accent-cyan: #3ee0f0;
+  --accent-pink: #ff4fd8;
+  --accent-amber: #f5c451;
 
   /* Shadows / gradients */
-  --shadow-neon-cyan: 0 0 24px rgba(0, 242, 255, 0.45), 0 0 60px rgba(0, 242, 255, 0.2);
-  --shadow-neon-pink: 0 0 24px rgba(255, 0, 229, 0.45), 0 0 60px rgba(255, 0, 229, 0.2);
+  --shadow-neon-cyan: 0 8px 28px rgba(62, 224, 240, 0.22);
+  --shadow-neon-pink: 0 8px 28px rgba(255, 79, 216, 0.22);
   --gradient-radial-glow: radial-gradient(
-    circle at 50% 0%,
-    rgba(0, 242, 255, 0.12),
-    transparent 60%
-  );
+    ellipse 80% 50% at 50% -10%,
+    rgba(62, 224, 240, 0.16),
+    transparent 55%
+  ),
+  radial-gradient(ellipse 50% 40% at 100% 0%, rgba(255, 79, 216, 0.08), transparent 50%);
 }
 
 /* keyframes */
@@ -192,19 +193,53 @@
 
 /* Utilities */
 @utility neon-text-glow {
-  text-shadow:
-    0 0 16px rgba(0, 242, 255, 0.85),
-    0 0 36px rgba(0, 242, 255, 0.45);
+  text-shadow: 0 0 18px rgba(62, 224, 240, 0.35);
 }
 @utility neon-text-glow-pink {
-  text-shadow:
-    0 0 16px rgba(255, 0, 229, 0.85),
-    0 0 36px rgba(255, 0, 229, 0.45);
+  text-shadow: 0 0 18px rgba(255, 79, 216, 0.35);
 }
 @utility glass-panel {
-  backdrop-filter: blur(14px) saturate(140%);
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.01) 100%);
-  border: 1px solid var(--color-border);
+  backdrop-filter: blur(18px) saturate(140%);
+  background: linear-gradient(180deg, rgba(22, 28, 40, 0.92) 0%, rgba(12, 16, 24, 0.88) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1.25rem;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+}
+
+@layer components {
+  .field {
+    margin-top: 0.4rem;
+    width: 100%;
+    border-radius: 0.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(7, 9, 16, 0.65);
+    padding: 0.8rem 0.95rem;
+    color: var(--foreground);
+    outline: none;
+    transition:
+      border-color 160ms ease,
+      box-shadow 160ms ease;
+  }
+  .field:focus {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 3px rgba(62, 224, 240, 0.16);
+  }
+  .eyebrow {
+    margin-bottom: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--accent-cyan);
+  }
+  .page-title {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 6vw, 3.75rem);
+    font-style: italic;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+    text-transform: uppercase;
+  }
 }
 @utility scanlines {
   background-image: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.18) 50%);

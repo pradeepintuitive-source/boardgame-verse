@@ -35,7 +35,7 @@ export function EventLog({ log, compact = false }: { log: MonopolyLog[]; compact
 
   return (
     <div
-      className={`rounded-sm border border-white/10 bg-black/35 ${compact ? "p-1.5" : "p-2.5"} flex flex-col ${
+      className={`flex flex-col rounded-2xl border border-white/10 bg-black/35 ${compact ? "p-2" : "p-2.5"} ${
         expanded ? "min-h-0 flex-1" : "shrink-0"
       }`}
     >

@@ -277,7 +277,7 @@ function LobbyPage() {
                 Array.from({ length: room.maxPlayers - room.players.length }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
-                    className="border border-dashed border-white/10 p-4 grid place-items-center text-[10px] font-mono uppercase tracking-widest text-white/30"
+                    className="grid place-items-center rounded-2xl border border-dashed border-white/15 p-4 text-xs text-white/35"
                   >
                     Open Seat
                   </div>

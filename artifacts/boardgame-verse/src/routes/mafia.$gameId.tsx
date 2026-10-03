@@ -96,12 +96,12 @@ function MafiaPage() {
         initial={{ opacity: 0, y: -40, scale: 0.8 }}
         animate={{ opacity: 0.6, y: 0, scale: 1 }}
         transition={{ duration: 1.4, ease: [0.19, 1, 0.22, 1] }}
-        className="fixed top-12 right-12 pointer-events-none"
+        className="pointer-events-none fixed top-3 right-3 opacity-50 sm:top-8 sm:right-8"
       >
         {isNight ? (
-          <Moon className="size-32 text-accent-pink drop-shadow-[0_0_40px_rgba(255,0,229,0.6)]" />
+          <Moon className="size-14 text-accent-pink sm:size-24" />
         ) : (
-          <Sun className="size-32 text-accent-cyan drop-shadow-[0_0_40px_rgba(0,242,255,0.6)]" />
+          <Sun className="size-14 text-accent-cyan sm:size-24" />
         )}
       </motion.div>
 
@@ -126,13 +126,13 @@ function MafiaPage() {
         )}
       </AnimatePresence>
 
-      <main className="relative px-6 pt-10 pb-32 max-w-7xl mx-auto">
-        <header className="flex flex-wrap items-end justify-between gap-4 mb-8">
-          <div>
-            <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-1">
+      <main className="relative mx-auto max-w-7xl px-3 pb-28 pt-4 sm:px-6 sm:pt-8">
+        <header className="mb-5 flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-[0.22em] text-accent-cyan">
               Round {state.round} · {state.phase}
             </div>
-            <h1 className="font-display text-5xl md:text-7xl italic uppercase neon-text-glow">
+            <h1 className="font-display text-4xl italic uppercase leading-none sm:text-6xl">
               {isNight
                 ? "Night Falls"
                 : isVoting
@@ -144,20 +144,20 @@ function MafiaPage() {
           </div>
           <button
             onClick={() => setShowRole(true)}
-            className="px-4 py-2 text-[10px] font-mono uppercase tracking-widest border border-white/20 hover:border-accent-cyan"
+            className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-medium hover:border-accent-cyan"
           >
-            View My Role
+            My role
           </button>
         </header>
 
-        <div className="grid lg:grid-cols-[1fr_360px] gap-6">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">
           <section className="space-y-6">
             {/* All players */}
             <div>
               <div className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-3">
                 Players · {state.players.filter((p) => p.alive).length} alive
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              <div className="grid grid-cols-1 min-[420px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                 {state.players.map((p) => (
                   <PlayerSeat key={p.id} player={p} isMe={p.id === me.id} />
                 ))}
