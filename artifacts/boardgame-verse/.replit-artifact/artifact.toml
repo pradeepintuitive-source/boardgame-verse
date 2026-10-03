@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "BoardGame Verse"
+description = "A multiplayer board game app for playing Monopoly and Mafia with friends, creating and joining rooms, and managing player profiles."
+version = "1.0.0"
+id = "artifacts/boardgame-verse"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25488
+
+[services.development]
+run = "pnpm --filter @workspace/boardgame-verse run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/boardgame-verse", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/boardgame-verse/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25488"
+BASE_PATH = "/"

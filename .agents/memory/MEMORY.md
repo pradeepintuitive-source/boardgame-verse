@@ -1,0 +1,1 @@
+- [Game backend origin allowlist](game-backend-origin.md) — preserve the imported frontend's Origin and Referer headers when proxying API and SockJS traffic.

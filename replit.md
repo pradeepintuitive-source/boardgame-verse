@@ -1,45 +1,31 @@
-# [Project name]
+# GameHub / BoardGame Verse
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+An imported multiplayer Monopoly and Mafia app, ported without redesigning its screens or replacing its existing game backend.
 
 ## Run & Operate
 
-- `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
-- `pnpm run typecheck` — full typecheck across all packages
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
-- `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
-- Required env: `DATABASE_URL` — Postgres connection string
+Use the managed workflows:
+- `artifacts/boardgame-verse: web` — React/Vite frontend at `/`.
+- `artifacts/api-server: API Server` — Express transport at `/api` and `/ws`.
 
-## Stack
+The mockup sandbox and shared database packages are pre-existing workspace scaffolds; this app does not use a Replit database.
 
-- pnpm workspaces, Node.js 24, TypeScript 5.9
-- API: Express 5
-- DB: PostgreSQL + Drizzle ORM
-- Validation: Zod (`zod/v4`), `drizzle-zod`
-- API codegen: Orval (from OpenAPI spec)
-- Build: esbuild (CJS bundle)
+## Stack and layout
 
-## Where things live
+- pnpm workspace, React 19, Vite, Tailwind 4.
+- TanStack Router retains the imported file routes and route metadata.
+- `artifacts/boardgame-verse/src/styles.css` holds the original theme; fonts are bundled via Fontsource.
+- `artifacts/boardgame-verse/src/routes/` contains home, login, register, profile, settings, create/join room, lobby, Mafia and Monopoly screens.
+- `artifacts/api-server/src/game-backend.ts` forwards REST and SockJS traffic to the original Spring backend.
+- `.migration-backup/` is the untouched imported source.
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+## Migration constraints
 
-## Architecture decisions
+Preserve the existing external Spring backend and auth; do not replace its data or auth with Replit services without a separate user request.
+The imported Vite proxy sent the original Vercel origin/referer because of the upstream allowlist. The Express proxy preserves those headers for both HTTP and WebSockets.
+The backend was temporarily unavailable during migration and has since recovered. Current checks confirm its SockJS endpoint responds and unauthenticated API requests reach the upstream auth handler.
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+## Checks
 
-## Product
-
-_Describe the high-level user-facing capabilities of this app once they exist._
-
-## User preferences
-
-_Populate as you build — explicit user instructions worth remembering across sessions._
-
-## Gotchas
-
-_Populate as you build — sharp edges, "always run X before Y" rules._
-
-## Pointers
-
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+Use managed workflows for preview, and `pnpm --filter @workspace/boardgame-verse run typecheck` for source checks. Original type issues are outside the port's scope.
+No hosted-platform build plugin, TanStack Start server shell, or Lovable telemetry is required by the migrated client.
