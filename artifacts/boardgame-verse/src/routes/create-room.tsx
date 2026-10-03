@@ -6,6 +6,9 @@ import { useAuth } from "../providers/AuthProvider";
 import { useCreateRoom } from "../hooks/useRooms";
 import type { GameType } from "../models";
 
+const normalizeIntegerInput = (value: string) =>
+  value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+
 export const Route = createFileRoute("/create-room")({
   head: () => ({
     meta: [
@@ -27,14 +30,27 @@ function CreateRoomPage() {
 
   const [name, setName] = useState("My Game Room");
   const [gameType, setGameType] = useState<GameType>(search.game ?? "mafia");
-  const [maxPlayers, setMax] = useState(3);
-  const [ai, setAi] = useState(0);
+  const [maxPlayers, setMax] = useState("3");
+  const [ai, setAi] = useState("0");
   const [isPrivate, setPrivate] = useState(false);
   const [isLan, setLan] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [inputError, setInputError] = useState("");
+  const minPlayers = gameType === "monopoly" ? 2 : 3;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const maxPlayersValue = Number(maxPlayers);
+    const aiPlayerCount = Number(ai);
+    if (maxPlayersValue < minPlayers || maxPlayersValue > 16) {
+      setInputError(`Max players must be between ${minPlayers} and 16.`);
+      return;
+    }
+    if (aiPlayerCount > maxPlayersValue - 1) {
+      setInputError("AI players cannot exceed the available seats.");
+      return;
+    }
+    setInputError("");
     console.log("Submit clicked and working...asd and working fine");
     setLoading(true);
     try {
@@ -47,8 +63,8 @@ function CreateRoomPage() {
       const room = await createRoomMutation.mutateAsync({
         name,
         gameType,
-        maxPlayers,
-        aiPlayerCount: ai,
+        maxPlayers: maxPlayersValue,
+        aiPlayerCount,
         isPrivate,
         isLan,
       });
@@ -113,12 +129,16 @@ function CreateRoomPage() {
                 Max Players
               </span>
               <input
-                type="number"
-                min={3}
-                max={16}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={maxPlayers}
-                onChange={(e) => setMax(Number(e.target.value))}
+                onChange={(e) => {
+                  setMax(normalizeIntegerInput(e.target.value));
+                  setInputError("");
+                }}
                 className="mt-1 w-full bg-background border border-white/10 px-3 py-3 font-mono focus:border-accent-cyan outline-none"
+                required
               />
             </label>
             <label className="block">
@@ -126,15 +146,24 @@ function CreateRoomPage() {
                 AI Players
               </span>
               <input
-                type="number"
-                min={0}
-                max={maxPlayers - 1}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={ai}
-                onChange={(e) => setAi(Number(e.target.value))}
+                onChange={(e) => {
+                  setAi(normalizeIntegerInput(e.target.value));
+                  setInputError("");
+                }}
                 className="mt-1 w-full bg-background border border-white/10 px-3 py-3 font-mono focus:border-accent-cyan outline-none"
+                required
               />
             </label>
           </div>
+          {inputError && (
+            <p role="alert" className="text-sm text-red-400">
+              {inputError}
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <label className="flex items-center gap-3 p-3 border border-white/10 cursor-pointer">
