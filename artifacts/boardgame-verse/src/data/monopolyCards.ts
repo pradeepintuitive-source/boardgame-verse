@@ -12,7 +12,10 @@ export interface DeckCard {
 }
 
 export const CHANCE_CARDS: DeckCard[] = [
-  { text: "Advance to GO. Collect ₹2,000.", action: { kind: "move", to: 0, collectGoIfPass: true } },
+  {
+    text: "Advance to GO. Collect ₹2,000.",
+    action: { kind: "move", to: 0, collectGoIfPass: true },
+  },
   { text: "Advance to Bengaluru.", action: { kind: "move", to: 24, collectGoIfPass: true } },
   { text: "Advance to Jaipur.", action: { kind: "move", to: 11, collectGoIfPass: true } },
   { text: "Advance to Nariman Point.", action: { kind: "move", to: 39 } },
@@ -27,14 +30,23 @@ export const CHANCE_CARDS: DeckCard[] = [
     action: { kind: "repairs", perHouse: 250, perHotel: 1000 },
   },
   { text: "Traffic fine ₹150.", action: { kind: "money", amount: -150 } },
-  { text: "Take a trip to Indian Railways.", action: { kind: "move", to: 5, collectGoIfPass: true } },
-  { text: "Elected city chair — pay each player ₹500.", action: { kind: "moneyFromEach", amount: -500 } },
+  {
+    text: "Take a trip to Indian Railways.",
+    action: { kind: "move", to: 5, collectGoIfPass: true },
+  },
+  {
+    text: "Elected city chair — pay each player ₹500.",
+    action: { kind: "moneyFromEach", amount: -500 },
+  },
   { text: "Startup grant matures. Collect ₹1,500.", action: { kind: "money", amount: 1500 } },
   { text: "Festival contest prize. Collect ₹1,000.", action: { kind: "money", amount: 1000 } },
 ];
 
 export const CHEST_CARDS: DeckCard[] = [
-  { text: "Advance to GO. Collect ₹2,000.", action: { kind: "move", to: 0, collectGoIfPass: true } },
+  {
+    text: "Advance to GO. Collect ₹2,000.",
+    action: { kind: "move", to: 0, collectGoIfPass: true },
+  },
   { text: "Bank error in your favor. Collect ₹2,000.", action: { kind: "money", amount: 2000 } },
   { text: "Doctor's fees. Pay ₹500.", action: { kind: "money", amount: -500 } },
   { text: "From sale of stock you get ₹500.", action: { kind: "money", amount: 500 } },
@@ -42,7 +54,10 @@ export const CHEST_CARDS: DeckCard[] = [
   { text: "Go directly to Jail.", action: { kind: "jail" } },
   { text: "Holiday fund matures. Collect ₹1,000.", action: { kind: "money", amount: 1000 } },
   { text: "Tax refund. Collect ₹200.", action: { kind: "money", amount: 200 } },
-  { text: "It's your birthday — collect ₹100 from each player.", action: { kind: "moneyFromEach", amount: 100 } },
+  {
+    text: "It's your birthday — collect ₹100 from each player.",
+    action: { kind: "moneyFromEach", amount: 100 },
+  },
   { text: "Insurance payout. Collect ₹1,000.", action: { kind: "money", amount: 1000 } },
   { text: "Pay hospital fees of ₹1,000.", action: { kind: "money", amount: -1000 } },
   { text: "Pay school fees of ₹500.", action: { kind: "money", amount: -500 } },

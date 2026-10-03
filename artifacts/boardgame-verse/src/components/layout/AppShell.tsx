@@ -36,40 +36,44 @@ export function AppShell({
         <nav className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 md:px-10 py-5">
           <Link
             to="/"
-            className="font-display text-2xl tracking-tighter italic uppercase neon-text-glow text-white"
+            className="font-display text-2xl tracking-tighter uppercase gold-text-glow text-white font-bold"
           >
             GameHub
           </Link>
-          <div className="hidden md:flex gap-8 text-[11px] font-mono tracking-widest text-foreground/40">
+          <div className="hidden md:flex gap-8 text-[11px] font-mono tracking-widest text-[#9baab8]">
             <Link
               to="/"
               activeOptions={{ exact: true }}
-              className="hover:text-accent-cyan transition-colors"
-              activeProps={{ className: "text-accent-cyan" }}
+              className="hover:text-[#d4a843] transition-colors"
+              activeProps={{ className: "text-[#d4a843]" }}
             >
               HOME
             </Link>
             <Link
               to="/profile"
-              className="hover:text-accent-cyan transition-colors"
-              activeProps={{ className: "text-accent-cyan" }}
+              className="hover:text-[#d4a843] transition-colors"
+              activeProps={{ className: "text-[#d4a843]" }}
             >
               PROFILE
             </Link>
             <Link
               to="/settings"
-              className="hover:text-accent-cyan transition-colors"
-              activeProps={{ className: "text-accent-cyan" }}
+              className="hover:text-[#d4a843] transition-colors"
+              activeProps={{ className: "text-[#d4a843]" }}
             >
               SETTINGS
             </Link>
           </div>
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-full bg-accent-cyan/10 border border-accent-cyan/20">
+            <div
+              className={`hidden sm:flex items-center gap-2 px-3 py-1 rounded-sm border ${conn.connected ? "bg-[#2a5f3f]/10 border-[#2a5f3f]/30" : "bg-[#8b2335]/10 border-[#8b2335]/30"}`}
+            >
               <div
-                className={`w-1.5 h-1.5 rounded-full ${conn.reconnecting ? "bg-accent-amber animate-pulse" : "bg-accent-cyan animate-pulse"}`}
+                className={`w-1.5 h-1.5 rounded-full ${conn.reconnecting ? "bg-[#e05060] animate-pulse" : conn.connected ? "bg-[#4cd183] animate-pulse" : "bg-[#9baab8]"}`}
               />
-              <span className="text-[10px] font-mono text-accent-cyan tracking-widest">
+              <span
+                className={`text-[10px] font-mono tracking-widest ${conn.connected ? "text-[#4cd183]" : "text-[#e05060]"}`}
+              >
                 {conn.reconnecting ? "RECONNECTING" : conn.connected ? "ONLINE" : "OFFLINE MODE"}
               </span>
             </div>
@@ -83,7 +87,7 @@ export function AppShell({
             ) : (
               <Link
                 to="/login"
-                className="px-4 py-2 text-[11px] font-mono uppercase tracking-widest border border-white/20 hover:border-accent-cyan hover:text-accent-cyan transition-colors"
+                className="px-4 py-2 text-[11px] font-mono uppercase tracking-widest border border-white/20 hover:border-[#d4a843] hover:text-[#d4a843] rounded-sm transition-colors"
               >
                 Sign In
               </Link>
@@ -101,8 +105,8 @@ export function AppShell({
               System Status
             </span>
             {showLatency && (
-              <span className="text-[11px] font-mono text-accent-cyan uppercase">
-                Server: EU-WEST ({conn.latencyMs ?? "—"}ms)
+              <span className="text-[11px] font-mono text-[#4cd183] uppercase">
+                Server: AP-SOUTH ({conn.latencyMs ?? "—"}ms)
               </span>
             )}
           </div>

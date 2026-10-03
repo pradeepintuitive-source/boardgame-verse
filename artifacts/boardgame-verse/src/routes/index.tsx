@@ -12,16 +12,17 @@ import monopolyArt from "../assets/monopoly-art.jpg";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "GameHub — Premium Multiplayer Board Gaming" },
+      { title: "GameHub — Play Bharat Business" },
       {
         name: "description",
         content:
-          "Play Mafia and Monopoly with friends or AI. Single-device, LAN, or online — premium board gaming for the modern arcade.",
+          "Play Mafia and Bharat Business with friends or AI. Single-device, LAN, or online — premium board gaming for the modern arcade.",
       },
       { property: "og:title", content: "GameHub — Premium Multiplayer Board Gaming" },
       {
         property: "og:description",
-        content: "Mafia & Monopoly. Single-device, LAN, online. Premium board gaming reborn.",
+        content:
+          "Mafia & Bharat Business. Single-device, LAN, online. Premium board gaming reborn.",
       },
     ],
   }),
@@ -29,7 +30,11 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const [resumeSession, setResumeSession] = useState<{ roomId: string; sessionId: string; gameType: string } | null>(null);
+  const [resumeSession, setResumeSession] = useState<{
+    roomId: string;
+    sessionId: string;
+    gameType: string;
+  } | null>(null);
 
   useEffect(() => {
     try {
@@ -47,7 +52,7 @@ function Index() {
 
   const resumeLabel = useMemo(() => {
     if (!resumeSession) return null;
-    return resumeSession.gameType === "monopoly" ? "Resume Monopoly" : "Resume Game";
+    return resumeSession.gameType === "monopoly" ? "Resume Bharat Business" : "Resume Game";
   }, [resumeSession]);
 
   return (
@@ -63,13 +68,13 @@ function Index() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1, delay: 0.1 }}
-            className="font-display text-7xl md:text-9xl tracking-tighter italic text-white neon-text-glow leading-none mb-4 uppercase"
+            className="font-display text-7xl md:text-9xl tracking-tighter italic text-white gold-text-glow leading-none mb-4 uppercase"
             style={{ animation: "flicker 3s ease-out both" }}
           >
             GameHub
           </motion.h1>
-          <p className="text-accent-cyan/60 font-mono text-xs md:text-sm tracking-[0.4em] uppercase mb-12">
-            Digital Classics Pradeep &bull; Premium Board Gaming
+          <p className="text-[#d4a843]/70 font-mono text-xs md:text-sm tracking-[0.4em] uppercase mb-12">
+            Premium Digital Tabletop Experiences
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             {resumeSession && resumeLabel ? (
@@ -108,13 +113,13 @@ function Index() {
           </motion.div>
           <motion.div variants={riseItem}>
             <GameCard
-              title="Monopoly: India Edition"
-              description="The ultimate property trading game. Build your Bharat empire with Indian cities, ₹ currency, and a modern India-themed board."
+              title="Bharat Business"
+              description="The ultimate property trading game. Build your Bharat empire with Indian cities, ₹ currency, and a premium modern board."
               players="2-6"
               duration="EST. 90 MIN"
               image={monopolyArt}
               accent="cyan"
-              badge="Available"
+              badge="Top Rated"
               offset
               to="/create-room?game=monopoly"
             />

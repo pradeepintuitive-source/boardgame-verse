@@ -114,8 +114,7 @@ export function rentFor(s: MonopolyState, tileIndex: number, diceTotal: number):
     rent = RAILROAD_RENT[railroadsOwned(s, prop.ownerId) - 1] ?? 0;
   } else if (tile.type === "utility") {
     const event = s.activeEvent;
-    const mult =
-      event?.id === "CYCLONE" ? 2 : utilitiesOwned(s, prop.ownerId) === 2 ? 10 : 4;
+    const mult = event?.id === "CYCLONE" ? 2 : utilitiesOwned(s, prop.ownerId) === 2 ? 10 : 4;
     rent = mult * diceTotal;
   }
   return applyEventRentModifier(s, tileIndex, rent);
@@ -500,7 +499,7 @@ export function placeBid(state: MonopolyState, playerId: string, amount: number)
 
 function advanceAuctionTurn(state: MonopolyState): Auction {
   const a = state.auction!;
-  let idx = (a.currentBidderIndex + 1) % a.activePlayerIds.length;
+  const idx = (a.currentBidderIndex + 1) % a.activePlayerIds.length;
   return { ...a, currentBidderIndex: idx };
 }
 
@@ -539,7 +538,11 @@ export function settleAuction(state: MonopolyState): MonopolyState {
       },
       declinedPurchaseTile: null,
     };
-    log(next, `${buyer.username} won the auction for ${tile.name} at ${formatInr(a.highestBid)}.`, "money");
+    log(
+      next,
+      `${buyer.username} won the auction for ${tile.name} at ${formatInr(a.highestBid)}.`,
+      "money",
+    );
   } else {
     next = { ...next, declinedPurchaseTile: a.tileIndex };
     log(next, `Auction for ${tile.name} ended with no bids.`, "event");
@@ -616,14 +619,18 @@ export function payJailFee(state: MonopolyState): MonopolyState {
   const p = currentPlayer(state);
   const fee = effectiveJailFee(state);
   if (!p.inJail || p.cash < fee) return state;
-  let next = updatePlayer(state, p.id, { inJail: false, jailTurns: 0, cash: p.cash - fee });
+  const next = updatePlayer(state, p.id, { inJail: false, jailTurns: 0, cash: p.cash - fee });
   log(next, `${p.username} paid ${formatInr(fee)} to leave jail.`, "money");
   return next;
 }
-export function useJailCard(state: MonopolyState): MonopolyState {
+export function consumeJailCard(state: MonopolyState): MonopolyState {
   const p = currentPlayer(state);
   if (!p.inJail || p.jailCards < 1) return state;
-  let next = updatePlayer(state, p.id, { inJail: false, jailTurns: 0, jailCards: p.jailCards - 1 });
+  const next = updatePlayer(state, p.id, {
+    inJail: false,
+    jailTurns: 0,
+    jailCards: p.jailCards - 1,
+  });
   log(next, `${p.username} used a Get Out of Jail Free card.`, "event");
   return next;
 }
@@ -637,7 +644,9 @@ export function bankAdjust(state: MonopolyState, playerId: string, delta: number
   const next = updatePlayer(state, playerId, { cash: newCash });
   log(
     next,
-    delta >= 0 ? `Bank paid ${p.username} ${formatInr(delta)}.` : `${p.username} paid bank ${formatInr(-delta)}.`,
+    delta >= 0
+      ? `Bank paid ${p.username} ${formatInr(delta)}.`
+      : `${p.username} paid bank ${formatInr(-delta)}.`,
     "money",
   );
   return next;
@@ -707,7 +716,7 @@ export function resolveTrade(state: MonopolyState, accepted: boolean): MonopolyS
   if (!state.trade) return state;
   const t = state.trade;
   if (!accepted) {
-    let next = { ...state, trade: null, phase: "landed" as MonopolyPhase };
+    const next = { ...state, trade: null, phase: "landed" as MonopolyPhase };
     log(next, `Trade declined.`, "trade");
     return next;
   }
@@ -755,7 +764,7 @@ export function aiStep(state: MonopolyState): MonopolyState {
   if (!p.isAI || state.phase === "ended") return state;
 
   if (state.phase === "rolling") {
-    if (p.inJail && p.jailCards > 0) return useJailCard(state);
+    if (p.inJail && p.jailCards > 0) return consumeJailCard(state);
     if (p.inJail && p.cash > 200 && Math.random() < 0.5) return payJailFee(state);
     return rollDice(state);
   }

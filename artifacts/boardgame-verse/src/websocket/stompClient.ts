@@ -57,9 +57,9 @@ class GameHubStompClient {
               // Append JWT as a query parameter so the backend handshake interceptor
               // can validate the token during the initial HTTP/SockJS handshake.
               const token = tokenStore.get();
-              const targetUrl = token ? `${target}${target.includes("?") ? "&" : "?"}token=${encodeURIComponent(
-                token,
-              )}` : target;
+              const targetUrl = token
+                ? `${target}${target.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`
+                : target;
               return new SockJS(targetUrl, undefined, {
                 transports: ["websocket", "xhr-streaming", "xhr-polling"],
               }) as unknown as WebSocket;
@@ -73,9 +73,9 @@ class GameHubStompClient {
       beforeConnect: () => {
         const token = tokenStore.get();
         if (!isHttp) {
-          const targetUrl = token ? `${target}${target.includes("?") ? "&" : "?"}token=${encodeURIComponent(
-            token,
-          )}` : target;
+          const targetUrl = token
+            ? `${target}${target.includes("?") ? "&" : "?"}token=${encodeURIComponent(token)}`
+            : target;
           this.client!.brokerURL = targetUrl;
         }
         this.client!.connectHeaders = token ? { Authorization: `Bearer ${token}` } : {};
@@ -93,7 +93,13 @@ class GameHubStompClient {
           console.log("ACK subscribed");
           console.log("******** ACK RECEIVED ********");
           console.log(body);
-          const ack = body as { requestId?: string; action?: string; success?: boolean; errorCode?: string; message?: string } | null;
+          const ack = body as {
+            requestId?: string;
+            action?: string;
+            success?: boolean;
+            errorCode?: string;
+            message?: string;
+          } | null;
           console.log("ACK requestId", ack?.requestId);
           console.log("ACK success", ack?.success);
           if (!ack?.requestId) return;
@@ -102,7 +108,11 @@ class GameHubStompClient {
             requests.markAcknowledged(ack.requestId);
             requests.completeRequest(ack.requestId);
           } else {
-            requests.failRequest(ack.requestId, ack.errorCode, ack.message ?? "Action rejected by server");
+            requests.failRequest(
+              ack.requestId,
+              ack.errorCode,
+              ack.message ?? "Action rejected by server",
+            );
           }
         });
       },
@@ -160,7 +170,10 @@ class GameHubStompClient {
   sendMessage(destination: string, body: unknown, requestId?: string) {
     if (this.offline || !this.client?.connected) return false;
     const payload = typeof body === "string" ? body : body;
-    const envelope = payload && typeof payload === "object" && "requestId" in payload ? payload : { ...((payload as Record<string, unknown>) ?? {}), requestId };
+    const envelope =
+      payload && typeof payload === "object" && "requestId" in payload
+        ? payload
+        : { ...((payload as Record<string, unknown>) ?? {}), requestId };
     console.log("[STOMP PUBLISH]", { destination, requestId, payload: envelope });
     console.debug("[stomp] publish", destination, envelope);
     this.client.publish({
@@ -170,16 +183,29 @@ class GameHubStompClient {
     return true;
   }
 
-  sendTrackedMessage(destination: string, body: unknown, action: string, metadata?: Record<string, unknown>) {
+  sendTrackedMessage(
+    destination: string,
+    body: unknown,
+    action: string,
+    metadata?: Record<string, unknown>,
+  ) {
     const existingRequestId =
-      typeof body === "object" && body && "requestId" in body && typeof (body as Record<string, unknown>).requestId === "string"
+      typeof body === "object" &&
+      body &&
+      "requestId" in body &&
+      typeof (body as Record<string, unknown>).requestId === "string"
         ? (body as Record<string, unknown>).requestId
         : undefined;
-    const requestId = typeof existingRequestId === "string" ? existingRequestId : crypto.randomUUID();
+    const requestId =
+      typeof existingRequestId === "string" ? existingRequestId : crypto.randomUUID();
     const requestStore = useWebsocketRequestStore.getState();
     console.log("CREATE REQUEST", { action, requestId });
     requestStore.createRequest(action, requestId, metadata);
-    const sent = this.sendMessage(destination, { ...(body as Record<string, unknown>), requestId }, requestId);
+    const sent = this.sendMessage(
+      destination,
+      { ...(body as Record<string, unknown>), requestId },
+      requestId,
+    );
     if (!sent) {
       requestStore.failRequest(requestId, "CONNECTION_ERROR", "Unable to contact server");
     }

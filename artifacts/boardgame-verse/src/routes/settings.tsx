@@ -18,10 +18,10 @@ function SettingsPage() {
   return (
     <AppShell>
       <div className="min-h-screen px-6 pt-32 pb-20 max-w-2xl mx-auto">
-        <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-2">
-          System
+        <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#d4a843] mb-2 font-bold">
+          System Preferences
         </div>
-        <h1 className="font-display text-5xl italic uppercase mb-8">Settings</h1>
+        <h1 className="font-display text-5xl font-bold uppercase mb-8 gold-text-glow">Settings</h1>
 
         <div className="space-y-4">
           {[
@@ -30,9 +30,9 @@ function SettingsPage() {
           ].map((f) => (
             <div
               key={f.key}
-              className="glass-panel p-5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4"
+              className="glass-panel p-6 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 border-[rgba(212,168,67,0.2)]"
             >
-              <span className="text-sm font-mono uppercase tracking-widest text-white/70">
+              <span className="text-sm font-mono uppercase tracking-widest text-[#9baab8]">
                 {f.label}
               </span>
               <input
@@ -42,7 +42,7 @@ function SettingsPage() {
                 step={0.05}
                 value={s[f.key]}
                 onChange={(e) => s.set(f.key, Number(e.target.value))}
-                className="w-40 accent-[var(--accent-cyan)]"
+                className="w-40 accent-[#d4a843]"
               />
             </div>
           ))}
@@ -52,16 +52,16 @@ function SettingsPage() {
           ].map((f) => (
             <label
               key={f.key}
-              className="glass-panel p-5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 cursor-pointer"
+              className="glass-panel p-6 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 cursor-pointer border-[rgba(212,168,67,0.2)] hover:border-[#d4a843] transition-colors"
             >
-              <span className="text-sm font-mono uppercase tracking-widest text-white/70">
+              <span className="text-sm font-mono uppercase tracking-widest text-[#9baab8]">
                 {f.label}
               </span>
               <input
                 type="checkbox"
                 checked={s[f.key]}
                 onChange={(e) => s.set(f.key, e.target.checked)}
-                className="size-5 accent-[var(--accent-cyan)]"
+                className="size-5 accent-[#d4a843]"
               />
             </label>
           ))}

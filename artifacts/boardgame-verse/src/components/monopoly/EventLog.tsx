@@ -1,82 +1,68 @@
-import { ChevronDown, ChevronUp, ScrollText } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
+import { History } from "lucide-react";
 import type { MonopolyLog } from "../../models/monopoly";
 
-const COLLAPSED_COUNT = 3;
-
-function lineColor(kind: MonopolyLog["kind"]) {
-  switch (kind) {
-    case "money":
-      return "text-accent-amber";
-    case "event":
-      return "text-accent-pink";
-    case "trade":
-      return "text-accent-cyan";
-    default:
-      return "text-white/55";
-  }
-}
-
-export function EventLog({ log, compact = false }: { log: MonopolyLog[]; compact?: boolean }) {
-  const [expanded, setExpanded] = useState(false);
+export function EventLog({ log }: { log: MonopolyLog[] }) {
   const ref = useRef<HTMLDivElement>(null);
 
-  const visible = useMemo(() => {
-    if (expanded || log.length <= COLLAPSED_COUNT) return log;
-    return log.slice(-COLLAPSED_COUNT);
-  }, [expanded, log]);
-
-  const hiddenCount = Math.max(0, log.length - COLLAPSED_COUNT);
-
   useEffect(() => {
-    if (!expanded) return;
-    ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" });
-  }, [log.length, expanded]);
+    // Small delay to ensure render is complete before scrolling
+    const t = setTimeout(() => {
+      ref.current?.scrollTo({ top: ref.current.scrollHeight, behavior: "smooth" });
+    }, 50);
+    return () => clearTimeout(t);
+  }, [log.length]);
 
   return (
     <div
-      className={`rounded-sm border border-white/10 bg-black/35 ${compact ? "p-1.5" : "p-2.5"} flex flex-col ${
-        expanded ? "min-h-0 flex-1" : "shrink-0"
-      }`}
+      className="rounded-sm border border-[rgba(212,168,67,0.15)] bg-[#12121a] flex flex-col h-full max-h-[300px]"
+      role="log"
+      aria-label="Game activity log"
+      aria-live="polite"
     >
-      <div className="flex items-center justify-between gap-2 mb-1 shrink-0">
-        <div className="flex items-center gap-1 text-[8px] font-mono uppercase tracking-[0.28em] text-white/45">
-          <ScrollText className="size-3 text-accent-cyan" />
-          Log
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-[rgba(212,168,67,0.1)] shrink-0">
+        <History className="size-3.5 text-[#d4a843]" />
+        <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-[#d4a843]">
+          Activity Log
         </div>
-        {log.length > COLLAPSED_COUNT ? (
-          <button
-            type="button"
-            onClick={() => setExpanded((v) => !v)}
-            className="text-[8px] font-mono uppercase tracking-widest text-white/40 hover:text-accent-cyan flex items-center gap-0.5 transition-colors"
-          >
-            {expanded ? (
-              <>
-                Less <ChevronUp className="size-3" />
-              </>
-            ) : (
-              <>
-                +{hiddenCount} <ChevronDown className="size-3" />
-              </>
-            )}
-          </button>
-        ) : null}
       </div>
+
       <div
         ref={ref}
-        className={`space-y-0.5 text-[9px] font-mono leading-snug pr-0.5 ${
-          expanded ? "overflow-y-auto min-h-0 flex-1 max-h-40" : "overflow-hidden max-h-[3.6rem]"
-        }`}
+        className="flex-1 overflow-y-auto p-4 space-y-2.5 text-xs font-mono scroll-smooth"
       >
-        {visible.length === 0 ? (
-          <div className="text-white/25 text-[9px]">No events yet.</div>
+        {log.length === 0 ? (
+          <div className="text-[#9baab8] text-[10px] italic">
+            Game started. Waiting for moves...
+          </div>
         ) : (
-          visible.map((l) => (
-            <div key={l.id} className={`truncate ${lineColor(l.kind)}`} title={l.text}>
-              <span className="text-white/25 mr-1">›</span>
-              {l.text}
-            </div>
-          ))
+          log.map((l) => {
+            const isMoney = l.kind === "money";
+            const isEvent = l.kind === "event";
+            const isTrade = l.kind === "trade";
+            const isImportant = isEvent || l.text.includes("Bankrupt") || l.text.includes("winner");
+
+            return (
+              <div
+                key={l.id}
+                className={[
+                  "leading-relaxed transition-colors",
+                  isMoney
+                    ? "text-[#c87941]"
+                    : isEvent
+                      ? "text-[#8b2335] font-bold"
+                      : isTrade
+                        ? "text-[#2a5f3f]"
+                        : isImportant
+                          ? "text-[#d4a843] font-bold"
+                          : "text-[#9baab8]",
+                ].join(" ")}
+              >
+                <span className="opacity-50 mr-2">›</span>
+                {l.text}
+              </div>
+            );
+          })
         )}
       </div>
     </div>

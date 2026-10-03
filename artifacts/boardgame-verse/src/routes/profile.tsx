@@ -36,49 +36,57 @@ function ProfilePage() {
   return (
     <AppShell>
       <div className="min-h-screen px-6 pt-32 pb-20 max-w-2xl mx-auto">
-        <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-2">
-          Operator
+        <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#d4a843] mb-2 font-bold">
+          Player Profile
         </div>
-        <h1 className="font-display text-5xl italic uppercase mb-8">Profile</h1>
+        <h1 className="font-display text-5xl font-bold uppercase mb-8 gold-text-glow">Profile</h1>
 
-        <div className="glass-panel p-6 flex items-center gap-6 mb-6">
+        <div className="glass-panel p-8 flex items-center gap-6 mb-8 border-[rgba(212,168,67,0.2)]">
           <Avatar name={user.username} color={user.avatarColor} size={80} ring />
           <div className="min-w-0">
-            <div className="font-display text-3xl italic uppercase truncate">{user.username}</div>
-            <div className="text-xs font-mono text-white/40 uppercase">
+            <div className="font-display text-3xl font-bold uppercase truncate text-white">
+              {user.username}
+            </div>
+            <div className="text-xs font-mono text-[#9baab8] uppercase mt-1">
               {user.isGuest ? "Guest Account" : (user.email ?? "Registered")}
             </div>
           </div>
         </div>
 
-        <label className="block mb-6 glass-panel p-6">
-          <span className="text-[10px] font-mono uppercase tracking-widest text-white/40">
+        <label className="block mb-8 glass-panel p-8 border-[rgba(212,168,67,0.2)]">
+          <span className="text-[10px] font-mono uppercase tracking-widest text-[#9baab8] block mb-2">
             Display Name
           </span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-2 w-full bg-background border border-white/10 px-3 py-3 focus:border-accent-cyan outline-none font-mono"
+            className="w-full bg-[#0d0d12] border border-[rgba(212,168,67,0.2)] px-4 py-3 focus:border-[#d4a843] outline-none font-mono text-white rounded-sm transition-colors"
           />
-          <div className="mt-3 flex justify-end">
+          <div className="mt-4 flex justify-end">
             <NeonButton
+              variant="gold"
               size="sm"
               onClick={() => updateProfile({ username: name.trim() || user.username })}
             >
-              Save
+              Save Changes
             </NeonButton>
           </div>
         </label>
 
-        <NeonButton
-          variant="ghost"
-          onClick={() => {
-            logout();
-            navigate({ to: "/" });
-          }}
-        >
-          Sign Out
-        </NeonButton>
+        <div className="glass-panel p-8 border-[rgba(139,35,53,0.3)] bg-[#8b2335]/5">
+          <div className="text-[10px] font-mono uppercase tracking-widest text-[#e05060] mb-4">
+            Danger Zone
+          </div>
+          <NeonButton
+            variant="danger"
+            onClick={() => {
+              logout();
+              navigate({ to: "/" });
+            }}
+          >
+            Sign Out
+          </NeonButton>
+        </div>
       </div>
     </AppShell>
   );
