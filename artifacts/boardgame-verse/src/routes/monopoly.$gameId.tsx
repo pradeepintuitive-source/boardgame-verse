@@ -748,6 +748,8 @@ function MonopolyPage() {
   const autoEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const auctionStartingRef = useRef(false);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const actionPendingRef = useRef(false);
+  const [actionPending, setActionPending] = useState(false);
 
   const hasValidState = Boolean(state && state.players?.length > 0);
 
@@ -761,6 +763,19 @@ function MonopolyPage() {
       state.players[0]
     );
   }, [state, user]);
+
+  const voiceUserLookup = useMemo(
+    () =>
+      Object.fromEntries(
+        (state?.players ?? []).flatMap((player) => {
+          const profile = { username: player.username, avatarColor: player.avatarColor };
+          return player.userId && player.userId !== player.id
+            ? [[player.id, profile], [player.userId, profile]]
+            : [[player.id, profile]];
+        }),
+      ),
+    [state?.players],
+  );
 
   const isMyTurnPreview = Boolean(
     me &&
@@ -1016,6 +1031,7 @@ function MonopolyPage() {
   // Normal Monopoly actions are REST-authoritative; auctions remain STOMP-only.
   const sendGameAction = async (type: string, payload: Record<string, unknown> = {}) => {
     if (!sessionId) return false;
+    if (actionPendingRef.current) return false;
     const isAuctionAct = type === "PLACE_BID" || type === "PASS_BID";
     const isBankAct = type === "BANK_ADJUST" || type === "BANK_TRANSFER";
     const isTradeResponse = type === "RESPOND_TRADE";
@@ -1092,14 +1108,33 @@ function MonopolyPage() {
       return false;
     }
 
+    actionPendingRef.current = true;
+    setActionPending(true);
     try {
       const nextState = await monopolyApi.action<MonopolyBackendState>(sessionId, requestBody);
       applyMonopolyState(nextState, sessionId);
       return true;
     } catch (e) {
-      // Axios interceptor already surfaces a toast for API errors.
       console.error("[monopoly] REST action failed", type, e);
+      try {
+        const latest = await monopolyApi.getState<MonopolySessionSnapshot>(sessionId);
+        applyMonopolyState((latest.state ?? latest) as MonopolyBackendState, sessionId);
+      } catch (refreshError) {
+        console.warn("[monopoly] state refresh after rejected action failed", refreshError);
+        try {
+          const refreshedSnapshot = await snapshot.refetch();
+          const latest = refreshedSnapshot.data;
+          if (latest) {
+            applyMonopolyState((latest.state ?? latest) as MonopolyBackendState, sessionId);
+          }
+        } catch (snapshotError) {
+          console.warn("[monopoly] snapshot refresh after rejected action failed", snapshotError);
+        }
+      }
       return false;
+    } finally {
+      actionPendingRef.current = false;
+      setActionPending(false);
     }
   };
 
@@ -1120,6 +1155,14 @@ function MonopolyPage() {
                 Monopoly: India Edition
               </h1>
             </div>
+            {roomId && (
+              <VoiceChatPanel
+                compact
+                roomId={roomId}
+                selfUserId={me.userId ?? me.id}
+                userLookup={voiceUserLookup}
+              />
+            )}
             <IndianEventBanner event={state.activeEvent} />
             {state.phase === "paused" && !isRoomHost && (
               <div
@@ -1205,24 +1248,6 @@ function MonopolyPage() {
                     }
                     onSelectTile={(i) => setOpenTile(i)}
                     onProposeTrade={p.id !== me.id ? () => setTradePartner(p.id) : undefined}
-                    turnActions={
-                      isCurrent
-                        ? {
-                            isMyTurn,
-                            onBuy: () =>
-                              void sendGameAction("BUY", {
-                                tileIndex: state.pendingPurchaseTile ?? undefined,
-                              }),
-                            onAuction: () =>
-                              void sendGameAction("START_AUCTION", {
-                                tileIndex: state.pendingPurchaseTile ?? undefined,
-                              }),
-                            onEnd: () => void sendGameAction("END_TURN"),
-                            onPayJail: () => void sendGameAction("PAY_JAIL"),
-                            onJailCard: () => void sendGameAction("USE_JAIL_CARD"),
-                          }
-                        : undefined
-                    }
                   />
                 );
               })}
@@ -1237,7 +1262,19 @@ function MonopolyPage() {
               onTileClick={(i) => setOpenTile(i)}
               onOpenDeck={setCardCatalogDeck}
               isMyTurn={isMyTurn}
+              actionPending={actionPending}
               onRoll={() => void sendGameAction("ROLL")}
+              onBuy={() =>
+                void sendGameAction("BUY", {
+                  tileIndex: state.pendingPurchaseTile ?? undefined,
+                })
+              }
+              onAuction={() =>
+                void sendGameAction("START_AUCTION", {
+                  tileIndex: state.pendingPurchaseTile ?? undefined,
+                })
+              }
+              onEnd={() => void sendGameAction("END_TURN")}
               onPayJail={() => void sendGameAction("PAY_JAIL")}
               onJailCard={() => void sendGameAction("USE_JAIL_CARD")}
               highlightTile={state.pendingPurchaseTile}
@@ -1383,22 +1420,7 @@ function MonopolyPage() {
       )}
 
       {roomId && (
-        <>
-          <VoiceChatPanel
-            roomId={roomId}
-            selfUserId={me.id}
-            userLookup={Object.fromEntries(
-              state.players.map((player) => [
-                player.id,
-                {
-                  username: player.username,
-                  avatarColor: player.avatarColor,
-                },
-              ]),
-            )}
-          />
-          <ChatDrawer roomId={roomId} />
-        </>
+        <ChatDrawer roomId={roomId} />
       )}
     </AppShell>
   );

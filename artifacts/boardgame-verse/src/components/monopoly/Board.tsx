@@ -3,9 +3,8 @@ import { BOARD } from "../../data/monopolyBoard";
 import type { MonopolyState } from "../../models/monopoly";
 import { Tile } from "./Tile";
 import { Token } from "./Token";
-import { Dice5, Lock, Ticket, Boxes, Sparkles } from "lucide-react";
+import { ArrowRight, Dice5, Gavel, Lock, ShoppingBag, Ticket, Boxes, Sparkles } from "lucide-react";
 import { NeonButton } from "../common/NeonButton";
-import { Dice } from "./Dice";
 import { effectiveJailFee, formatInr } from "../../utils/monopolyEngine";
 
 /**
@@ -37,8 +36,12 @@ export function Board({
   onOpenDeck,
   isMyTurn,
   onRoll,
+  onBuy,
+  onAuction,
+  onEnd,
   onPayJail,
   onJailCard,
+  actionPending,
 }: {
   state: MonopolyState;
   onTileClick?: (idx: number) => void;
@@ -48,8 +51,12 @@ export function Board({
   onOpenDeck?: (deck: "chance" | "chest") => void;
   isMyTurn?: boolean;
   onRoll?: () => void;
+  onBuy?: () => void;
+  onAuction?: () => void;
+  onEnd?: () => void;
   onPayJail?: () => void;
   onJailCard?: () => void;
+  actionPending?: boolean;
 }) {
   const players = state.players;
   const properties = state.properties;
@@ -90,6 +97,8 @@ export function Board({
   const turnOwnedCount = turnPlayer
     ? Object.values(properties).filter((property) => property.ownerId === turnPlayer.id).length
     : 0;
+  const pendingTile = state.pendingPurchaseTile == null ? null : BOARD[state.pendingPurchaseTile];
+  const pendingPrice = pendingTile?.price ?? 0;
   const phaseLabel =
     state.phase === "rolling"
       ? "Ready to roll"
@@ -205,26 +214,108 @@ export function Board({
                   </div>
                 </div>
 
-                {state.phase === "rolling" && (
-                  <div className="pointer-events-auto mt-3 pt-3 border-t border-border flex flex-wrap items-center justify-between gap-2">
-                    <Dice roll={state.lastRoll} compact />
-                    <div className="flex flex-wrap gap-1.5">
+                {state.lastRoll && (
+                  <div className="mt-3 flex items-center gap-2 border-y border-white/10 py-2">
+                    <Dice5 className="size-4 text-accent-cyan" />
+                    <span className="text-[8px] font-mono uppercase tracking-[0.2em] text-white/45">
+                      Last roll
+                    </span>
+                    <span className="font-mono text-lg font-bold tabular-nums text-white">
+                      {state.lastRoll.d1 + state.lastRoll.d2}
+                    </span>
+                  </div>
+                )}
+
+                <div className="pointer-events-auto mt-3 rounded-sm border border-white/10 bg-black/35 p-3 sm:p-4">
+                  <div className="text-[8px] font-mono uppercase tracking-[0.24em] text-accent-cyan">
+                    Live action · {phaseLabel}
+                  </div>
+                  <div className="mt-1 text-sm sm:text-base font-semibold text-white">
+                    {state.phase === "rolling"
+                      ? isMyTurn ? "Your move" : `${turnPlayer.username} is up`
+                      : state.phase === "landed" && pendingTile
+                        ? "Property decision"
+                        : state.phase === "landed"
+                          ? "Landing resolved"
+                          : state.phase === "auction"
+                            ? "Auction in progress"
+                            : state.phase === "trade"
+                              ? "Trade in progress"
+                              : state.phase === "paused"
+                                ? "Game paused"
+                                : state.phase === "ended"
+                                  ? "Match complete"
+                                  : "Movement in progress"}
+                  </div>
+                  <p className="mt-1 text-[10px] sm:text-xs leading-relaxed text-white/60">
+                    {state.phase === "rolling"
+                      ? isMyTurn
+                        ? `Roll to move from ${turnTile?.name ?? "your current space"}.`
+                        : `Waiting for ${turnPlayer.username} to roll.`
+                      : state.phase === "landed" && pendingTile
+                        ? `${turnPlayer.username} landed on ${pendingTile.name}. Buy it for ${formatInr(pendingPrice)} or send it to auction.`
+                        : state.phase === "landed"
+                          ? state.log.at(-1)?.text ?? `${turnPlayer.username} landed on ${turnTile?.name ?? "a space"}.`
+                          : state.phase === "auction"
+                            ? "Players are bidding on the property."
+                            : state.phase === "trade"
+                              ? "Review the pending trade in the player panel."
+                              : state.phase === "paused"
+                                ? "The host paused this game."
+                                : state.phase === "ended"
+                                  ? "The game has ended."
+                                  : state.log.at(-1)?.text ?? "The board is updating."}
+                  </p>
+
+                  {state.phase === "rolling" && (
+                    <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                       {turnPlayer.inJail && isMyTurn && turnPlayer.cash >= effectiveJailFee(state) && (
-                        <NeonButton variant="ghost" size="sm" onClick={onPayJail} className="!px-2 !py-1.5 !text-[9px]">
+                        <NeonButton variant="ghost" size="sm" onClick={onPayJail} disabled={actionPending} className="!px-2 !py-1.5 !text-[9px]">
                           <Lock className="inline size-3 mr-1" /> Pay {formatInr(effectiveJailFee(state))}
                         </NeonButton>
                       )}
                       {turnPlayer.inJail && isMyTurn && turnPlayer.jailCards > 0 && (
-                        <NeonButton variant="ghost" size="sm" onClick={onJailCard} className="!px-2 !py-1.5 !text-[9px]">
+                        <NeonButton variant="ghost" size="sm" onClick={onJailCard} disabled={actionPending} className="!px-2 !py-1.5 !text-[9px]">
                           <Ticket className="inline size-3 mr-1" /> Use Card
                         </NeonButton>
                       )}
-                      <NeonButton variant="cyan" size="sm" onClick={onRoll} disabled={!isMyTurn} className="!px-3 !py-1.5 !text-[10px]">
-                        <Dice5 className="inline size-4 mr-1" /> {turnPlayer.inJail ? "Roll Doubles" : "Roll Dice"}
+                      <NeonButton variant="cyan" size="sm" onClick={onRoll} disabled={!isMyTurn || actionPending} className="!px-3 !py-1.5 !text-[10px]">
+                        <Dice5 className="inline size-4 mr-1" /> {actionPending ? "Rolling…" : turnPlayer.inJail ? "Roll Doubles" : "Roll Dice"}
                       </NeonButton>
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {state.phase === "landed" && pendingTile && (
+                    <div className="mt-3 flex flex-wrap justify-center gap-2">
+                      <NeonButton
+                        variant="cyan"
+                        size="sm"
+                        onClick={onBuy}
+                        disabled={!isMyTurn || actionPending || turnPlayer.cash < pendingPrice}
+                        className="min-w-28 !px-3 !py-1.5 !text-[10px]"
+                      >
+                        <ShoppingBag className="inline size-3.5 mr-1" /> Buy
+                      </NeonButton>
+                      <NeonButton
+                        variant="pink"
+                        size="sm"
+                        onClick={onAuction}
+                        disabled={!isMyTurn || actionPending}
+                        className="min-w-28 !px-3 !py-1.5 !text-[10px]"
+                      >
+                        <Gavel className="inline size-3.5 mr-1" /> Decline & auction
+                      </NeonButton>
+                    </div>
+                  )}
+
+                  {state.phase === "landed" && !pendingTile && (
+                    <div className="mt-3 flex justify-center">
+                      <NeonButton size="sm" onClick={onEnd} disabled={!isMyTurn || actionPending} className="!px-4 !py-1.5 !text-[10px]">
+                        Continue <ArrowRight className="inline size-3.5 ml-1" />
+                      </NeonButton>
+                    </div>
+                  )}
+                </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-3">
                   {[
