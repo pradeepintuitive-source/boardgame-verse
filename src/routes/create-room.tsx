@@ -114,7 +114,7 @@ function CreateRoomPage() {
               </span>
               <input
                 type="number"
-                min={3}
+                min={2}
                 max={16}
                 value={maxPlayers}
                 onChange={(e) => setMax(Number(e.target.value))}
