@@ -50,6 +50,7 @@ export const useLobbyStore = create<LobbyState>()(
           isHost: false,
           isAI: true,
           ready: true,
+          connected: true,
         };
         set((s) => ({
           rooms: { ...s.rooms, [roomId]: { ...room, players: [...room.players, ai] } },
