@@ -3,5 +3,11 @@
   "framework": "vite",
   "installCommand": "corepack enable && pnpm install",
   "buildCommand": "PORT=3000 BASE_PATH=/ pnpm build",
-  "outputDirectory": "artifacts/boardgame-verse/dist/public"
+  "outputDirectory": "artifacts/boardgame-verse/dist/public",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
