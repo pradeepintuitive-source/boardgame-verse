@@ -20,7 +20,7 @@ export const useLobbyStore = create<LobbyState>()(
   persist(
     (set, get) => ({
       rooms: {},
-      
+
       joinRoom: (roomId, p) => {
         const room = get().rooms[roomId];
         if (!room) return null;

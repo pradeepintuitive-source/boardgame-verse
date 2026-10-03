@@ -1,30 +1,24 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Trophy, Banknote, Pause, Play } from "lucide-react";
+import { Trophy, Banknote } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { ChatDrawer } from "../components/chat/ChatDrawer";
-import { VoiceChatPanel } from "../components/voice/VoiceChatPanel";
 import { Board } from "../components/monopoly/Board";
+import { ActionBar } from "../components/monopoly/ActionBar";
 import { PlayerPanel } from "../components/monopoly/PlayerPanel";
 import { PropertyCard } from "../components/monopoly/PropertyCard";
+import { VoiceChatPanel } from "../components/voice/VoiceChatPanel";
 import { AuctionPanel } from "../components/monopoly/AuctionPanel";
 import { BOARD } from "../data/monopolyBoard";
-import { CHANCE_CARDS, CHEST_CARDS } from "../data/monopolyCards";
-import { TradePanel, TradeReviewPanel } from "../components/monopoly/TradePanel";
+import { TradePanel } from "../components/monopoly/TradePanel";
 import { EventLog } from "../components/monopoly/EventLog";
 import { BankManager } from "../components/monopoly/BankManager";
 import { IndianEventBanner } from "../components/monopoly/IndianEventBanner";
-import { CardCatalogModal } from "../components/monopoly/CardCatalogModal";
-import {
-  CardRevealModal,
-  parseCardLogLine,
-  type CardReveal,
-} from "../components/monopoly/CardRevealModal";
 import { useMonopolyStore } from "../store/monopolyStore";
 import { useAuthStore } from "../store/authStore";
-import { useGameSnapshot, usePauseGame, useResumeGame } from "../hooks/useGameSession";
+import { useGameSnapshot } from "../hooks/useGameSession";
 import { useLeaveRoom, useReconnectRoom, useRoom } from "../hooks/useRooms";
 import { Topics } from "../websocket/topics";
 import { useStompSubscription } from "../hooks/useStompSubscription";
@@ -40,6 +34,7 @@ import type {
 } from "../models/monopoly";
 import { toast } from "sonner";
 import { useWebsocketRequestStore } from "../store/requestStore";
+import { formatInr } from "../utils/monopolyEngine";
 import { useConnectionStore } from "../store/connectionStore";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -95,14 +90,13 @@ type MonopolyBackendState = {
   consecutiveDoubles?: number;
   assets?: Record<string, MonopolyAssetSnapshot>;
   owners?: Record<string, string>;
-  developments?: Record<string, { houses?: number; hotel?: boolean }>;
+  developments?: Record<string, { houses?: number }>;
   mortgagedTiles?: number[];
   board?: {
     chanceDeck?: number[];
     chestDeck?: number[];
   };
   pendingPurchaseTile?: number | null;
-  declinedPurchaseTile?: number | null;
   pendingCard?: MonopolyState["pendingCard"];
   auction?: MonopolyAuctionSnapshot | null;
   trade?: MonopolyState["trade"];
@@ -133,15 +127,8 @@ type MonopolySocketEnvelope = {
 type MonopolyActionPayload = {
   tileIndex?: number | string | null;
   amount?: number | string | null;
-  decision?: "ACCEPT" | "DECLINE";
-  tradeId?: string | null;
   targetPlayerId?: string | null;
   metadata?: Record<string, unknown>;
-  playerId?: string | null;
-  delta?: number | string | null;
-  from?: string | null;
-  to?: string | null;
-  amt?: number | string | null;
   offer?: {
     toId: string;
     fromProps?: number[];
@@ -157,7 +144,8 @@ export const Route = createFileRoute("/monopoly/$gameId")({
       { title: "Monopoly: India Edition — GameHub" },
       {
         name: "description",
-        content: "Play Monopoly: India Edition with friends and AI. Indian cities, ₹ currency, offline-ready.",
+        content:
+          "Play Monopoly: India Edition with friends and AI. Indian cities, ₹ currency, offline-ready.",
       },
     ],
   }),
@@ -175,7 +163,7 @@ function mapPhase(phase: string | null | undefined) {
     case "WAITING_FOR_AUCTION":
       return "auction";
     case "PAUSED":
-      return "paused";
+      return "rolling";
     case "ENDED":
       return "ended";
     default:
@@ -235,30 +223,6 @@ function normalizeAuctionState(
   };
 }
 
-function normalizeTradeState(
-  trade: MonopolyState["trade"] | null | undefined,
-  roomPlayers: Array<{ id?: string; userId?: string }>,
-): MonopolyState["trade"] {
-  if (!trade) return null;
-  return {
-    ...trade,
-    fromId: resolveRoomPlayerId(trade.fromId, roomPlayers) ?? trade.fromId,
-    toId: resolveRoomPlayerId(trade.toId, roomPlayers) ?? trade.toId,
-    status: String(trade.status).toLowerCase() as NonNullable<MonopolyState["trade"]>["status"],
-  };
-}
-
-function parseRentTransferLogLine(text: string, players: MonopolyState["players"]) {
-  const match = text.match(/^(.+?) paid (₹[\d,]+) rent to (.+?)[.]?$/i);
-  if (!match) return null;
-  const payerName = match[1].trim().toLowerCase();
-  const recipientName = match[3].trim().toLowerCase();
-  const payer = players.find((player) => player.username.toLowerCase() === payerName);
-  const recipient = players.find((player) => player.username.toLowerCase() === recipientName);
-  if (!payer || !recipient) return null;
-  return { payer, recipient, amount: match[2] };
-}
-
 function buildMonopolyActionRequest(
   type: string,
   payload: MonopolyActionPayload,
@@ -286,9 +250,6 @@ function buildMonopolyActionRequest(
     case "BUILD_HOUSE":
       actionType = "BUILD_HOUSE";
       break;
-    case "BUILD_HOTEL":
-      actionType = "BUILD_HOTEL";
-      break;
     case "SELL_HOUSE":
       actionType = "SELL_HOUSE";
       break;
@@ -301,15 +262,6 @@ function buildMonopolyActionRequest(
     case "PROPOSE_TRADE":
       actionType = "TRADE";
       break;
-    case "RESPOND_TRADE":
-      actionType = "TRADE";
-      break;
-    case "BANK_ADJUST":
-      actionType = "BANK_ADJUST";
-      break;
-    case "BANK_TRANSFER":
-      actionType = "BANK_TRANSFER";
-      break;
     default:
       return null;
   }
@@ -319,15 +271,6 @@ function buildMonopolyActionRequest(
   if (p.tileIndex != null) requestBody.tilePosition = Number(p.tileIndex);
   if (p.amount != null) requestBody.amount = Number(p.amount);
   if (p.targetPlayerId != null) requestBody.targetPlayerId = String(p.targetPlayerId);
-  if (p.playerId != null && type === "BANK_ADJUST") {
-    requestBody.targetPlayerId = String(p.playerId);
-    if (p.delta != null) requestBody.amount = Number(p.delta);
-  }
-  if (type === "BANK_TRANSFER") {
-    requestBody.targetPlayerId = String(p.to);
-    requestBody.amount = Number(p.amt ?? p.amount ?? 0);
-    requestBody.metadata = { fromPlayerId: String(p.from) };
-  }
   if (p.metadata && typeof p.metadata === "object") {
     requestBody.metadata = normalizeMetadata(p.metadata as Record<string, unknown>);
   }
@@ -352,14 +295,6 @@ function buildMonopolyActionRequest(
     if (cashDelta !== 0) requestBody.amount = cashDelta;
   }
 
-  if (type === "RESPOND_TRADE") {
-    requestBody.targetPlayerId = String(p.targetPlayerId ?? "");
-    requestBody.metadata = {
-      action: String(p.decision ?? "DECLINE"),
-      tradeId: String(p.tradeId ?? ""),
-    };
-  }
-
   return requestBody;
 }
 
@@ -381,7 +316,6 @@ function mapSnapshotToState(
   session: MonopolySessionSnapshot,
   room: RoomSnapshotData | null | undefined,
   gameId: string,
-  previous?: MonopolyState | null,
 ): MonopolyState {
   // session can be either:
   //  A) GameSession wrapper (initial REST snapshot):
@@ -441,18 +375,16 @@ function mapSnapshotToState(
     });
   }
 
-  const developments: Record<string, { houses?: number; hotel?: boolean }> =
-    backend.developments ?? {};
+  const developments: Record<string, { houses?: number }> = backend.developments ?? {};
   const mortgaged = new Set<number>(backend.mortgagedTiles ?? []);
 
   Object.keys(owners).forEach((k) => {
     const pos = Number(k);
     const ownerId = owners[k] ? String(owners[k]) : null;
-    const dev = developments[pos] ?? developments[String(pos)] ?? null;
-    const houses = dev?.hotel ? 5 : (dev?.houses ?? 0);
+    const dev = developments[pos] ?? null;
     properties[pos] = {
       ownerId,
-      houses,
+      houses: dev ? (dev.houses ?? 0) : 0,
       mortgaged: mortgaged.has(pos),
     };
   });
@@ -470,50 +402,27 @@ function mapSnapshotToState(
   curPlayerIndex = Math.min(curPlayerIndex, Math.max(players.length - 1, 0));
 
   const mappedPhase = mapPhase(backend.phase);
-  const declinedPurchaseTile =
-    mappedPhase === "rolling"
-      ? null
-      : backend.declinedPurchaseTile != null
-        ? Number(backend.declinedPurchaseTile)
-        : (previous?.declinedPurchaseTile ?? null);
   let pendingPurchaseTile: number | null = backend.pendingPurchaseTile ?? null;
   if (pendingPurchaseTile == null && mappedPhase === "landed") {
     const currentPosition = players[curPlayerIndex]?.position;
     const tile = typeof currentPosition === "number" ? BOARD[currentPosition] : null;
     const property = typeof currentPosition === "number" ? properties[currentPosition] : null;
-    const purchaseClosed =
-      declinedPurchaseTile != null && declinedPurchaseTile === currentPosition;
     if (
       tile &&
       property &&
       (tile.type === "property" || tile.type === "railroad" || tile.type === "utility") &&
-      !property.ownerId &&
-      !purchaseClosed
+      !property.ownerId
     ) {
       pendingPurchaseTile = currentPosition;
     }
   }
 
-  // lastDiceTotal → lastRoll. Only bump rolledAt when the total changes so
-  // turn switches / remaps do not replay the roll animation.
+  // lastDiceTotal → lastRoll (two dice that sum to the total, for display)
   const total: number = backend.lastDiceTotal ?? 0;
   const d1 = total > 0 ? Math.ceil(total / 2) : 1;
   const d2 = total > 0 ? Math.floor(total / 2) : 1;
-  const prevTotal = previous?.lastRoll
-    ? previous.lastRoll.d1 + previous.lastRoll.d2
-    : null;
   const lastRoll: import("../models/monopoly").DiceRoll | null =
-    total > 0
-      ? {
-          d1,
-          d2,
-          isDouble: d1 === d2,
-          rolledAt:
-            previous?.lastRoll && prevTotal === total
-              ? previous.lastRoll.rolledAt
-              : Date.now(),
-        }
-      : null;
+    total > 0 ? { d1, d2, isDouble: d1 === d2, rolledAt: Date.now() } : null;
 
   return {
     gameId: String(resolvedSessionId),
@@ -526,33 +435,16 @@ function mapSnapshotToState(
     chanceDeck: backend.board?.chanceDeck ?? [],
     chestDeck: backend.board?.chestDeck ?? [],
     pendingPurchaseTile,
-    declinedPurchaseTile,
     pendingCard: backend.pendingCard ?? null,
     auction: normalizeAuctionState(backend.auction, roomPlayers),
-    trade: normalizeTradeState(backend.trade, roomPlayers),
-    log: (backend.log ?? []).map((t: string, i: number) => {
-      let text = String(t);
-      for (const p of players) {
-        if (p.id) text = text.split(p.id).join(p.username);
-        if (p.userId) text = text.split(String(p.userId)).join(p.username);
-      }
-      const lower = text.toLowerCase();
-      const kind =
-        lower.includes("rent") ||
-        lower.includes("bank") ||
-        lower.includes("tax") ||
-        lower.includes("₹") ||
-        lower.includes("paid") ||
-        lower.includes("purchased") ||
-        lower.includes("mortgage")
-          ? ("money" as const)
-          : lower.includes("card") || lower.includes("event") || lower.includes("chance")
-            ? ("event" as const)
-            : lower.includes("trade")
-              ? ("trade" as const)
-              : ("info" as const);
-      return { id: String(i), text, ts: i, kind };
-    }),
+    trade: backend.trade ?? null,
+    declinedPurchaseTile: null,
+    log: (backend.log ?? []).map((t: string, i: number) => ({
+      id: String(i),
+      text: t,
+      ts: i,
+      kind: "info" as const,
+    })),
     winnerId:
       resolveRoomPlayerId(
         backend.winnerId != null ? String(backend.winnerId) : null,
@@ -577,8 +469,6 @@ function MonopolyPage() {
   const state = useMonopolyStore((s) => s.games[gameId]);
   const setGame = useMonopolyStore((s) => s.setGame);
   const snapshot = useGameSnapshot<MonopolySessionSnapshot>(gameId);
-  const pauseGame = usePauseGame();
-  const resumeGame = useResumeGame();
   const roomQuery = useRoom(snapshot.data?.roomId);
   const leaveRoomMut = useLeaveRoom();
   const reconnectMut = useReconnectRoom();
@@ -642,12 +532,10 @@ function MonopolyPage() {
 
   const applyMonopolyState = useCallback(
     (nextState: MonopolyBackendState, nextSessionId?: string) => {
-      const previous = useMonopolyStore.getState().games[gameId] ?? null;
       const mapped = mapSnapshotToState(
         { sessionId: nextSessionId ?? nextState?.sessionId ?? sessionId, state: nextState },
         roomDataRef.current,
         gameId,
-        previous,
       );
       setGame(gameId!, mapped);
       return mapped;
@@ -665,60 +553,24 @@ function MonopolyPage() {
           const current = useMonopolyStore.getState().games[gameId];
           const auction = normalizeAuctionState(
             (envelope.payload as MonopolyAuctionSnapshot | null | undefined) ?? null,
-            roomDataRef.current?.players ?? current?.players ?? [],
+            roomDataRef.current?.players ?? [],
           );
           if (current) {
-            const clearedTile =
-              !auction && current.phase === "auction"
-                ? (current.auction?.tileIndex ?? current.pendingPurchaseTile)
-                : null;
             setGame(gameId!, {
               ...current,
               auction,
-              phase: auction ? "auction" : current.phase === "auction" ? "landed" : current.phase,
-              // Auction finished (incl. unsold) — never reopen Buy/Auction for that tile.
-              pendingPurchaseTile: auction
-                ? (auction.tileIndex ?? current.pendingPurchaseTile)
-                : null,
-              declinedPurchaseTile:
-                clearedTile != null
-                  ? clearedTile
-                  : current.declinedPurchaseTile,
+              phase: auction ? "auction" : current.phase,
+              pendingPurchaseTile: auction?.tileIndex ?? current.pendingPurchaseTile,
             });
-          } else if (auction) {
-            // Seed a minimal game shell if auction arrives before hydrate finishes
-            applyMonopolyState(
-              {
-                sessionId,
-                phase: "WAITING_FOR_AUCTION",
-                auction: envelope.payload as MonopolyAuctionSnapshot,
-              } as MonopolyBackendState,
-              sessionId,
-            );
           }
           return;
         }
-        const prevAuction = useMonopolyStore.getState().games[gameId]?.auction ?? null;
         const rawState = extractSocketState(msg);
         if (!rawState) return;
         const mapped = applyMonopolyState(
           rawState,
           envelope?.sessionId ?? rawState.sessionId ?? sessionId,
         );
-        // Monopoly REST/STOMP state payloads omit live auctions (in-memory only).
-        // Keep the in-progress auction unless this message settled it (type AUCTION).
-        if (
-          envelope?.type !== "AUCTION" &&
-          !mapped.auction &&
-          prevAuction &&
-          mapped.phase !== "ended"
-        ) {
-          setGame(gameId!, {
-            ...mapped,
-            auction: prevAuction,
-            phase: "auction",
-          });
-        }
         console.log(
           "[monopoly] ✅ Mapped — phase:",
           mapped.phase,
@@ -735,25 +587,29 @@ function MonopolyPage() {
   // Canonical backend broadcast topic for Monopoly state updates
   useStompSubscription<unknown>(primaryDestination, handleGameUpdate, !!primaryDestination);
   const user = useAuthStore((s) => s.user);
+  const isRoomHost = Boolean(user && roomQuery.data && roomQuery.data.hostId === user.id);
   const [hydrated, setHydrated] = useState(false);
   const [openTile, setOpenTile] = useState<number | null>(null);
-  const [focusPlayerId, setFocusPlayerId] = useState<string | null>(null);
   const [tradePartner, setTradePartner] = useState<string | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
-  const [cardCatalogDeck, setCardCatalogDeck] = useState<"chance" | "chest" | null>(null);
-  const [cardReveal, setCardReveal] = useState<CardReveal | null>(null);
-  const seenCardLogRef = useRef<string | null>(null);
-  const seenPendingCardRef = useRef<string | null>(null);
-  const seenRentLogRef = useRef<Set<string> | null>(null);
-  const autoEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const auctionStartingRef = useRef(false);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const actionPendingRef = useRef(false);
-  const [actionPending, setActionPending] = useState(false);
+  const auctionStartingRef = useRef(false);
 
   const hasValidState = Boolean(state && state.players?.length > 0);
 
-  // The logged-in user should be treated as "me" when present.
+  // AI driver — runs whenever it's an AI's turn or AI auction bidder
+  useEffect(() => {
+    if (!state || state.phase === "ended") return;
+    const timer = aiTimer.current;
+    if (timer) clearTimeout(timer);
+    // Since backend runs AI logic when online, do nothing here.
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [state, gameId]);
+
+  // The logged-in user should be treated as "me" when present. If the auth user is not
+  // part of this game session, fall back to the first available human player.
   const me = useMemo(() => {
     if (!state || !user) return undefined;
     return (
@@ -777,174 +633,13 @@ function MonopolyPage() {
     [state?.players],
   );
 
-  const isMyTurnPreview = Boolean(
-    me &&
-      state &&
-      !state.players[state.currentPlayerIndex]?.isAI &&
-      !state.players[state.currentPlayerIndex]?.bankrupt &&
-      state.players[state.currentPlayerIndex]?.id === me.id,
-  );
-
-  // Detect Chance / Chest from game log
-  useEffect(() => {
-    if (!state?.log?.length) return;
-    const last = state.log[state.log.length - 1];
-    if (!last || last.text === seenCardLogRef.current) return;
-    const parsed = parseCardLogLine(last.text);
-    if (parsed) {
-      seenCardLogRef.current = last.text;
-      setCardReveal(parsed);
-    }
-  }, [state?.log]);
-
-  useEffect(() => {
-    const pendingCard = state?.pendingCard;
-    if (!pendingCard) {
-      seenPendingCardRef.current = null;
-      return;
-    }
-    const key = `${pendingCard.deck}:${pendingCard.index}:${state.lastRoll?.rolledAt ?? ""}`;
-    if (seenPendingCardRef.current === key) return;
-    const deck = pendingCard.deck === "chance" ? CHANCE_CARDS : CHEST_CARDS;
-    const card = deck[pendingCard.index];
-    if (!card) return;
-    seenPendingCardRef.current = key;
-    setCardReveal({ deck: pendingCard.deck, text: card.text });
-  }, [state?.pendingCard, state?.lastRoll?.rolledAt]);
-
-  useEffect(() => {
-    const logs = state?.log;
-    if (!logs?.length) return;
-    const logKey = (entry: MonopolyState["log"][number]) => `${entry.id}:${entry.text}`;
-    const currentKeys = new Set(logs.map(logKey));
-    const seen = seenRentLogRef.current;
-    if (!seen) {
-      seenRentLogRef.current = currentKeys;
-      return;
-    }
-
-    logs.forEach((entry) => {
-      const key = logKey(entry);
-      if (seen.has(key)) return;
-      seen.add(key);
-      const transfer = parseRentTransferLogLine(entry.text, state.players);
-      if (!transfer || !me) return;
-      if (transfer.payer.id === me.id) {
-        toast.message("Rent paid", {
-          description: `You paid ${transfer.amount} rent to ${transfer.recipient.username}.`,
-        });
-      } else if (transfer.recipient.id === me.id) {
-        toast.success("Rent received", {
-          description: `${transfer.payer.username} paid you ${transfer.amount} rent.`,
-        });
-      }
-    });
-
-    seen.forEach((key) => {
-      if (!currentKeys.has(key)) seen.delete(key);
-    });
-  }, [state?.log, state?.players, me]);
-
-  // Auto-continue after passive landings ONLY — never while buy/auction is available.
-  useEffect(() => {
-    if (autoEndTimer.current) {
-      clearTimeout(autoEndTimer.current);
-      autoEndTimer.current = null;
-    }
-    if (!state || !me || !isMyTurnPreview || !sessionId) return;
-    if (state.phase === "auction" || state.auction || auctionStartingRef.current) return;
-    if (state.phase !== "landed") return;
-    if (state.pendingPurchaseTile != null) return;
-
-    // Safety: unowned buyable tile under current player = Buy/Auction decision, not auto-end.
-    // Skip once auction/buy offer was already closed for this tile.
-    const curPlayer = state.players[state.currentPlayerIndex];
-    const pos = curPlayer?.position;
-    if (typeof pos === "number") {
-      const tile = BOARD[pos];
-      const prop = state.properties[pos];
-      const offerClosed = state.declinedPurchaseTile === pos;
-      const buyable =
-        !offerClosed &&
-        tile &&
-        (tile.type === "property" || tile.type === "railroad" || tile.type === "utility") &&
-        prop &&
-        !prop.ownerId;
-      if (buyable) return;
-    }
-
-    if (cardReveal || openTile != null || bankOpen || tradePartner) return;
-
-    autoEndTimer.current = setTimeout(async () => {
-      // Re-check live store — auction may have started during the delay.
-      const live = useMonopolyStore.getState().games[gameId];
-      if (
-        !live ||
-        live.phase === "auction" ||
-        live.auction ||
-        auctionStartingRef.current ||
-        live.pendingPurchaseTile != null
-      ) {
-        return;
-      }
-      try {
-        const nextState = await monopolyApi.action<MonopolyBackendState>(sessionId, {
-          type: "END_TURN",
-        });
-        applyMonopolyState(nextState, sessionId);
-        toast.message("Turn passed");
-      } catch (e) {
-        console.error("[monopoly] auto continue failed", e);
-      }
-    }, 1200);
-
-    return () => {
-      if (autoEndTimer.current) clearTimeout(autoEndTimer.current);
-    };
-  }, [
-    state,
-    me,
-    isMyTurnPreview,
-    sessionId,
-    cardReveal,
-    openTile,
-    bankOpen,
-    tradePartner,
-    applyMonopolyState,
-    gameId,
-  ]);
-
-  // Clear "auction starting" latch once live auction state arrives (or timed out).
-  useEffect(() => {
-    if (state?.auction || state?.phase === "auction") {
-      auctionStartingRef.current = false;
-    }
-  }, [state?.auction, state?.phase]);
-
-  // AI driver — runs whenever it's an AI's turn or AI auction bidder
-  useEffect(() => {
-    if (!state || state.phase === "ended") return;
-    const timer = aiTimer.current;
-    if (timer) clearTimeout(timer);
-    // Since backend runs AI logic when online, do nothing here.
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [state, gameId]);
-
   // Hydrate only when we have snapshot + room info
   useEffect(() => {
     if (!snapshot.data || !roomQuery.data) return;
     try {
       const session = snapshot.data;
       const room = roomQuery.data;
-      const mapped = mapSnapshotToState(session, room, gameId, useMonopolyStore.getState().games[gameId] ?? null);
-      const prevAuction = useMonopolyStore.getState().games[gameId]?.auction ?? null;
-      // Live auctions are STOMP-only / in-memory — don't wipe them on REST rehydrate.
-      if (!mapped.auction && prevAuction) {
-        mapped.auction = prevAuction;
-        mapped.phase = "auction";
-      }
+      const mapped = mapSnapshotToState(session, room, gameId);
       setGame(gameId!, mapped);
       setHydrated(true);
     } catch (e) {
@@ -1012,43 +707,16 @@ function MonopolyPage() {
   }
 
   const cur = state.players[state.currentPlayerIndex] ?? state.players[0];
-  const isMyTurn = state.phase !== "paused" && !cur.isAI && !cur.bankrupt && cur.id === me.id;
-  const isRoomHost = Boolean(user?.id && roomQuery.data?.hostId === user.id);
-
-  const setGamePaused = async (paused: boolean) => {
-    if (!isRoomHost || !sessionId) return;
-    try {
-      if (paused) await pauseGame.mutateAsync(sessionId);
-      else await resumeGame.mutateAsync(sessionId);
-      await queryClient.invalidateQueries({ queryKey: ["game", gameId] });
-      await snapshot.refetch();
-    } catch (e) {
-      console.error("[monopoly] pause state change failed", e);
-      toast.error(paused ? "Unable to pause game" : "Unable to resume game");
-    }
-  };
+  const isMyTurn = !cur.isAI && !cur.bankrupt && cur.id === me.id;
 
   // Normal Monopoly actions are REST-authoritative; auctions remain STOMP-only.
   const sendGameAction = async (type: string, payload: Record<string, unknown> = {}) => {
     if (!sessionId) return false;
-    if (actionPendingRef.current) return false;
     const isAuctionAct = type === "PLACE_BID" || type === "PASS_BID";
-    const isBankAct = type === "BANK_ADJUST" || type === "BANK_TRANSFER";
-    const isTradeResponse = type === "RESPOND_TRADE";
-    if (state.phase === "paused") {
-      toast.error("Game paused", { description: "Actions are blocked until the host resumes." });
-      return false;
-    }
-    if (!isMyTurn && !isAuctionAct && !isBankAct && !isTradeResponse) {
+    if (!isMyTurn && !isAuctionAct) {
       console.warn(
         `[game] ignoring "${type}" — it's ${cur.username}'s turn, not yours (${me.username}).`,
       );
-      return false;
-    }
-    if (isBankAct && !isRoomHost) {
-      toast.error("Bank Manager locked", {
-        description: "Only the room host can adjust or transfer cash.",
-      });
       return false;
     }
 
@@ -1056,34 +724,17 @@ function MonopolyPage() {
     const isAuctionAction = type === "START_AUCTION" || type === "PLACE_BID" || type === "PASS_BID";
     if (isAuctionAction) {
       const startTileIndex = p.tileIndex ?? state.pendingPurchaseTile;
-      if (type === "START_AUCTION" && startTileIndex == null) {
-        toast.error("Auction unavailable", { description: "No property selected to auction." });
-        return false;
-      }
       const auctionBody: MonopolyAuctionMessage =
         type === "START_AUCTION"
           ? {
               action: "START",
-              tilePosition: Number(startTileIndex),
+              ...(startTileIndex != null ? { tilePosition: Number(startTileIndex) } : {}),
             }
           : type === "PLACE_BID"
             ? { action: "PLACE_BID", amount: Number(p.amount ?? 0) }
             : { action: "PASS" };
 
       const dest = Topics.send.auction(sessionId);
-      if (type === "START_AUCTION") {
-        // Block auto END_TURN until AUCTION_UPDATE arrives (STOMP can lag past 1.2s).
-        auctionStartingRef.current = true;
-        if (autoEndTimer.current) {
-          clearTimeout(autoEndTimer.current);
-          autoEndTimer.current = null;
-        }
-        window.setTimeout(() => {
-          if (!useMonopolyStore.getState().games[gameId]?.auction) {
-            auctionStartingRef.current = false;
-          }
-        }, 15_000);
-      }
       const { sent, requestId } = stomp.sendTrackedMessage(dest, auctionBody, type, { sessionId });
       if (sent) {
         console.debug("[game] sent auction action over STOMP", type, dest, auctionBody);
@@ -1102,109 +753,72 @@ function MonopolyPage() {
 
     const requestBody = buildMonopolyActionRequest(type, payload, state);
     if (!requestBody) {
-      toast.error("Action unavailable", {
-        description: `Unsupported Monopoly action: ${type}`,
+      const description =
+        type === "RESOLVE_TRADE"
+          ? "Trade responses are not part of the current backend Monopoly contract."
+          : type === "BANK_ADJUST" || type === "BANK_TRANSFER"
+            ? "Bank manager actions are not supported by the live backend Monopoly API."
+            : `Unsupported Monopoly action: ${type}`;
+      toast.error("Action unavailable", { description });
+      return false;
+    }
+
+    const requestId = crypto.randomUUID();
+    const requestStore = useWebsocketRequestStore.getState();
+    requestStore.createRequest(requestBody.type, requestId, { sessionId, type });
+
+    const dest = Topics.send.gameAction(sessionId);
+    const sent = stomp.sendMessage(dest, { requestId, ...requestBody }, requestId);
+    if (!sent) {
+      requestStore.failRequest(requestId, "CONNECTION_ERROR", "Unable to contact server");
+      toast.error("Action failed", {
+        description: "Realtime connection is unavailable. Reconnect before retrying the action.",
       });
       return false;
     }
 
-    actionPendingRef.current = true;
-    setActionPending(true);
-    try {
-      const nextState = await monopolyApi.action<MonopolyBackendState>(sessionId, requestBody);
-      applyMonopolyState(nextState, sessionId);
-      return true;
-    } catch (e) {
-      console.error("[monopoly] REST action failed", type, e);
-      try {
-        const latest = await monopolyApi.getState<MonopolySessionSnapshot>(sessionId);
-        applyMonopolyState((latest.state ?? latest) as MonopolyBackendState, sessionId);
-      } catch (refreshError) {
-        console.warn("[monopoly] state refresh after rejected action failed", refreshError);
-        try {
-          const refreshedSnapshot = await snapshot.refetch();
-          const latest = refreshedSnapshot.data;
-          if (latest) {
-            applyMonopolyState((latest.state ?? latest) as MonopolyBackendState, sessionId);
-          }
-        } catch (snapshotError) {
-          console.warn("[monopoly] snapshot refresh after rejected action failed", snapshotError);
-        }
-      }
-      return false;
-    } finally {
-      actionPendingRef.current = false;
-      setActionPending(false);
-    }
+    return true;
   };
 
   return (
     <AppShell hideChrome>
       <div
-        className="fixed inset-0 -z-10"
-        style={{ background: "radial-gradient(circle at 50% 0%, #0a1a2e 0%, #050507 60%)" }}
+        className="fixed inset-0 -z-10 bg-background"
+        style={{ background: "var(--gradient-radial-glow)" }}
       />
-      <main className="relative mx-auto flex h-[100dvh] max-h-[100dvh] max-w-[1800px] flex-col gap-2 overflow-hidden px-2 py-2 sm:px-3">
-        <header className="flex shrink-0 flex-col gap-2">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0 flex-1">
-              <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-accent-cyan">
-                India Edition
-              </div>
-              <h1 className="truncate font-display text-2xl italic uppercase leading-none sm:text-3xl">
-                Monopoly
-              </h1>
+      <main className="relative px-4 pt-20 pb-32 max-w-[1600px] mx-auto flex flex-col h-screen max-h-[1200px]">
+        <header className="flex items-end justify-between mb-4 shrink-0">
+          <div>
+            <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#d4a843] mb-1">
+              Multiplayer Match
             </div>
-            <div className="flex flex-wrap items-center justify-end gap-1.5">
-              {roomId && (
-                <VoiceChatPanel
-                  compact
-                  roomId={roomId}
-                  selfUserId={me.userId ?? me.id}
-                  userLookup={voiceUserLookup}
-                />
-              )}
-              {isRoomHost && (
-                <>
-                  <NeonButton
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setBankOpen(true)}
-                    className="!px-2.5 !py-1.5"
-                    aria-label="Bank manager"
-                  >
-                    <Banknote className="inline size-3.5 sm:mr-1" />
-                    <span className="hidden sm:inline">Bank</span>
-                  </NeonButton>
-                  {state.phase !== "paused" && state.phase !== "ended" && (
-                    <NeonButton
-                      variant="ghost"
-                      size="sm"
-                      disabled={pauseGame.isPending}
-                      onClick={() => void setGamePaused(true)}
-                      className="!px-2.5 !py-1.5"
-                      aria-label="Pause game"
-                    >
-                      <Pause className="inline size-3.5 sm:mr-1" />
-                      <span className="hidden sm:inline">Pause</span>
-                    </NeonButton>
-                  )}
-                </>
-              )}
-              <NeonButton
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  navigate({ to: "/" });
-                }}
-                className="!px-2.5 !py-1.5"
-              >
-                Leave
-              </NeonButton>
-              <NeonButton
-                variant="pink"
-                size="sm"
-                onClick={() => {
+            <h1 className="font-display text-4xl md:text-5xl font-bold uppercase gold-text-glow">
+              Bharat Business
+            </h1>
+          </div>
+          <div className="flex gap-2">
+            <NeonButton variant="ghost" size="sm" onClick={() => setBankOpen(true)}>
+              <Banknote className="inline size-4 mr-1" /> Bank
+            </NeonButton>
+            <NeonButton
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                // Soft Exit: keep seat + resume token for later return
+                navigate({ to: "/" });
+              }}
+            >
+              Soft Exit
+            </NeonButton>
+            <NeonButton
+              variant="danger"
+              size="sm"
+              onClick={() => {
+                if (
+                  confirm(
+                    "Are you sure you want to abandon the game? You will forfeit all properties.",
+                  )
+                ) {
                   localStorage.removeItem("gamehub:resume-session");
                   if (roomId) {
                     leaveRoomMut.mutate(roomId, {
@@ -1213,159 +827,120 @@ function MonopolyPage() {
                   } else {
                     navigate({ to: "/" });
                   }
-                }}
-                className="!px-2.5 !py-1.5"
-              >
-                <span className="sm:hidden">Quit</span>
-                <span className="hidden sm:inline">Abandon</span>
-              </NeonButton>
-            </div>
-          </div>
-          <IndianEventBanner event={state.activeEvent} />
-          {state.phase === "paused" && !isRoomHost && (
-            <div
-              role="status"
-              className="flex items-center gap-1.5 rounded-full border border-accent-amber/40 bg-accent-amber/10 px-3 py-1 text-xs text-accent-amber"
+                }
+              }}
             >
-              <Pause className="size-3" /> Paused by the host
-            </div>
-          )}
+              Abandon
+            </NeonButton>
+          </div>
         </header>
 
-        <div className="flex shrink-0 gap-2 overflow-x-auto pb-0.5 xl:hidden">
-          {state.players.map((p) => {
-            const isCurrent = state.players[state.currentPlayerIndex]?.id === p.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setFocusPlayerId((prev) => (prev === p.id ? null : p.id))}
-                className="flex shrink-0 items-center gap-2 rounded-full border bg-white/[0.04] px-2.5 py-1.5"
-                style={{
-                  borderColor: isCurrent ? p.avatarColor : "rgba(255,255,255,0.12)",
-                }}
-              >
-                <span
-                  className="grid size-6 place-items-center rounded-full text-[11px] font-bold text-black"
-                  style={{ background: p.avatarColor }}
-                >
-                  {p.username.slice(0, 1).toUpperCase()}
-                </span>
-                <span className="max-w-24 truncate text-xs font-medium">{p.username}</span>
-                <span className="text-[11px] tabular-nums text-accent-amber">
-                  ₹{p.cash.toLocaleString("en-IN")}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {roomId && (
+          <div className="mb-2">
+            <VoiceChatPanel
+              compact
+              roomId={roomId}
+              selfUserId={me?.userId ?? me?.id ?? ""}
+              userLookup={voiceUserLookup}
+            />
+          </div>
+        )}
+        <IndianEventBanner event={state.activeEvent} />
 
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-2 overflow-hidden xl:grid-cols-[260px_minmax(0,1fr)]">
-          <aside className="hidden min-h-0 flex-col gap-1.5 overflow-hidden xl:flex">
-            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-              {state.players.map((p, seatIdx) => {
-                const isCurrent = state.players[state.currentPlayerIndex].id === p.id;
-                return (
-                  <PlayerPanel
-                    key={p.id}
-                    state={state}
-                    player={p}
-                    seatNumber={seatIdx + 1}
-                    compact
-                    isCurrent={isCurrent}
-                    isMe={p.id === me.id}
-                    selected={focusPlayerId === p.id}
-                    onSelectPlayer={() =>
-                      setFocusPlayerId((prev) => (prev === p.id ? null : p.id))
-                    }
-                    onSelectTile={(i) => setOpenTile(i)}
-                    onProposeTrade={p.id !== me.id ? () => setTradePartner(p.id) : undefined}
-                  />
-                );
-              })}
-            </div>
-            <EventLog log={state.log} compact />
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_320px] gap-4 min-h-0">
+          {/* Left: players */}
+          <aside className="space-y-2 overflow-y-auto pr-1 pb-4 order-2 lg:order-1 flex flex-row lg:flex-col overflow-x-auto lg:overflow-x-hidden">
+            {state.players.map((p, i) => (
+              <div key={p.id} className="w-[260px] lg:w-full shrink-0">
+                <PlayerPanel
+                  state={state}
+                  player={p}
+                  playerIndex={i}
+                  isCurrent={state.players[state.currentPlayerIndex]?.id === p.id}
+                  isMe={p.id === me.id}
+                  onSelectTile={(i) => setOpenTile(i)}
+                  onProposeTrade={p.id !== me.id ? () => setTradePartner(p.id) : undefined}
+                />
+              </div>
+            ))}
           </aside>
 
-          <section className="flex h-full min-h-0 items-center justify-center overflow-hidden">
+          {/* Center: board */}
+          <section className="order-1 lg:order-2 flex items-center justify-center p-2 lg:p-4 min-h-[400px]">
             <Board
               state={state}
               onTileClick={(i) => setOpenTile(i)}
-              onOpenDeck={setCardCatalogDeck}
-              isMyTurn={isMyTurn}
-              actionPending={actionPending}
-              onRoll={() => void sendGameAction("ROLL")}
-              onBuy={() =>
-                void sendGameAction("BUY", {
-                  tileIndex: state.pendingPurchaseTile ?? undefined,
-                })
-              }
-              onAuction={() =>
-                void sendGameAction("START_AUCTION", {
-                  tileIndex: state.pendingPurchaseTile ?? undefined,
-                })
-              }
-              onEnd={() => void sendGameAction("END_TURN")}
-              onPayJail={() => void sendGameAction("PAY_JAIL")}
-              onJailCard={() => void sendGameAction("USE_JAIL_CARD")}
               highlightTile={state.pendingPurchaseTile}
-              focusPlayerId={focusPlayerId}
             />
           </section>
-        </div>
-        <div className="shrink-0 xl:hidden">
-          <EventLog log={state.log} compact />
+
+          {/* Right: action + log */}
+          <aside className="space-y-4 order-3 overflow-y-auto pb-4 flex flex-col">
+            <ActionBar
+              state={state}
+              me={me}
+              isMyTurn={isMyTurn}
+              onRoll={() => sendGameAction("ROLL")}
+              onBuy={() =>
+                sendGameAction("BUY", { tileIndex: state.pendingPurchaseTile ?? undefined })
+              }
+              onAuction={() =>
+                sendGameAction("START_AUCTION", {
+                  tileIndex: state.pendingPurchaseTile ?? undefined,
+                })
+              }
+              onEnd={() => sendGameAction("END_TURN")}
+              onPayJail={() => sendGameAction("PAY_JAIL")}
+              onJailCard={() => sendGameAction("USE_JAIL_CARD")}
+            />
+            <EventLog log={state.log} />
+          </aside>
         </div>
 
         {state.phase === "ended" && (
-          <div className="fixed inset-0 z-40 bg-black/85 backdrop-blur-md grid place-items-center p-6">
-            <div className="glass-panel border border-accent-amber/40 p-10 text-center max-w-md">
-              <Trophy className="size-14 text-accent-amber mx-auto mb-4" />
-              <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-amber mb-2">
-                Match Over
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md grid place-items-center p-6">
+            <div className="relative glass-panel border border-[#d4a843]/40 p-12 text-center max-w-lg w-full overflow-hidden">
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(212,168,67,0.15)_0%,transparent_70%)] pointer-events-none" />
+
+              <Trophy className="size-20 text-[#d4a843] mx-auto mb-6 drop-shadow-[0_0_15px_rgba(212,168,67,0.5)]" />
+              <div className="text-[12px] font-mono uppercase tracking-[0.4em] text-[#d4a843] mb-2 font-bold">
+                Monopoly Conquered
               </div>
-              <h2 className="font-display text-4xl italic uppercase mb-2">
-                {state.players.find((p) => p.id === state.winnerId)?.username} wins!
+              <h2 className="font-display text-5xl font-bold uppercase mb-4 text-white">
+                {state.players.find((p) => p.id === state.winnerId)?.username} Wins!
               </h2>
-              <p className="text-white/60 text-sm mb-6">The last tycoon standing.</p>
-              <NeonButton onClick={() => { localStorage.removeItem("gamehub:resume-session"); navigate({ to: "/" }); }}>Return Home</NeonButton>
+              <p className="text-[#9baab8] text-sm mb-8">
+                The last tycoon standing in Bharat Business.
+              </p>
+
+              <NeonButton
+                variant="gold"
+                size="lg"
+                onClick={() => {
+                  localStorage.removeItem("gamehub:resume-session");
+                  navigate({ to: "/" });
+                }}
+              >
+                Return to Lobby
+              </NeonButton>
             </div>
           </div>
         )}
       </main>
 
       <AnimatePresence>
-        {cardCatalogDeck && <CardCatalogModal initialDeck={cardCatalogDeck} onClose={() => setCardCatalogDeck(null)} />}
-
-        {cardReveal && (
-          <CardRevealModal
-            card={cardReveal}
-            onContinue={() => {
-              setCardReveal(null);
-              void sendGameAction("END_TURN");
-            }}
-          />
-        )}
-
         {openTile != null && (
           <PropertyCard
             state={state}
             tileIndex={openTile}
-            isMyTurn={isMyTurn}
-            meId={me.id}
             onClose={() => setOpenTile(null)}
             onBuild={
               state.properties[openTile]?.ownerId === me.id
-                ? () =>
-                    sendGameAction(
-                      state.properties[openTile]?.houses === 4 ? "BUILD_HOTEL" : "BUILD_HOUSE",
-                      { tileIndex: openTile },
-                    )
+                ? () => sendGameAction("BUILD_HOUSE", { tileIndex: openTile })
                 : undefined
             }
             onSell={
-              state.properties[openTile]?.ownerId === me.id &&
-              (state.properties[openTile]?.houses ?? 0) > 0
+              state.properties[openTile]?.ownerId === me.id && state.properties[openTile].houses > 0
                 ? () => sendGameAction("SELL_HOUSE", { tileIndex: openTile })
                 : undefined
             }
@@ -1393,24 +968,21 @@ function MonopolyPage() {
             partnerId={tradePartner}
             onClose={() => setTradePartner(null)}
             onPropose={(offer) => {
-              void sendGameAction("PROPOSE_TRADE", { offer });
+              sendGameAction("PROPOSE_TRADE", { offer });
               setTradePartner(null);
             }}
           />
         )}
 
-        {state.phase === "trade" && state.trade?.status === "pending" && (
-          <TradeReviewPanel
+        {state.trade && state.trade.toId === me.id && (
+          <TradePanel
             state={state}
-            trade={state.trade}
-            meId={me.id}
-            onResolve={(accepted) =>
-              void sendGameAction("RESPOND_TRADE", {
-                targetPlayerId: state.trade?.fromId,
-                tradeId: state.trade?.id,
-                decision: accepted ? "ACCEPT" : "DECLINE",
-              })
-            }
+            meId={state.trade.toId}
+            partnerId={state.trade.fromId}
+            existingOffer={state.trade}
+            onClose={() => sendGameAction("RESOLVE_TRADE", { accept: false })}
+            onAccept={() => sendGameAction("RESOLVE_TRADE", { accept: true })}
+            onDecline={() => sendGameAction("RESOLVE_TRADE", { accept: false })}
           />
         )}
 
@@ -1425,37 +997,7 @@ function MonopolyPage() {
         )}
       </AnimatePresence>
 
-      {state.phase === "paused" && isRoomHost && (
-        <div
-          className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md grid place-items-center p-6"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="paused-title"
-        >
-          <div className="glass-panel border border-accent-amber/50 p-8 text-center max-w-md w-full">
-            <Pause className="size-10 text-accent-amber mx-auto mb-3" />
-            <h2 id="paused-title" className="font-display text-3xl italic uppercase mb-2">
-              Game Paused
-            </h2>
-            <p className="text-sm text-white/60 mb-5">
-              {isRoomHost ? "Resume when everyone is ready." : "Waiting for the host to resume."}
-            </p>
-            {isRoomHost && (
-              <NeonButton
-                variant="cyan"
-                disabled={resumeGame.isPending}
-                onClick={() => void setGamePaused(false)}
-              >
-                <Play className="inline size-4 mr-1" /> Resume Game
-              </NeonButton>
-            )}
-          </div>
-        </div>
-      )}
-
-      {roomId && (
-        <ChatDrawer roomId={roomId} />
-      )}
+      {roomId && <ChatDrawer roomId={roomId} />}
     </AppShell>
   );
 }

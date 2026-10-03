@@ -28,89 +28,109 @@ export function ActionBar({
   onPayJail,
   onJailCard,
 }: Props) {
-  const cur = state.players[state.currentPlayerIndex] ?? state.players[0] ?? {
-    id: "",
-    username: "Player",
-    avatarColor: "#fff",
-    isAI: false,
-    position: 0,
-    cash: 0,
-    inJail: false,
-    jailTurns: 0,
-    jailCards: 0,
-    bankrupt: true,
-  };
+  const cur = state.players[state.currentPlayerIndex] ?? state.players[0];
   const pending = state.pendingPurchaseTile;
   const tile = pending != null ? BOARD[pending] : null;
   const price = tile?.price ?? 0;
+  const canAfford = me.cash >= price;
 
   return (
     <div
-      className="glass-panel border p-3 flex flex-col gap-2 shrink-0"
-      style={{
-        borderColor: `${cur.avatarColor}99`,
-        boxShadow: `0 0 18px ${cur.avatarColor}33`,
-      }}
+      className="rounded-sm border border-[rgba(212,168,67,0.2)] bg-[#12121a] px-4 py-3 flex flex-col gap-3"
+      role="region"
+      aria-label="Game actions"
     >
-      <div className="flex items-center justify-between gap-2">
-        <div className="min-w-0">
-          <div className="text-[8px] font-mono uppercase tracking-[0.3em] text-white/40">Turn</div>
-          <div className="font-bold truncate" style={{ color: cur.avatarColor }}>
-            {cur.username}
-            {isMyTurn ? (
-              <span className="ml-2 text-[8px] font-mono uppercase tracking-widest text-white/50">
-                (you)
-              </span>
-            ) : null}
+      {/* Turn header + dice */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-[#9baab8]">
+            Current Turn
           </div>
+          <div
+            className="text-sm font-bold mt-0.5"
+            style={{ color: cur?.avatarColor ?? "#d4a843" }}
+          >
+            {cur?.username ?? "—"}
+          </div>
+          {!isMyTurn && (
+            <div className="text-[10px] font-mono text-[#9baab8] mt-0.5">
+              Waiting for {cur?.username}…
+            </div>
+          )}
         </div>
         <Dice roll={state.lastRoll} />
       </div>
 
-      {!isMyTurn && (
-        <div className="text-[9px] font-mono uppercase tracking-widest text-white/40 text-center py-1">
-          Waiting for {cur.username}…
-        </div>
-      )}
-
+      {/* ── Rolling phase ── */}
       {state.phase === "rolling" && (
-        <div className="flex flex-wrap gap-1.5">
-          <NeonButton variant="cyan" size="sm" onClick={onRoll} disabled={!isMyTurn}>
-            <Dice5 className="inline size-3.5 mr-1" />
-            {me.inJail ? "Roll Doubles" : "Roll Dice"}
+        <div className="flex flex-wrap gap-2">
+          <NeonButton
+            variant="gold"
+            size="sm"
+            onClick={onRoll}
+            disabled={!isMyTurn}
+            icon={<Dice5 className="size-4" />}
+          >
+            {me.inJail ? "Roll for Doubles" : "Roll Dice"}
           </NeonButton>
+
           {me.inJail && me.cash >= effectiveJailFee(state) && (
-            <NeonButton variant="ghost" size="sm" onClick={onPayJail}>
-              <Lock className="inline size-3 mr-1" /> Pay {formatInr(effectiveJailFee(state))}
+            <NeonButton variant="ghost" size="sm" onClick={onPayJail} disabled={!isMyTurn}>
+              <Lock className="inline size-3 mr-1" />
+              Pay {formatInr(effectiveJailFee(state))}
             </NeonButton>
           )}
+
           {me.inJail && me.jailCards > 0 && (
-            <NeonButton variant="ghost" size="sm" onClick={onJailCard}>
-              <Ticket className="inline size-3 mr-1" /> Use Card
+            <NeonButton variant="ghost" size="sm" onClick={onJailCard} disabled={!isMyTurn}>
+              <Ticket className="inline size-3 mr-1" />
+              Use Card
             </NeonButton>
           )}
         </div>
       )}
 
+      {/* ── Decision phase: buy or auction ── */}
       {isMyTurn && state.phase === "landed" && pending != null && tile && (
-        <div>
-          <div className="text-[11px] mb-1.5">
-            Buy <b>{tile.name}</b> for {formatInr(price)}?
+        <div className="rounded-sm border border-[rgba(212,168,67,0.2)] bg-[#1a1508] p-3">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-[#9baab8] mb-1">
+            Unowned Property
           </div>
-          <div className="flex gap-1.5">
-            <NeonButton variant="cyan" size="sm" onClick={onBuy} disabled={me.cash < price}>
-              <ShoppingBag className="inline size-3 mr-1" /> Buy
+          <div className="font-display text-base font-bold mb-0.5" style={{ color: "#d4a843" }}>
+            {tile.name}
+          </div>
+          <div className="text-sm font-mono mb-3" style={{ color: "#d4a843" }}>
+            {formatInr(price)}
+            {!canAfford && (
+              <span className="ml-2 text-[10px] text-[#e05060]">Insufficient funds</span>
+            )}
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <NeonButton
+              variant="gold"
+              size="sm"
+              onClick={onBuy}
+              disabled={!canAfford}
+              icon={<ShoppingBag className="size-3.5" />}
+            >
+              Acquire {formatInr(price)}
             </NeonButton>
-            <NeonButton variant="pink" size="sm" onClick={onAuction}>
-              <Gavel className="inline size-3 mr-1" /> Decline
+            <NeonButton
+              variant="ruby"
+              size="sm"
+              onClick={onAuction}
+              icon={<Gavel className="size-3.5" />}
+            >
+              Pass to Auction
             </NeonButton>
           </div>
         </div>
       )}
 
+      {/* ── End turn ── */}
       {isMyTurn && state.phase === "landed" && pending == null && (
-        <NeonButton size="sm" onClick={onEnd}>
-          Continue <ArrowRight className="inline size-3.5 ml-1" />
+        <NeonButton onClick={onEnd} icon={<ArrowRight className="size-4" />}>
+          End Turn
         </NeonButton>
       )}
     </div>

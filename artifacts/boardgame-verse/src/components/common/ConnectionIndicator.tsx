@@ -51,9 +51,7 @@ export function ConnectionIndicator({
     },
     offline: {
       label: stomp.isOffline ? "LOCAL" : "OFFLINE",
-      detail: stomp.isOffline
-        ? "No realtime backend configured"
-        : "Disconnected from server",
+      detail: stomp.isOffline ? "No realtime backend configured" : "Disconnected from server",
       icon: WifiOff,
       dot: "bg-destructive",
       ring: "border-destructive/40",
@@ -81,9 +79,7 @@ export function ConnectionIndicator({
       <Icon
         className={`size-3 ${config.text} ${status === "reconnecting" ? "animate-spin" : ""}`}
       />
-      <span
-        className={`text-[10px] font-mono uppercase tracking-[0.25em] ${config.text}`}
-      >
+      <span className={`text-[10px] font-mono uppercase tracking-[0.25em] ${config.text}`}>
         {config.label}
       </span>
       {!compact && (

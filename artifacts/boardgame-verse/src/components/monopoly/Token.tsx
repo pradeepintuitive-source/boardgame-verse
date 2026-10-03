@@ -1,58 +1,175 @@
 import { motion } from "framer-motion";
 
-/** Fan offsets so multiple tokens on one tile stay visually separate. */
-const OFFSETS = [
-  { x: 0, y: 0 },
-  { x: 7, y: -4 },
-  { x: -7, y: -4 },
-  { x: 0, y: -10 },
-  { x: 10, y: 2 },
-  { x: -10, y: 2 },
+const SHAPES = [
+  // Pentagon (Player 0)
+  (color: string, initial: string) => (
+    <svg viewBox="0 0 40 40" className="w-full h-full drop-shadow-lg">
+      <polygon
+        points="20,3 37,14 31,34 9,34 3,14"
+        fill={color}
+        stroke="rgba(255,255,255,0.6)"
+        strokeWidth="1.5"
+      />
+      <text
+        x="20"
+        y="24"
+        textAnchor="middle"
+        fill="#fff"
+        fontSize="13"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        {initial}
+      </text>
+    </svg>
+  ),
+  // Diamond (Player 1)
+  (color: string, initial: string) => (
+    <svg viewBox="0 0 40 40" className="w-full h-full drop-shadow-lg">
+      <polygon
+        points="20,3 37,20 20,37 3,20"
+        fill={color}
+        stroke="rgba(255,255,255,0.6)"
+        strokeWidth="1.5"
+      />
+      <text
+        x="20"
+        y="25"
+        textAnchor="middle"
+        fill="#fff"
+        fontSize="13"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        {initial}
+      </text>
+    </svg>
+  ),
+  // Hexagon (Player 2)
+  (color: string, initial: string) => (
+    <svg viewBox="0 0 40 40" className="w-full h-full drop-shadow-lg">
+      <polygon
+        points="20,3 34,11 34,29 20,37 6,29 6,11"
+        fill={color}
+        stroke="rgba(255,255,255,0.6)"
+        strokeWidth="1.5"
+      />
+      <text
+        x="20"
+        y="25"
+        textAnchor="middle"
+        fill="#fff"
+        fontSize="13"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        {initial}
+      </text>
+    </svg>
+  ),
+  // Shield (Player 3)
+  (color: string, initial: string) => (
+    <svg viewBox="0 0 40 40" className="w-full h-full drop-shadow-lg">
+      <path
+        d="M20,3 L36,10 L36,24 C36,31 20,37 20,37 C20,37 4,31 4,24 L4,10 Z"
+        fill={color}
+        stroke="rgba(255,255,255,0.6)"
+        strokeWidth="1.5"
+      />
+      <text
+        x="20"
+        y="25"
+        textAnchor="middle"
+        fill="#fff"
+        fontSize="13"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        {initial}
+      </text>
+    </svg>
+  ),
+  // Star (Player 4)
+  (color: string, initial: string) => (
+    <svg viewBox="0 0 40 40" className="w-full h-full drop-shadow-lg">
+      <polygon
+        points="20,3 24,15 37,15 27,23 31,36 20,28 9,36 13,23 3,15 16,15"
+        fill={color}
+        stroke="rgba(255,255,255,0.6)"
+        strokeWidth="1.5"
+      />
+      <text
+        x="20"
+        y="27"
+        textAnchor="middle"
+        fill="#fff"
+        fontSize="11"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        {initial}
+      </text>
+    </svg>
+  ),
+  // Circle (Player 5)
+  (color: string, initial: string) => (
+    <svg viewBox="0 0 40 40" className="w-full h-full drop-shadow-lg">
+      <circle
+        cx="20"
+        cy="20"
+        r="17"
+        fill={color}
+        stroke="rgba(255,255,255,0.6)"
+        strokeWidth="1.5"
+      />
+      <text
+        x="20"
+        y="25"
+        textAnchor="middle"
+        fill="#fff"
+        fontSize="14"
+        fontWeight="bold"
+        fontFamily="sans-serif"
+      >
+        {initial}
+      </text>
+    </svg>
+  ),
 ];
+
+interface TokenProps {
+  color: string;
+  label: string;
+  /** Which player slot index (0-5) determines shape */
+  playerIndex?: number;
+  size?: "sm" | "md" | "lg";
+  isCurrent?: boolean;
+}
 
 export function Token({
   color,
   label,
-  stackIndex = 0,
-  emphasized = false,
-  seatNumber,
-}: {
-  color: string;
-  label: string;
-  stackIndex?: number;
-  emphasized?: boolean;
-  /** 1-based seat for clear multiplayer identity */
-  seatNumber?: number;
-}) {
-  const offset = OFFSETS[stackIndex % OFFSETS.length] ?? OFFSETS[0];
-  const initial = label.trim().slice(0, 1).toUpperCase() || "?";
+  playerIndex = 0,
+  size = "sm",
+  isCurrent = false,
+}: TokenProps) {
+  const shapeIndex = playerIndex % SHAPES.length;
+  const ShapeFn = SHAPES[shapeIndex];
+  const initial = label.slice(0, 1).toUpperCase();
+
+  const sizeClass = size === "lg" ? "size-9" : size === "md" ? "size-7" : "size-5";
 
   return (
     <motion.div
       layout
-      transition={{ type: "spring", stiffness: 260, damping: 26 }}
-      className={`relative rounded-full grid place-items-center font-mono font-bold border-2 border-white/90 shadow-lg ${
-        emphasized ? "size-7 text-[10px] z-20 ring-2 ring-white" : "size-5 text-[8px] z-10"
-      }`}
-      style={{
-        background: color,
-        color: "#050507",
-        boxShadow: emphasized ? `0 0 16px ${color}, 0 0 4px #fff` : `0 0 10px ${color}`,
-        marginLeft: offset.x,
-        marginTop: offset.y,
-      }}
+      whileHover={{ y: -3, scale: 1.15 }}
+      transition={{ type: "spring", stiffness: 300, damping: 22 }}
+      className={`${sizeClass} relative flex-shrink-0 ${isCurrent ? "token-bounce" : ""}`}
       aria-label={label}
-      title={seatNumber != null ? `${label} (#${seatNumber})` : label}
+      title={label}
+      style={{ filter: `drop-shadow(0 0 6px ${color}80)` }}
     >
-      {initial}
-      {seatNumber != null ? (
-        <span
-          className="absolute -top-1 -right-1 size-3 rounded-full bg-black text-white grid place-items-center text-[7px] font-mono border border-white/50"
-          style={{ color: "#fff" }}
-        >
-          {seatNumber}
-        </span>
-      ) : null}
+      {ShapeFn(color, initial)}
     </motion.div>
   );
 }

@@ -50,8 +50,8 @@ export class ErrorBoundary extends Component<Props, State> {
             Something broke
           </h1>
           <p className="text-sm text-white/60 font-mono mb-6 leading-relaxed">
-            The app hit an unexpected error. It has been logged for review.
-            You can retry the current view or head back to the lobby.
+            The app hit an unexpected error. It has been logged for review. You can retry the
+            current view or head back to the lobby.
           </p>
           <pre className="text-left text-[11px] font-mono text-white/50 bg-black/40 border border-white/10 rounded p-3 mb-6 max-h-40 overflow-auto">
             {this.state.error.message}

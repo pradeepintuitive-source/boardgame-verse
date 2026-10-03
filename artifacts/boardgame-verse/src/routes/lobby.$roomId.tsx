@@ -139,7 +139,7 @@ function LobbyPage() {
             break;
           } catch (e) {
             // wait briefly then retry
-            // eslint-disable-next-line no-await-in-loop
+
             await new Promise((r) => setTimeout(r, 300));
           }
         }
@@ -158,7 +158,9 @@ function LobbyPage() {
   const handleToggleReady = () => {
     if (!me) return;
     const dest = Topics.send.roomReady(room.id);
-    const { sent, requestId } = stomp.sendTrackedMessage(dest, { ready: !myReady }, "READY", { roomId: room.id });
+    const { sent, requestId } = stomp.sendTrackedMessage(dest, { ready: !myReady }, "READY", {
+      roomId: room.id,
+    });
     if (!sent) {
       console.warn("[lobby] STOMP ready toggle failed", dest, { requestId, ready: !myReady });
     }
@@ -175,10 +177,10 @@ function LobbyPage() {
       <div className="min-h-screen px-6 pt-28 pb-32 max-w-5xl mx-auto">
         <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 mb-8">
           <div className="min-w-0">
-            <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-accent-cyan mb-1">
-              Lobby · {room.gameType}
+            <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#d4a843] mb-1">
+              Lobby · {room.gameType === "monopoly" ? "Bharat Business" : "Mafia"}
             </div>
-            <h1 className="font-display text-4xl md:text-6xl italic uppercase truncate">
+            <h1 className="font-display text-4xl md:text-6xl font-bold uppercase truncate gold-text-glow">
               {room.name}
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] font-mono uppercase tracking-widest text-white/40">
@@ -203,24 +205,24 @@ function LobbyPage() {
           </div>
           <button
             onClick={copy}
-            className="glass-panel border border-accent-cyan/30 px-4 py-3 hover:border-accent-cyan transition-colors text-left"
+            className="glass-panel border border-[rgba(212,168,67,0.3)] px-5 py-3 hover:border-[#d4a843] hover:bg-[rgba(212,168,67,0.05)] transition-colors text-left group"
           >
-            <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-white/40">
+            <div className="text-[9px] font-mono uppercase tracking-[0.3em] text-[#9baab8]">
               Room Code
             </div>
-            <div className="font-display text-2xl tracking-[0.3em] text-accent-cyan inline-flex items-center gap-2">
+            <div className="font-display text-3xl tracking-[0.2em] text-[#d4a843] inline-flex items-center gap-3">
               {room.code}
-              <Copy className="size-4" />
+              <Copy className="size-5 text-[#d4a843]/50 group-hover:text-[#d4a843] transition-colors" />
             </div>
-            <div className="text-[9px] font-mono text-accent-cyan/60 h-3">
-              {copied ? "COPIED" : "\u00a0"}
+            <div className="text-[9px] font-mono text-[#d4a843]/80 h-3 mt-1">
+              {copied ? "COPIED TO CLIPBOARD" : "TAP TO COPY"}
             </div>
           </button>
         </header>
 
         <div className="grid lg:grid-cols-[1fr_320px] gap-6">
           <section>
-            <div className="text-[10px] font-mono uppercase tracking-widest text-white/40 mb-3">
+            <div className="text-[10px] font-mono uppercase tracking-widest text-[#9baab8] mb-3">
               Connected Players ({room.players.length})
             </div>
             <div className="grid sm:grid-cols-2 gap-3">
@@ -232,17 +234,23 @@ function LobbyPage() {
                     initial={{ opacity: 0, scale: 0.9 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.9 }}
-                    className={`glass-panel border p-4 flex items-center gap-3 ${p.ready ? "border-accent-cyan/40" : "border-white/10"}`}
+                    className={`glass-panel border p-4 flex items-center gap-3 transition-colors ${
+                      p.ready
+                        ? "border-[#d4a843] bg-[rgba(212,168,67,0.05)]"
+                        : "border-[rgba(255,255,255,0.1)]"
+                    }`}
                   >
                     <Avatar name={p.username} color={p.avatarColor} size={44} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className="font-bold truncate">{p.username}</span>
-                        {p.isHost && <Crown className="size-3.5 text-accent-amber" />}
-                        {p.isAI && <Bot className="size-3.5 text-accent-cyan" />}
+                        <span className="font-bold truncate text-white">{p.username}</span>
+                        {p.isHost && <Crown className="size-3.5 text-[#d4a843]" />}
+                        {p.isAI && <Bot className="size-3.5 text-[#9baab8]" />}
                       </div>
                       <div
-                        className={`text-[10px] font-mono uppercase tracking-widest ${p.ready ? "text-accent-cyan" : "text-white/40"}`}
+                        className={`text-[10px] font-mono uppercase tracking-widest ${
+                          p.ready ? "text-[#d4a843]" : "text-[#9baab8]"
+                        }`}
                       >
                         {p.ready ? "READY" : "WAITING"}
                       </div>
@@ -250,7 +258,7 @@ function LobbyPage() {
                     {isHost && !p.isHost && (
                       <button
                         onClick={() => removePlayer(room.id, p.id)}
-                        className="size-7 grid place-items-center hover:text-destructive transition-colors"
+                        className="size-8 grid place-items-center hover:bg-[#8b2335]/20 hover:text-[#e05060] rounded-sm transition-colors text-white/40"
                         aria-label="Remove"
                       >
                         <X className="size-4" />
@@ -260,10 +268,10 @@ function LobbyPage() {
                       <button
                         onClick={handleToggleReady}
                         disabled={pendingReady}
-                        className={`text-[10px] font-mono uppercase tracking-widest px-2 py-1 border transition-colors disabled:opacity-60 ${
+                        className={`text-[10px] font-mono uppercase tracking-widest px-3 py-2 border transition-colors rounded-sm disabled:opacity-60 min-h-[44px] ${
                           p.ready
-                            ? "border-accent-cyan text-accent-cyan bg-accent-cyan/10"
-                            : "border-white/20 hover:border-accent-cyan"
+                            ? "border-[#d4a843] text-[#d4a843] bg-[rgba(212,168,67,0.1)]"
+                            : "border-[rgba(255,255,255,0.2)] text-white hover:border-[#d4a843] hover:text-[#d4a843]"
                         }`}
                       >
                         {pendingReady ? "Pending…" : p.ready ? "Not Ready" : "Ready"}
@@ -277,9 +285,12 @@ function LobbyPage() {
                 Array.from({ length: room.maxPlayers - room.players.length }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
-                    className="grid place-items-center rounded-2xl border border-dashed border-white/15 p-4 text-xs text-white/35"
+                    className="border border-[rgba(255,255,255,0.05)] bg-[rgba(255,255,255,0.02)] p-4 flex items-center justify-center gap-3 min-h-[78px] animate-pulse"
                   >
-                    Open Seat
+                    <div className="size-8 rounded-full border-2 border-dashed border-white/20 shrink-0" />
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-white/30">
+                      Waiting for player…
+                    </span>
                   </div>
                 ))}
             </div>
@@ -287,20 +298,26 @@ function LobbyPage() {
 
           <aside className="space-y-4">
             {isHost && (
-              <div className="glass-panel p-5">
-                <div className="text-[10px] font-mono uppercase tracking-widest text-accent-cyan mb-3">
-                  Host Controls
+              <div className="glass-panel p-6 border-[rgba(212,168,67,0.3)] bg-[rgba(212,168,67,0.05)]">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-[#d4a843] mb-4">
+                  Host Command Panel
                 </div>
                 <NeonButton
                   variant="ghost"
                   size="sm"
                   onClick={() => addAI(room.id)}
                   disabled={room.players.length >= room.maxPlayers}
-                  className="w-full mb-3 inline-flex items-center justify-center gap-2"
+                  className="w-full mb-4 inline-flex items-center justify-center gap-2 border-[rgba(212,168,67,0.4)] text-[#d4a843] hover:bg-[#d4a843] hover:text-[#0d0d12]"
                 >
-                  <UserPlus className="size-3.5" /> Add AI Player
+                  <UserPlus className="size-4" /> Add AI Player
                 </NeonButton>
-                <NeonButton size="md" disabled={!allReady} onClick={start} className="w-full">
+                <NeonButton
+                  variant="gold"
+                  size="md"
+                  disabled={!allReady}
+                  onClick={start}
+                  className="w-full"
+                >
                   {allReady
                     ? "Start Match"
                     : `Need ${Math.max(0, minPlayers - room.players.length)} more`}
@@ -309,13 +326,13 @@ function LobbyPage() {
             )}
 
             <NeonButton
-              variant="ghost"
+              variant={isHost ? "danger" : "ghost"}
               size="sm"
               onClick={handleLeave}
               disabled={leaveMut.isPending}
               className="w-full inline-flex items-center justify-center gap-2"
             >
-              <LogOut className="size-3.5" />
+              <LogOut className="size-4" />
               {isHost ? "Close & Leave Room" : "Leave Room"}
             </NeonButton>
 

@@ -152,8 +152,7 @@ api.interceptors.response.use(
   (err: AxiosError) => {
     const status = err.response?.status;
     const body = err.response?.data as Partial<ErrorResponse> | undefined;
-    const message =
-      body?.message ?? body?.error ?? err.message ?? "Request failed";
+    const message = body?.message ?? body?.error ?? err.message ?? "Request failed";
     const details = body?.details ?? [];
 
     if (status === 401) {
@@ -199,8 +198,7 @@ api.interceptors.response.use(
     // Global toast — skip duplicate 401 (already toasted above) and network aborts.
     if (status && status !== 401) {
       toast.error(body?.error ?? "Request failed", {
-        description:
-          details.length > 0 ? details.join("\n") : message,
+        description: details.length > 0 ? details.join("\n") : message,
       });
     } else if (!err.response) {
       toast.error("Network error", { description: err.message });
@@ -212,9 +210,7 @@ api.interceptors.response.use(
 
 export function apiErrorMessage(err: unknown): string {
   if (err instanceof ApiError) {
-    return err.details.length > 0
-      ? `${err.message}: ${err.details.join(", ")}`
-      : err.message;
+    return err.details.length > 0 ? `${err.message}: ${err.details.join(", ")}` : err.message;
   }
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as Partial<ErrorResponse> | undefined;

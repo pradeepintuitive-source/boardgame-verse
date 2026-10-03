@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { GROUP_COLORS, shortTileName } from "../../data/monopolyBoard";
+import { GROUP_COLORS, DEVELOPMENT_LABELS } from "../../data/monopolyBoard";
 import type { PropertyState, Tile as TileType } from "../../models/monopoly";
 import { formatInr } from "../../utils/monopolyEngine";
 
@@ -11,103 +11,129 @@ interface Props {
   onClick?: () => void;
   children?: ReactNode;
   highlight?: boolean;
-  /** Deed owned by focused player card */
-  focusOwned?: boolean;
-  /** Focused player's current board position */
-  focusPosition?: boolean;
-  focusColor?: string;
 }
 
-export function Tile({
-  tile,
-  prop,
-  ownerColor,
-  orientation,
-  onClick,
-  children,
-  highlight,
-  focusOwned,
-  focusPosition,
-  focusColor = "#00f2ff",
-}: Props) {
-  const isCorner = orientation === "corner";
-  const groupBar = tile.group ? GROUP_COLORS[tile.group] : null;
-  const barPos =
-    orientation === "top"
-      ? "bottom"
-      : orientation === "bottom"
-        ? "top"
-        : orientation === "left"
-          ? "right"
-          : "left";
-  const isVerticalBar = orientation === "left" || orientation === "right";
-  const label = shortTileName(tile);
+/** Map development level (0-5) to concise badge text */
+const DEV_BADGE = ["", "Village", "Town", "City", "Metro", "Smart City"] as const;
 
-  const ringClass = focusPosition
-    ? "ring-2 ring-offset-1 ring-offset-transparent"
-    : focusOwned
-      ? "ring-2"
-      : highlight
-        ? "ring-2 ring-accent-cyan"
-        : "";
+export function Tile({ tile, prop, ownerColor, orientation, onClick, children, highlight }: Props) {
+  const isCorner = orientation === "corner";
+  const isVertical = orientation === "left" || orientation === "right";
+  const isTop = orientation === "top";
+  const isBottom = orientation === "bottom";
+
+  const groupColor = tile.group ? GROUP_COLORS[tile.group] : null;
+
+  // Color band sits on the side closest to the board edge
+  const bandPos = isBottom
+    ? "top"
+    : isTop
+      ? "bottom"
+      : isVertical
+        ? orientation === "left"
+          ? "right"
+          : "left"
+        : null;
+
+  const devLevel = prop?.houses ?? 0;
+  const devBadge = devLevel > 0 ? DEV_BADGE[Math.min(devLevel, 5)] : null;
+  const isMortgaged = !!prop?.mortgaged;
 
   return (
     <button
-      type="button"
-      title={tile.name}
       onClick={onClick}
-      className={`relative w-full h-full glass-panel border border-white/10 p-1 text-left flex flex-col overflow-hidden hover:border-accent-cyan/60 transition-colors ${prop?.mortgaged ? "grayscale opacity-60" : ""} ${ringClass}`}
-      style={
-        focusOwned || focusPosition
-          ? {
-              boxShadow: focusPosition
-                ? `0 0 0 2px ${focusColor}, 0 0 18px ${focusColor}`
-                : `0 0 0 2px ${focusColor}, inset 0 0 24px ${focusColor}44`,
-              borderColor: `${focusColor}aa`,
-            }
-          : ownerColor
-            ? { borderColor: `${ownerColor}aa`, boxShadow: `inset 0 0 0 1px ${ownerColor}33` }
-            : undefined
-      }
+      aria-label={`${tile.name}${tile.price != null ? ` – ${formatInr(tile.price)}` : ""}`}
+      className={[
+        "relative w-full h-full tile-surface text-left overflow-hidden",
+        "hover:border-[rgba(212,168,67,0.35)] transition-colors duration-200",
+        "focus-visible:outline-2 focus-visible:outline-[#d4a843] focus-visible:outline-offset-1",
+        highlight ? "tile-highlight" : "",
+      ].join(" ")}
     >
-      {groupBar && (
+      {/* Group color band */}
+      {groupColor && bandPos && (
         <div
-          className={`absolute ${barPos === "top" ? "top-0 left-0 right-0 h-2" : barPos === "bottom" ? "bottom-0 left-0 right-0 h-2" : barPos === "left" ? "top-0 bottom-0 left-0 w-2" : "top-0 bottom-0 right-0 w-2"}`}
-          style={{ background: groupBar }}
+          className={[
+            "absolute",
+            bandPos === "top"
+              ? "top-0 left-0 right-0 h-[18%] min-h-[6px]"
+              : bandPos === "bottom"
+                ? "bottom-0 left-0 right-0 h-[18%] min-h-[6px]"
+                : bandPos === "left"
+                  ? "left-0 top-0 bottom-0 w-[18%] min-w-[5px]"
+                  : "right-0 top-0 bottom-0 w-[18%] min-w-[5px]",
+          ].join(" ")}
+          style={{ background: groupColor }}
         />
       )}
-      {ownerColor && !groupBar && (
-        <div className="absolute inset-x-0 top-0 h-1" style={{ background: ownerColor }} />
-      )}
-      <div
-        className={`relative z-10 flex-1 flex flex-col ${isCorner ? "items-center justify-center text-center" : isVerticalBar ? "items-center justify-center text-center px-0.5" : "items-center justify-end text-center px-0.5 pb-1"}`}
-      >
+
+      {/* Owner strip at bottom of tile */}
+      {ownerColor && !isCorner && (
         <div
-          className={`font-mono uppercase tracking-tight leading-tight line-clamp-2 ${isCorner ? "text-[11px]" : "text-[10px]"} text-white/90`}
-        >
-          {label}
+          className="absolute bottom-0 left-0 right-0 h-[4px]"
+          style={{ background: ownerColor }}
+        />
+      )}
+
+      {/* Tile content */}
+      {isCorner ? (
+        /* Corner tiles: centered layout */
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-1 text-center gap-0.5">
+          <span className="font-display text-[9px] md:text-[11px] font-bold uppercase leading-tight text-[#d4a843]">
+            {tile.name}
+          </span>
         </div>
-        {tile.price != null && (
-          <div className="text-[9px] font-mono text-accent-cyan/80 mt-0.5">
-            {formatInr(tile.price ?? 0)}
-          </div>
-        )}
-        {prop?.mortgaged && <div className="text-[8px] font-mono text-destructive">MTG</div>}
-        {prop && prop.houses > 0 && prop.houses < 5 && (
-          <div className="flex gap-0.5 mt-0.5">
-            {Array.from({ length: prop.houses }).map((_, i) => (
-              <div key={i} className="size-1.5 bg-accent-amber rounded-sm" />
-            ))}
-          </div>
-        )}
-        {prop?.houses === 5 && <div className="size-2 bg-destructive rounded-sm mt-0.5" />}
-        {ownerColor && (
-          <div
-            className="size-1.5 rounded-full mt-0.5"
-            style={{ background: ownerColor, boxShadow: `0 0 6px ${ownerColor}` }}
-          />
-        )}
-      </div>
+      ) : isVertical ? (
+        /* Left / Right column: rotate text to fit */
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden"
+          style={{
+            writingMode: "vertical-rl",
+            textOrientation: "mixed",
+            transform: orientation === "left" ? "rotate(180deg)" : "none",
+          }}
+        >
+          <span className="font-sans text-[7px] md:text-[8px] font-semibold uppercase tracking-wide leading-tight text-white/90 truncate max-h-full">
+            {tile.name}
+          </span>
+          {tile.price != null && (
+            <span className="font-mono text-[6px] md:text-[7px] text-[#d4a843]/80 mt-0.5">
+              {formatInr(tile.price)}
+            </span>
+          )}
+        </div>
+      ) : (
+        /* Top / Bottom rows: stacked label */
+        <div
+          className={[
+            "absolute inset-0 flex flex-col items-center text-center overflow-hidden px-0.5",
+            isBottom ? "justify-end pb-[20%]" : "justify-start pt-[20%]",
+          ].join(" ")}
+        >
+          <span className="font-sans text-[7px] md:text-[8.5px] font-semibold uppercase tracking-tight leading-tight text-white/90 w-full px-0.5 line-clamp-2">
+            {tile.name}
+          </span>
+          {tile.price != null && (
+            <span className="font-mono text-[6px] md:text-[7px] text-[#d4a843]/80 mt-0.5 leading-none">
+              {formatInr(tile.price)}
+            </span>
+          )}
+          {devBadge && (
+            <span
+              className="mt-0.5 text-[5px] md:text-[6px] uppercase tracking-wide font-bold leading-none px-0.5 py-px rounded-sm"
+              style={{ background: groupColor ?? "#555", color: "#000" }}
+            >
+              {devBadge}
+            </span>
+          )}
+          {isMortgaged && (
+            <span className="text-[5px] font-mono text-[#8b2335] uppercase leading-none mt-0.5">
+              MTG
+            </span>
+          )}
+        </div>
+      )}
+
       {children}
     </button>
   );

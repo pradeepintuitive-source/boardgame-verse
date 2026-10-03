@@ -42,7 +42,8 @@ export const INDIAN_EVENTS: IndianEventDef[] = [
   {
     id: "FLOODS",
     title: "Floods",
-    description: "Yellow coastal properties charge no rent. Owners get ₹200 insurance per Yellow owned.",
+    description:
+      "Yellow coastal properties charge no rent. Owners get ₹200 insurance per Yellow owned.",
   },
   {
     id: "CYCLONE",

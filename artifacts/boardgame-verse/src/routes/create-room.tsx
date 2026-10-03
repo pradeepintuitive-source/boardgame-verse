@@ -6,9 +6,6 @@ import { useAuth } from "../providers/AuthProvider";
 import { useCreateRoom } from "../hooks/useRooms";
 import type { GameType } from "../models";
 
-const normalizeIntegerInput = (value: string) =>
-  value.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
-
 export const Route = createFileRoute("/create-room")({
   head: () => ({
     meta: [
@@ -30,51 +27,37 @@ function CreateRoomPage() {
 
   const [name, setName] = useState("My Game Room");
   const [gameType, setGameType] = useState<GameType>(search.game ?? "mafia");
-  const [maxPlayers, setMax] = useState("3");
-  const [ai, setAi] = useState("0");
+  const [maxPlayers, setMax] = useState(3);
+  const [ai, setAi] = useState(0);
   const [isPrivate, setPrivate] = useState(false);
   const [isLan, setLan] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [inputError, setInputError] = useState("");
-  const minPlayers = gameType === "monopoly" ? 2 : 3;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const maxPlayersValue = Number(maxPlayers);
-    const aiPlayerCount = Number(ai);
-    if (maxPlayersValue < minPlayers || maxPlayersValue > 16) {
-      setInputError(`Max players must be between ${minPlayers} and 16.`);
+    if (ai >= maxPlayers) {
+      // Basic client-side validation
       return;
     }
-    if (aiPlayerCount > maxPlayersValue - 1) {
-      setInputError("AI players cannot exceed the available seats.");
-      return;
-    }
-    setInputError("");
-    console.log("Submit clicked and working...asd and working fine");
     setLoading(true);
     try {
       if (!auth.user) {
         const guest = `Host${Math.floor(Math.random() * 9999)}`;
         await auth.loginGuest(guest);
       }
-      console.log("Before mutate");
 
       const room = await createRoomMutation.mutateAsync({
         name,
         gameType,
-        maxPlayers: maxPlayersValue,
-        aiPlayerCount,
+        maxPlayers,
+        aiPlayerCount: ai,
         isPrivate,
         isLan,
       });
 
-      console.log("After mutate", room);
-      console.log("Navigating to lobby", room.id, room.code);
       navigate({ to: "/lobby/$roomId", params: { roomId: room.id } });
     } catch (error) {
       console.error("Create room failed", error);
-      // Error toast is already shown by api interceptor.
     } finally {
       setLoading(false);
     }
@@ -82,102 +65,147 @@ function CreateRoomPage() {
 
   return (
     <AppShell>
-      <div className="mx-auto min-h-screen max-w-2xl px-6 pb-20 pt-28">
-        <p className="eyebrow">New match</p>
-        <h1 className="page-title mb-8">Create room</h1>
+      <div className="min-h-screen px-6 pt-32 pb-20 max-w-2xl mx-auto">
+        <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#d4a843] mb-2">
+          New Match
+        </div>
+        <h1 className="font-display text-5xl font-bold uppercase mb-8 gold-text-glow">
+          Create Room
+        </h1>
 
-        <form onSubmit={submit} className="glass-panel space-y-5 p-6 md:p-8">
+        <form onSubmit={submit} className="glass-panel p-8 space-y-6">
           <label className="block">
-            <span className="text-xs font-medium text-white/55">Room name</span>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-[#9baab8] mb-1 block">
+              Room Name
+            </span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="field"
+              className="w-full bg-[#0d0d12] border border-[rgba(212,168,67,0.2)] px-4 py-3 font-mono focus:border-[#d4a843] outline-none text-white rounded-sm transition-colors"
               required
             />
           </label>
 
           <div>
-            <span className="text-xs font-medium text-white/55">Game</span>
-            <div className="mt-2 grid grid-cols-2 gap-3">
-              {(["mafia", "monopoly"] as GameType[]).map((g) => (
+            <span className="text-[10px] font-mono uppercase tracking-widest text-[#9baab8] mb-2 block">
+              Game Type
+            </span>
+            <div className="grid grid-cols-2 gap-4">
+              {(["mafia", "monopoly"] as GameType[]).map((g) => {
+                const isActive = gameType === g;
+                const title = g === "monopoly" ? "Bharat Business" : "Mafia";
+                return (
+                  <button
+                    key={g}
+                    type="button"
+                    onClick={() => setGameType(g)}
+                    className={[
+                      "p-4 border rounded-sm text-left transition-all cursor-pointer h-24 flex flex-col justify-end relative overflow-hidden",
+                      isActive
+                        ? "border-[#d4a843] bg-[rgba(212,168,67,0.1)] shadow-[0_0_15px_rgba(212,168,67,0.15)]"
+                        : "border-[rgba(255,255,255,0.1)] bg-[#0d0d12] hover:border-[rgba(212,168,67,0.4)]",
+                    ].join(" ")}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent z-0" />
+                    <span
+                      className={[
+                        "font-display text-2xl font-bold uppercase relative z-10",
+                        isActive ? "text-[#d4a843]" : "text-white/60",
+                      ].join(" ")}
+                    >
+                      {title}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#9baab8] mb-1 block">
+                Max Players
+              </span>
+              <div className="flex items-center h-[46px] bg-[#0d0d12] border border-[rgba(212,168,67,0.2)] rounded-sm">
                 <button
-                  key={g}
                   type="button"
-                  onClick={() => setGameType(g)}
-                  className={`cursor-pointer rounded-2xl border p-4 text-left font-display text-2xl italic uppercase transition-all ${
-                    gameType === g
-                      ? "border-accent-cyan/70 bg-accent-cyan/10 text-accent-cyan"
-                      : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/30"
-                  }`}
+                  onClick={() => setMax(Math.max(3, maxPlayers - 1))}
+                  className="w-12 h-full text-white/60 hover:text-[#d4a843] hover:bg-white/5 grid place-items-center"
                 >
-                  {g}
+                  −
                 </button>
-              ))}
+                <div className="flex-1 text-center font-mono text-white">{maxPlayers}</div>
+                <button
+                  type="button"
+                  onClick={() => setMax(Math.min(16, maxPlayers + 1))}
+                  className="w-12 h-full text-white/60 hover:text-[#d4a843] hover:bg-white/5 grid place-items-center"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#9baab8] mb-1 block">
+                AI Players
+              </span>
+              <div className="flex items-center h-[46px] bg-[#0d0d12] border border-[rgba(212,168,67,0.2)] rounded-sm">
+                <button
+                  type="button"
+                  onClick={() => setAi(Math.max(0, ai - 1))}
+                  className="w-12 h-full text-white/60 hover:text-[#d4a843] hover:bg-white/5 grid place-items-center"
+                >
+                  −
+                </button>
+                <div className="flex-1 text-center font-mono text-white">{ai}</div>
+                <button
+                  type="button"
+                  onClick={() => setAi(Math.min(maxPlayers - 1, ai + 1))}
+                  className="w-12 h-full text-white/60 hover:text-[#d4a843] hover:bg-white/5 grid place-items-center"
+                >
+                  +
+                </button>
+              </div>
+              {ai >= maxPlayers && (
+                <div className="text-[#8b2335] text-[10px] font-mono mt-1">
+                  Cannot equal max players
+                </div>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <label className="block">
-              <span className="text-xs font-medium text-white/55">Max players</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={maxPlayers}
-                onChange={(e) => {
-                  setMax(normalizeIntegerInput(e.target.value));
-                  setInputError("");
-                }}
-                className="field"
-                required
-              />
-            </label>
-            <label className="block">
-              <span className="text-xs font-medium text-white/55">AI players</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={ai}
-                onChange={(e) => {
-                  setAi(normalizeIntegerInput(e.target.value));
-                  setInputError("");
-                }}
-                className="field"
-                required
-              />
-            </label>
-          </div>
-          {inputError && (
-            <p role="alert" className="text-sm text-red-400">
-              {inputError}
-            </p>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <label className="flex items-center gap-3 p-4 border border-[rgba(255,255,255,0.1)] hover:border-[rgba(212,168,67,0.4)] bg-[#0d0d12] cursor-pointer rounded-sm transition-colors">
               <input
                 type="checkbox"
                 checked={isPrivate}
                 onChange={(e) => setPrivate(e.target.checked)}
-                className="accent-[var(--accent-cyan)] size-4"
+                className="accent-[#d4a843] size-4"
               />
-              <span className="text-sm font-medium">Private</span>
+              <span className="text-xs font-mono uppercase tracking-widest text-white/80">
+                Private
+              </span>
             </label>
-            <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+            <label className="flex items-center gap-3 p-4 border border-[rgba(255,255,255,0.1)] hover:border-[rgba(212,168,67,0.4)] bg-[#0d0d12] cursor-pointer rounded-sm transition-colors">
               <input
                 type="checkbox"
                 checked={isLan}
                 onChange={(e) => setLan(e.target.checked)}
-                className="accent-[var(--accent-cyan)] size-4"
+                className="accent-[#d4a843] size-4"
               />
-              <span className="text-sm font-medium">LAN mode</span>
+              <span className="text-xs font-mono uppercase tracking-widest text-white/80">
+                LAN Mode
+              </span>
             </label>
           </div>
 
-          <div className="flex gap-3 pt-2">
-            <NeonButton type="submit" disabled={loading} className="flex-1">
+          <div className="flex gap-3 pt-4 border-t border-[rgba(212,168,67,0.12)]">
+            <NeonButton
+              type="submit"
+              variant="gold"
+              disabled={loading || ai >= maxPlayers}
+              className="flex-1"
+            >
               {loading ? "Creating..." : "Create Room"}
             </NeonButton>
             <NeonButton type="button" variant="ghost" onClick={() => navigate({ to: "/" })}>
