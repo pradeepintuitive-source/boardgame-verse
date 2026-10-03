@@ -840,7 +840,7 @@ function MonopolyPage() {
             <VoiceChatPanel
               compact
               roomId={roomId}
-              selfUserId={me?.userId ?? me?.id ?? ""}
+              selfUserId={user?.id ?? me?.userId ?? ""}
               userLookup={voiceUserLookup}
             />
           </div>

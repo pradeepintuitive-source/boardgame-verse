@@ -129,8 +129,13 @@ function CreateRoomPage() {
               <div className="flex items-center h-[46px] bg-[#0d0d12] border border-[rgba(212,168,67,0.2)] rounded-sm">
                 <button
                   type="button"
-                  onClick={() => setMax(Math.max(3, maxPlayers - 1))}
-                  className="w-12 h-full text-white/60 hover:text-[#d4a843] hover:bg-white/5 grid place-items-center"
+                  onClick={() => {
+                    const next = Math.max(2, maxPlayers - 1);
+                    setMax(next);
+                    setAi((current) => Math.min(current, Math.max(0, next - 1)));
+                  }}
+                  disabled={maxPlayers <= 2}
+                  className="grid h-full w-12 place-items-center text-white/60 hover:bg-white/5 hover:text-[#d4a843] disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   −
                 </button>

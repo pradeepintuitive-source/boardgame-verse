@@ -108,7 +108,7 @@ function LobbyPage() {
   }
 
   const isHost = user?.id === room.hostId;
-  const minPlayers = room.gameType === "monopoly" ? 2 : 3;
+  const minPlayers = 2;
   const allReady = room.players.every((p) => p.ready) && room.players.length >= minPlayers;
 
   const copy = async () => {
