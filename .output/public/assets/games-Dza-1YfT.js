@@ -1,0 +1,1 @@
+import{f as s}from"./index-rSX5mxiS.js";const n={snapshot:async a=>{const{data:t}=await s.get(`games/${a}`);return t},log:async a=>{const{data:t}=await s.get(`games/${a}/log`);return t},pause:async a=>{await s.post(`games/${a}/pause`)},resume:async a=>{await s.post(`games/${a}/resume`)},end:async a=>{await s.post(`games/${a}/end`)}};export{n as gamesApi};

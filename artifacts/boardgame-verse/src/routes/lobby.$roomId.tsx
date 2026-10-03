@@ -18,6 +18,7 @@ import { Topics } from "../websocket/topics";
 import { stomp } from "../websocket/stompClient";
 import { useConnectionStore } from "../store/connectionStore";
 import { useWebsocketRequestStore } from "../store/requestStore";
+import { VoiceChatPanel } from "../components/voice/VoiceChatPanel";
 
 export const Route = createFileRoute("/lobby/$roomId")({
   head: () => ({
@@ -317,6 +318,22 @@ function LobbyPage() {
               <LogOut className="size-3.5" />
               {isHost ? "Close & Leave Room" : "Leave Room"}
             </NeonButton>
+
+            {user?.id && (
+              <VoiceChatPanel
+                roomId={room.id}
+                selfUserId={user.id}
+                userLookup={Object.fromEntries(
+                  room.players.map((player) => [
+                    player.userId,
+                    {
+                      username: player.username,
+                      avatarColor: player.avatarColor,
+                    },
+                  ]),
+                )}
+              />
+            )}
 
             <div className="glass-panel p-5 text-xs font-mono text-white/50 leading-relaxed">
               Share the room code with friends, or fill seats with AI players. The host starts the

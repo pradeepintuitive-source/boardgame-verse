@@ -5,6 +5,7 @@ import { Trophy, Banknote, Pause, Play } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { ChatDrawer } from "../components/chat/ChatDrawer";
+import { VoiceChatPanel } from "../components/voice/VoiceChatPanel";
 import { Board } from "../components/monopoly/Board";
 import { PlayerPanel } from "../components/monopoly/PlayerPanel";
 import { PropertyCard } from "../components/monopoly/PropertyCard";
@@ -1381,7 +1382,24 @@ function MonopolyPage() {
         </div>
       )}
 
-      {roomId && <ChatDrawer roomId={roomId} />}
+      {roomId && (
+        <>
+          <VoiceChatPanel
+            roomId={roomId}
+            selfUserId={me.id}
+            userLookup={Object.fromEntries(
+              state.players.map((player) => [
+                player.id,
+                {
+                  username: player.username,
+                  avatarColor: player.avatarColor,
+                },
+              ]),
+            )}
+          />
+          <ChatDrawer roomId={roomId} />
+        </>
+      )}
     </AppShell>
   );
 }

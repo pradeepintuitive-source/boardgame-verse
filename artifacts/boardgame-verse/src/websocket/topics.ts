@@ -7,6 +7,7 @@ export const Topics = {
   // Broadcast
   room: (roomId: string) => `/topic/rooms/${roomId}`,
   roomChat: (roomId: string) => `/topic/rooms/${roomId}/chat`,
+  voiceRoom: (roomId: string) => `/topic/rooms/${roomId}/voice`,
   // Server broadcasts game lifecycle and updates using roomId as key
   gameRoom: (roomId: string) => `/topic/game/${roomId}`,
   game: (gameId: string) => `/topic/games/${gameId}`,
@@ -17,6 +18,7 @@ export const Topics = {
   privateRole: "/user/queue/role",
   privateError: "/user/queue/errors",
   privateAcks: "/user/queue/acks",
+  privateVoice: "/user/queue/voice",
 
   // Send (client → server)
   send: {
@@ -26,5 +28,9 @@ export const Topics = {
     auction: (sessionId: string) => `/app/games/${sessionId}/auction`,
     pause: (gameId: string) => `/app/games/${gameId}/pause`,
     resume: (gameId: string) => `/app/games/${gameId}/resume`,
+    voiceJoin: (roomId: string) => `/app/voice/${roomId}/join`,
+    voiceLeave: (roomId: string) => `/app/voice/${roomId}/leave`,
+    voiceSignal: (roomId: string) => `/app/voice/${roomId}/signal`,
+    voiceMute: (roomId: string) => `/app/voice/${roomId}/mute`,
   },
 } as const;
