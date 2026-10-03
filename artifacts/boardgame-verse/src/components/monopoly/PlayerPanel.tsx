@@ -1,13 +1,11 @@
-import { ArrowRight, Bot, Dice5, Gavel, Lock, ShoppingBag, Ticket } from "lucide-react";
+import { ArrowRight, Bot, Gavel, Lock, ShoppingBag, Ticket } from "lucide-react";
 import { BOARD, GROUP_COLORS, shortTileName } from "../../data/monopolyBoard";
 import type { MonopolyState, MonopolyPlayer } from "../../models/monopoly";
 import { effectiveJailFee, formatInr } from "../../utils/monopolyEngine";
 import { NeonButton } from "../common/NeonButton";
-import { Dice } from "./Dice";
 
 export type PlayerTurnActions = {
   isMyTurn: boolean;
-  onRoll: () => void;
   onBuy: () => void;
   onAuction: () => void;
   onEnd: () => void;
@@ -43,6 +41,13 @@ export function PlayerPanel({
   const props = Object.entries(state.properties)
     .filter(([, p]) => p.ownerId === player.id)
     .map(([i]) => +i);
+  const developedCount = props.filter((index) => (state.properties[index]?.houses ?? 0) > 0).length;
+  const portfolioValue = props.reduce((total, index) => {
+    const tile = BOARD[index];
+    const property = state.properties[index];
+    const improvementLevels = property?.houses === 5 ? 5 : property?.houses ?? 0;
+    return total + (tile?.price ?? 0) + (tile?.housePrice ?? 0) * improvementLevels;
+  }, 0);
 
   const tileName = BOARD[player.position]?.name ?? `Tile ${player.position}`;
   const pending = state.pendingPurchaseTile;
@@ -162,15 +167,6 @@ export function PlayerPanel({
           </div>
         </div>
 
-        {showTurn ? (
-          <div
-            className="shrink-0 self-start"
-            onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-          >
-            <Dice roll={state.lastRoll} compact />
-          </div>
-        ) : null}
       </div>
 
       {props.length > 0 && (
@@ -220,23 +216,36 @@ export function PlayerPanel({
           )}
 
           {state.phase === "rolling" && (
-            <div className="flex flex-wrap gap-1">
-              <NeonButton
-                variant="cyan"
-                size="sm"
-                onClick={turnActions.onRoll}
-                disabled={!myTurn}
-                className="flex-1 min-w-0 !text-[9px] !py-1 !px-2"
-              >
-                <Dice5 className="inline size-3 mr-1" />
-                {player.inJail ? "Roll Doubles" : "Roll Dice"}
-              </NeonButton>
+            <div className="grid grid-cols-3 gap-1.5">
+              <div className="min-w-0 border-l-2 border-white/15 pl-2 py-0.5">
+                <div className="text-[7px] font-mono uppercase tracking-widest text-white/40">
+                  Deeds
+                </div>
+                <div className="text-[9px] font-mono text-white/85">{props.length}</div>
+              </div>
+              <div className="min-w-0 border-l-2 border-white/15 pl-2 py-0.5">
+                <div className="text-[7px] font-mono uppercase tracking-widest text-white/40">
+                  Developed
+                </div>
+                <div className="text-[9px] font-mono text-white/85">{developedCount}</div>
+              </div>
+              <div className="min-w-0 border-l-2 border-white/15 pl-2 py-0.5">
+                <div className="text-[7px] font-mono uppercase tracking-widest text-white/40">
+                  Portfolio
+                </div>
+                <div
+                  className="text-[9px] font-mono text-accent-amber truncate"
+                  title={formatInr(portfolioValue)}
+                >
+                  {formatInr(portfolioValue)}
+                </div>
+              </div>
               {myTurn && player.inJail && player.cash >= effectiveJailFee(state) && (
                 <NeonButton
                   variant="ghost"
                   size="sm"
                   onClick={turnActions.onPayJail}
-                  className="!text-[9px] !py-1 !px-2"
+                  className="col-span-3 !text-[9px] !py-1 !px-2"
                 >
                   <Lock className="inline size-3 mr-1" /> Pay {formatInr(effectiveJailFee(state))}
                 </NeonButton>
@@ -246,7 +255,7 @@ export function PlayerPanel({
                   variant="ghost"
                   size="sm"
                   onClick={turnActions.onJailCard}
-                  className="!text-[9px] !py-1 !px-2"
+                  className="col-span-3 !text-[9px] !py-1 !px-2"
                 >
                   <Ticket className="inline size-3 mr-1" /> Card
                 </NeonButton>

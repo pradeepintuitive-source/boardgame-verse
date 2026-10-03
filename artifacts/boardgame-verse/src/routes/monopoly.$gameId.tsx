@@ -1208,7 +1208,6 @@ function MonopolyPage() {
                       isCurrent
                         ? {
                             isMyTurn,
-                            onRoll: () => void sendGameAction("ROLL"),
                             onBuy: () =>
                               void sendGameAction("BUY", {
                                 tileIndex: state.pendingPurchaseTile ?? undefined,
