@@ -9,6 +9,10 @@ All notable changes to the GameHub project will be documented in this file.
 - Added a distinct paused Monopoly phase, host-only pause/resume controls, and a blocking Game Paused overlay using the existing game lifecycle endpoints.
 - Added incoming trade review with recipient-only accept/reject controls, server player-ID normalization, and metadata-based decision requests. The decision metadata shape still needs confirmation against the Spring implementation.
 - Added pending-card rendering from the backend `pendingCard` field, visible jail-card counts, even-building/full-group checks, explicit hotel actions, owner-colored tile borders, and stronger mortgage styling.
+- Added an in-game, tabbed card catalog showing every configured Chance and Community Chest card from the shared deck definitions.
+- Replaced the board-center-only logo treatment with a color-highlighted current-player dashboard showing cash, position, property count, jail cards, status, and phase.
+- Made the card catalog searchable and filterable by effect, with expandable action explanations and a combined deck outcome summary.
+- Added rent transfer toasts for only the payer and recipient. Pause now shows a blocking dialog to the host and an inline status to other players while actions remain blocked.
 - Restricted Bank Manager access to the room host and labeled the property-decline action.
 
 ## [2026-07-11] - Fixed Monopoly Action Contract Mismatches

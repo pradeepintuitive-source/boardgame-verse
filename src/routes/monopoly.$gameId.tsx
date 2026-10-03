@@ -1,7 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence } from "framer-motion";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Trophy, Banknote, Pause, Play } from "lucide-react";
+import { Trophy, Banknote, Pause, Play, BookOpen } from "lucide-react";
 import { AppShell } from "../components/layout/AppShell";
 import { NeonButton } from "../components/common/NeonButton";
 import { ChatDrawer } from "../components/chat/ChatDrawer";
@@ -15,6 +15,7 @@ import { TradePanel, TradeReviewPanel } from "../components/monopoly/TradePanel"
 import { EventLog } from "../components/monopoly/EventLog";
 import { BankManager } from "../components/monopoly/BankManager";
 import { IndianEventBanner } from "../components/monopoly/IndianEventBanner";
+import { CardCatalogModal } from "../components/monopoly/CardCatalogModal";
 import {
   CardRevealModal,
   parseCardLogLine,
@@ -244,6 +245,17 @@ function normalizeTradeState(
     toId: resolveRoomPlayerId(trade.toId, roomPlayers) ?? trade.toId,
     status: String(trade.status).toLowerCase() as NonNullable<MonopolyState["trade"]>["status"],
   };
+}
+
+function parseRentTransferLogLine(text: string, players: MonopolyState["players"]) {
+  const match = text.match(/^(.+?) paid (₹[\d,]+) rent to (.+?)[.]?$/i);
+  if (!match) return null;
+  const payerName = match[1].trim().toLowerCase();
+  const recipientName = match[3].trim().toLowerCase();
+  const payer = players.find((player) => player.username.toLowerCase() === payerName);
+  const recipient = players.find((player) => player.username.toLowerCase() === recipientName);
+  if (!payer || !recipient) return null;
+  return { payer, recipient, amount: match[2] };
 }
 
 function buildMonopolyActionRequest(
@@ -727,9 +739,11 @@ function MonopolyPage() {
   const [focusPlayerId, setFocusPlayerId] = useState<string | null>(null);
   const [tradePartner, setTradePartner] = useState<string | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
+  const [cardCatalogOpen, setCardCatalogOpen] = useState(false);
   const [cardReveal, setCardReveal] = useState<CardReveal | null>(null);
   const seenCardLogRef = useRef<string | null>(null);
   const seenPendingCardRef = useRef<string | null>(null);
+  const seenRentLogRef = useRef<Set<string> | null>(null);
   const autoEndTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const auctionStartingRef = useRef(false);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -781,6 +795,39 @@ function MonopolyPage() {
     seenPendingCardRef.current = key;
     setCardReveal({ deck: pendingCard.deck, text: card.text });
   }, [state?.pendingCard, state?.lastRoll?.rolledAt]);
+
+  useEffect(() => {
+    const logs = state?.log;
+    if (!logs?.length) return;
+    const logKey = (entry: MonopolyState["log"][number]) => `${entry.id}:${entry.text}`;
+    const currentKeys = new Set(logs.map(logKey));
+    const seen = seenRentLogRef.current;
+    if (!seen) {
+      seenRentLogRef.current = currentKeys;
+      return;
+    }
+
+    logs.forEach((entry) => {
+      const key = logKey(entry);
+      if (seen.has(key)) return;
+      seen.add(key);
+      const transfer = parseRentTransferLogLine(entry.text, state.players);
+      if (!transfer || !me) return;
+      if (transfer.payer.id === me.id) {
+        toast.message("Rent paid", {
+          description: `You paid ${transfer.amount} rent to ${transfer.recipient.username}.`,
+        });
+      } else if (transfer.recipient.id === me.id) {
+        toast.success("Rent received", {
+          description: `${transfer.payer.username} paid you ${transfer.amount} rent.`,
+        });
+      }
+    });
+
+    seen.forEach((key) => {
+      if (!currentKeys.has(key)) seen.delete(key);
+    });
+  }, [state?.log, state?.players, me]);
 
   // Auto-continue after passive landings ONLY — never while buy/auction is available.
   useEffect(() => {
@@ -949,7 +996,7 @@ function MonopolyPage() {
   }
 
   const cur = state.players[state.currentPlayerIndex] ?? state.players[0];
-  const isMyTurn = !cur.isAI && !cur.bankrupt && cur.id === me.id;
+  const isMyTurn = state.phase !== "paused" && !cur.isAI && !cur.bankrupt && cur.id === me.id;
   const isRoomHost = Boolean(user?.id && roomQuery.data?.hostId === user.id);
 
   const setGamePaused = async (paused: boolean) => {
@@ -1073,8 +1120,24 @@ function MonopolyPage() {
               </h1>
             </div>
             <IndianEventBanner event={state.activeEvent} />
+            {state.phase === "paused" && !isRoomHost && (
+              <div
+                role="status"
+                className="flex items-center gap-1.5 border border-accent-amber/40 bg-accent-amber/10 px-2 py-1 text-[9px] font-mono uppercase tracking-widest text-accent-amber"
+              >
+                <Pause className="size-3" /> Game paused by host
+              </div>
+            )}
           </div>
           <div className="flex gap-1 shrink-0">
+            <NeonButton
+              variant="ghost"
+              size="sm"
+              onClick={() => setCardCatalogOpen(true)}
+              className="!py-1 !px-2.5 !text-[10px]"
+            >
+              <BookOpen className="inline size-3 mr-1" /> Cards
+            </NeonButton>
             {isRoomHost && (
               <>
                 <NeonButton
@@ -1204,6 +1267,8 @@ function MonopolyPage() {
       </main>
 
       <AnimatePresence>
+        {cardCatalogOpen && <CardCatalogModal onClose={() => setCardCatalogOpen(false)} />}
+
         {cardReveal && (
           <CardRevealModal
             card={cardReveal}
@@ -1292,7 +1357,7 @@ function MonopolyPage() {
         )}
       </AnimatePresence>
 
-      {state.phase === "paused" && (
+      {state.phase === "paused" && isRoomHost && (
         <div
           className="fixed inset-0 z-[70] bg-black/90 backdrop-blur-md grid place-items-center p-6"
           role="dialog"

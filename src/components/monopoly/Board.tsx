@@ -37,23 +37,25 @@ export function Board({
   /** When set, ring that player's deeds + glow their token position */
   focusPlayerId?: string | null;
 }) {
+  const players = state.players;
+  const properties = state.properties;
   const tokensByTile = useMemo(() => {
-    const m: Record<number, typeof state.players> = {};
-    state.players
+    const m: Record<number, typeof players> = {};
+    players
       .filter((p) => !p.bankrupt)
       .forEach((p) => {
         (m[p.position] ||= []).push(p);
       });
     return m;
-  }, [state.players]);
+  }, [players]);
 
   const seatById = useMemo(() => {
     const map: Record<string, number> = {};
-    state.players.forEach((p, i) => {
+    players.forEach((p, i) => {
       map[p.id] = i + 1;
     });
     return map;
-  }, [state.players]);
+  }, [players]);
 
   const turnPlayer = state.players[state.currentPlayerIndex] ?? null;
   const focusPlayer = focusPlayerId
@@ -63,13 +65,31 @@ export function Board({
   const focusOwned = useMemo(() => {
     const set = new Set<number>();
     if (!focusPlayerId) return set;
-    Object.entries(state.properties).forEach(([idx, prop]) => {
+    Object.entries(properties).forEach(([idx, prop]) => {
       if (prop.ownerId === focusPlayerId) set.add(Number(idx));
     });
     return set;
-  }, [focusPlayerId, state.properties]);
+  }, [focusPlayerId, properties]);
   const focusPosition = focusPlayer && !focusPlayer.bankrupt ? focusPlayer.position : null;
   const turnPosition = turnPlayer && !turnPlayer.bankrupt ? turnPlayer.position : null;
+  const turnTile = turnPlayer ? BOARD[turnPlayer.position] : null;
+  const turnOwnedCount = turnPlayer
+    ? Object.values(properties).filter((property) => property.ownerId === turnPlayer.id).length
+    : 0;
+  const phaseLabel =
+    state.phase === "rolling"
+      ? "Ready to roll"
+      : state.phase === "moving"
+        ? "Moving"
+        : state.phase === "landed"
+          ? "Resolve landing"
+          : state.phase === "auction"
+            ? "Auction"
+            : state.phase === "trade"
+              ? "Trade pending"
+              : state.phase === "paused"
+                ? "Game paused"
+                : "Match over";
 
   return (
     <div className="relative aspect-square h-full max-h-full w-auto max-w-full mx-auto">
@@ -124,17 +144,83 @@ export function Board({
             </div>
           );
         })}
-        {/* Center logo */}
+        {/* Current turn dashboard */}
         <div
           style={{ gridRow: "2 / span 9", gridColumn: "2 / span 9" }}
           className="relative grid place-items-center pointer-events-none"
         >
-          <div className="text-center">
-            <div className="font-display text-3xl md:text-5xl lg:text-6xl italic uppercase neon-text-glow">
-              MONOPOLY
-            </div>
-            <div className="text-[9px] font-mono uppercase tracking-[0.35em] text-accent-cyan mt-1">
-              GameHub Edition
+          <div className="w-full max-w-xl px-2 sm:px-5">
+            {turnPlayer && (
+              <div
+                className="border bg-black/85 p-3 sm:p-4"
+                style={{
+                  borderColor: `${turnPlayer.avatarColor}bb`,
+                  boxShadow: `0 0 24px ${turnPlayer.avatarColor}35, inset 0 0 28px ${turnPlayer.avatarColor}12`,
+                }}
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="size-11 sm:size-13 shrink-0 grid place-items-center rounded-full border-2 font-display text-xl text-black"
+                    style={{
+                      backgroundColor: turnPlayer.avatarColor,
+                      borderColor: `${turnPlayer.avatarColor}aa`,
+                      boxShadow: `0 0 16px ${turnPlayer.avatarColor}88`,
+                    }}
+                  >
+                    {turnPlayer.username.slice(0, 1).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div
+                      className="text-[9px] font-mono uppercase tracking-[0.25em]"
+                      style={{ color: turnPlayer.avatarColor }}
+                    >
+                      {phaseLabel} · Current turn
+                    </div>
+                    <div className="text-base sm:text-lg font-bold truncate text-white">
+                      {turnPlayer.username}
+                      {turnPlayer.isAI && <span className="ml-2 text-[9px] font-mono text-white/45">AI</span>}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-[8px] font-mono uppercase tracking-widest text-white/45">
+                      Cash
+                    </div>
+                    <div className="text-sm sm:text-base font-mono font-bold text-accent-amber tabular-nums">
+                      ₹{turnPlayer.cash.toLocaleString("en-IN")}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-3">
+                  {[
+                    { label: "Position", value: turnTile?.name ?? `Tile ${turnPlayer.position}` },
+                    { label: "Properties", value: String(turnOwnedCount) },
+                    { label: "Jail cards", value: String(turnPlayer.jailCards) },
+                    {
+                      label: "Status",
+                      value: turnPlayer.bankrupt ? "Bankrupt" : turnPlayer.inJail ? "In jail" : "Active",
+                    },
+                  ].map((detail) => (
+                    <div key={detail.label} className="min-w-0 border-l-2 border-white/15 pl-2 py-0.5">
+                      <div className="text-[7px] sm:text-[8px] font-mono uppercase tracking-widest text-white/40">
+                        {detail.label}
+                      </div>
+                      <div className="text-[9px] sm:text-[10px] font-mono text-white/85 truncate" title={detail.value}>
+                        {detail.value}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="text-center mt-3">
+              <div className="font-display text-2xl sm:text-3xl italic uppercase neon-text-glow">
+                MONOPOLY
+              </div>
+              <div className="text-[8px] font-mono uppercase tracking-[0.35em] text-accent-cyan mt-0.5">
+                GameHub Edition
+              </div>
             </div>
             {focusPlayer ? (
               <div

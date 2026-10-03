@@ -4,7 +4,13 @@
 
 Implemented explicit `PAUSED` mapping with a blocking overlay and host-only pause/resume controls. Added trade offer review and recipient decisions, expanded card popup handling to use `pendingCard`, and improved build validation, hotel dispatch, jail-card visibility, ownership indication, and mortgage styling. Bank Manager is now only exposed to the room host.
 
-Validation: the production build succeeds and editor diagnostics are clean. ESLint has no findings with the Prettier rule disabled; normal lint still reports formatting violations in touched files, including pre-existing surrounding code. Trade decision requests currently send `type: TRADE` with `metadata.action` and `metadata.tradeId`; confirm these keys with the Spring backend before relying on accept/reject in production.
+Added a header Cards button and tabbed catalog for the complete Chance and Community Chest lists, sourced directly from `monopolyCards.ts`.
+
+Expanded the catalog with search, effect filters, expandable mechanic explanations, and combined deck counts. The board center now highlights the current player and summarizes their turn-relevant details.
+
+Added payer/recipient-only rent notifications from new rent log entries. The host alone sees the blocking pause dialog; other players see a non-modal paused status and cannot perform game actions.
+
+Validation: the production build and `npx tsc --noEmit` succeed. Focused ESLint has no errors; it reports the existing Fast Refresh warning for the exported card-log parser. Trade decision requests currently send `type: TRADE` with `metadata.action` and `metadata.tradeId`; confirm these keys with the Spring backend before relying on accept/reject in production.
 
 ## What Changed
 
