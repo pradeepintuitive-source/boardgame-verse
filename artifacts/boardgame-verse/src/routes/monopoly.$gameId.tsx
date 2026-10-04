@@ -898,17 +898,17 @@ function MonopolyPage() {
         className="fixed inset-0 -z-10 bg-background"
         style={{ background: "var(--gradient-radial-glow)" }}
       />
-      <main className="relative px-4 pt-20 pb-32 max-w-[1600px] mx-auto flex flex-col h-screen max-h-[1200px]">
-        <header className="flex items-end justify-between mb-4 shrink-0">
-          <div>
+      <main className="relative mx-auto flex w-full max-w-[1600px] flex-col px-3 pb-6 pt-3 sm:px-4 sm:pt-5 lg:h-dvh lg:max-h-[1200px] lg:overflow-hidden lg:pb-4">
+        <header className="mb-3 flex shrink-0 flex-col gap-3 sm:mb-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
             <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#d4a843] mb-1">
               {localPlay ? "Same device" : "Multiplayer Match"}
             </div>
-            <h1 className="font-display text-4xl md:text-5xl font-bold uppercase gold-text-glow">
+            <h1 className="font-display text-3xl font-bold uppercase gold-text-glow sm:text-4xl lg:text-5xl">
               Bharat Business
             </h1>
             {localPlay && (
-              <p className="mt-2 text-sm font-mono text-[#d4a843]">
+              <p className="mt-1 text-xs font-mono text-[#d4a843] sm:mt-2 sm:text-sm">
                 Pass the device to{" "}
                 {state.phase === "auction"
                   ? (state.players.find((player) => player.id === auctionBidderId)?.username ??
@@ -917,7 +917,7 @@ function MonopolyPage() {
               </p>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <NeonButton variant="ghost" size="sm" onClick={() => setBankOpen(true)}>
               <Banknote className="inline size-4 mr-1" /> Bank
             </NeonButton>
@@ -956,7 +956,7 @@ function MonopolyPage() {
           </div>
         </header>
 
-        {roomId && user?.id && (
+        {!localPlay && roomId && user?.id && (
           <div className="mb-2">
             <VoiceChatPanel
               compact
@@ -968,11 +968,11 @@ function MonopolyPage() {
         )}
         <IndianEventBanner event={state.activeEvent} />
 
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)_320px] gap-4 min-h-0">
-          {/* Left: players */}
-          <aside className="space-y-2 overflow-y-auto pr-1 pb-4 order-2 lg:order-1 flex flex-row lg:flex-col overflow-x-auto lg:overflow-x-hidden">
+        <div className="mt-3 grid min-h-0 w-full min-w-0 flex-1 grid-cols-1 gap-3 lg:grid-cols-[minmax(220px,280px)_minmax(0,1fr)_minmax(240px,320px)] lg:gap-4">
+          {/* Players */}
+          <aside className="order-3 flex min-w-0 max-w-full gap-3 overflow-x-auto pb-2 lg:order-1 lg:flex-col lg:gap-2 lg:overflow-y-auto lg:overflow-x-hidden lg:pr-1">
             {state.players.map((p, i) => (
-              <div key={p.id} className="w-[260px] lg:w-full shrink-0">
+              <div key={p.id} className="w-[min(85vw,280px)] shrink-0 lg:w-full">
                 <PlayerPanel
                   state={state}
                   player={p}
@@ -986,8 +986,8 @@ function MonopolyPage() {
             ))}
           </aside>
 
-          {/* Center: board */}
-          <section className="order-1 lg:order-2 flex items-center justify-center p-2 lg:p-4 min-h-[400px]">
+          {/* Board */}
+          <section className="order-1 flex min-w-0 items-center justify-center lg:order-2 lg:min-h-0 lg:p-2">
             <Board
               state={state}
               onTileClick={(i) => setOpenTile(i)}
@@ -995,8 +995,8 @@ function MonopolyPage() {
             />
           </section>
 
-          {/* Right: action + log */}
-          <aside className="space-y-4 order-3 overflow-y-auto pb-4 flex flex-col">
+          {/* Action + log */}
+          <aside className="order-2 flex min-w-0 flex-col gap-3 lg:order-3 lg:min-h-0 lg:overflow-y-auto lg:pb-2">
             <ActionBar
               state={state}
               me={seat}
@@ -1118,7 +1118,7 @@ function MonopolyPage() {
         )}
       </AnimatePresence>
 
-      {roomId && <ChatDrawer roomId={roomId} />}
+      {!localPlay && roomId && <ChatDrawer roomId={roomId} />}
     </AppShell>
   );
 }

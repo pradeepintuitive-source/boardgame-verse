@@ -84,7 +84,7 @@ export function PlayerPanel({
         </div>
 
         {/* Stats row */}
-        <div className="flex items-center gap-3 mb-2 text-[10px] font-mono text-[#9baab8]">
+        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-mono text-[#9baab8]">
           <span title="Properties owned">
             {ownedIndices.length} prop{ownedIndices.length !== 1 ? "s" : ""}
           </span>
@@ -120,16 +120,15 @@ export function PlayerPanel({
                 <button
                   key={i}
                   onClick={() => onSelectTile?.(i)}
-                  className="min-h-[28px] text-[8px] font-sans font-semibold px-1.5 py-0.5 rounded-sm hover:scale-105 transition-transform"
+                  className="max-w-[9rem] min-h-[28px] rounded-sm px-1.5 py-0.5 text-left text-[9px] font-sans font-semibold hover:scale-105 transition-transform"
                   style={{
                     background: `${color}25`,
                     color,
                     border: `1px solid ${color}60`,
-                    maxWidth: "56px",
                   }}
                   title={tile.name}
                 >
-                  <span className="block truncate">{tile.name}</span>
+                  <span className="block truncate">{tile.shortName ?? tile.name}</span>
                   {prop?.houses > 0 && (
                     <span className="block text-[6px] opacity-80">
                       {"●".repeat(Math.min(prop.houses, 5))}

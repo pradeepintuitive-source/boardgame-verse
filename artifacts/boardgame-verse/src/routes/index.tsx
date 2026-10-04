@@ -57,7 +57,7 @@ function Index() {
 
   return (
     <AppShell>
-      <main className="relative flex flex-col items-center pt-32 pb-32 px-6">
+      <main className="relative flex flex-col items-center px-4 pb-28 pt-28 sm:px-6 sm:pt-32 sm:pb-32">
         <motion.section
           variants={pageFade}
           initial="hidden"
@@ -68,12 +68,12 @@ function Index() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 1, delay: 0.1 }}
-            className="font-display text-7xl md:text-9xl tracking-tighter italic text-white gold-text-glow leading-none mb-4 uppercase"
+            className="mb-4 font-display text-5xl uppercase italic leading-none tracking-tighter text-white gold-text-glow sm:text-7xl md:text-9xl"
             style={{ animation: "flicker 3s ease-out both" }}
           >
             GameHub
           </motion.h1>
-          <p className="text-[#d4a843]/70 font-mono text-xs md:text-sm tracking-[0.4em] uppercase mb-12">
+          <p className="mb-12 max-w-full px-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[#d4a843]/70 sm:text-xs sm:tracking-[0.28em] md:text-sm md:tracking-[0.4em]">
             Premium Digital Tabletop Experiences
           </p>
           <div className="flex flex-wrap gap-4 justify-center">

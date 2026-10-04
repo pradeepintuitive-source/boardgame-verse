@@ -69,7 +69,7 @@ function CreateRoomPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen px-6 pt-32 pb-20 max-w-2xl mx-auto">
+      <div className="mx-auto min-h-dvh max-w-2xl px-4 pb-24 pt-28 sm:px-6 sm:pt-32">
         <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#d4a843] mb-2">
           New Match
         </div>

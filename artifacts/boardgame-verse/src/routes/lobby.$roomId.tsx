@@ -203,7 +203,7 @@ function LobbyPage() {
 
   return (
     <AppShell>
-      <div className="min-h-screen px-6 pt-28 pb-32 max-w-5xl mx-auto">
+      <div className="mx-auto min-h-dvh max-w-5xl px-4 pb-28 pt-28 sm:px-6 sm:pb-32">
         <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 mb-8">
           <div className="min-w-0">
             <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#d4a843] mb-1">
@@ -422,7 +422,7 @@ function LobbyPage() {
               {isHost ? "Close & Leave Room" : "Leave Room"}
             </NeonButton>
 
-            {user?.id && (
+            {user?.id && !localPlay && (
               <VoiceChatPanel
                 roomId={room.id}
                 selfUserId={user.id}
@@ -447,7 +447,7 @@ function LobbyPage() {
         </div>
       </div>
 
-      <ChatDrawer roomId={room.id} />
+      {!localPlay && <ChatDrawer roomId={room.id} />}
     </AppShell>
   );
 }

@@ -54,10 +54,10 @@ export function Board({
   }, [state.players]);
 
   return (
-    <div className="relative aspect-square w-full max-w-[860px] mx-auto">
+    <div className="relative mx-auto aspect-square w-full max-w-[min(100%,860px)] p-1 sm:p-2">
       {/* Outer board frame — premium border + shadow */}
       <div
-        className="absolute -inset-3 rounded-sm pointer-events-none"
+        className="pointer-events-none absolute inset-1 rounded-sm sm:inset-2"
         style={{
           border: "2px solid rgba(212,168,67,0.25)",
           boxShadow: "0 0 0 1px rgba(212,168,67,0.1), 0 16px 64px rgba(0,0,0,0.85)",

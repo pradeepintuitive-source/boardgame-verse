@@ -93,8 +93,8 @@ export function Tile({ tile, prop, ownerColor, orientation, onClick, children, h
             transform: orientation === "left" ? "rotate(180deg)" : "none",
           }}
         >
-          <span className="font-sans text-[7px] md:text-[8px] font-semibold uppercase tracking-wide leading-tight text-white/90 truncate max-h-full">
-            {tile.name}
+          <span className="max-h-full truncate font-sans text-[6px] font-semibold uppercase leading-tight tracking-wide text-white/90 sm:text-[7px] md:text-[8px]">
+            {tile.shortName ?? tile.name}
           </span>
           {tile.price != null && (
             <span className="font-mono text-[6px] md:text-[7px] text-[#d4a843]/80 mt-0.5">
@@ -110,8 +110,8 @@ export function Tile({ tile, prop, ownerColor, orientation, onClick, children, h
             isBottom ? "justify-end pb-[20%]" : "justify-start pt-[20%]",
           ].join(" ")}
         >
-          <span className="font-sans text-[7px] md:text-[8.5px] font-semibold uppercase tracking-tight leading-tight text-white/90 w-full px-0.5 line-clamp-2">
-            {tile.name}
+          <span className="line-clamp-2 w-full px-0.5 font-sans text-[6px] font-semibold uppercase leading-tight tracking-tight text-white/90 sm:text-[7px] md:text-[8.5px]">
+            {tile.shortName ?? tile.name}
           </span>
           {tile.price != null && (
             <span className="font-mono text-[6px] md:text-[7px] text-[#d4a843]/80 mt-0.5 leading-none">

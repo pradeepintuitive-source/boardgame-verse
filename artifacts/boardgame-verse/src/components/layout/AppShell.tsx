@@ -23,7 +23,7 @@ export function AppShell({
   }, [conn]);
 
   return (
-    <div className="relative min-h-screen w-full bg-background text-foreground overflow-hidden">
+    <div className="relative min-h-dvh w-full overflow-x-hidden bg-background text-foreground">
       {/* radial glow + grain */}
       <div
         aria-hidden
@@ -33,14 +33,14 @@ export function AppShell({
       <ParticleField />
 
       {!hideChrome && (
-        <nav className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-6 md:px-10 py-5">
+        <nav className="fixed top-0 left-0 right-0 z-40 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 md:px-10 md:py-5">
           <Link
             to="/"
-            className="font-display text-2xl tracking-tighter uppercase gold-text-glow text-white font-bold"
+            className="font-display text-xl tracking-tighter uppercase gold-text-glow text-white font-bold md:text-2xl"
           >
             GameHub
           </Link>
-          <div className="hidden md:flex gap-8 text-[11px] font-mono tracking-widest text-[#9baab8]">
+          <div className="order-3 flex w-full justify-center gap-5 text-[10px] font-mono tracking-widest text-[#9baab8] md:order-none md:w-auto md:gap-8 md:text-[11px]">
             <Link
               to="/"
               activeOptions={{ exact: true }}
@@ -99,7 +99,7 @@ export function AppShell({
       <div className="relative z-10">{children}</div>
 
       {!hideChrome && (
-        <footer className="fixed bottom-0 left-0 right-0 z-40 p-6 flex justify-between items-end pointer-events-none">
+        <footer className="fixed bottom-0 left-0 right-0 z-40 flex items-end justify-between p-4 pointer-events-none md:p-6">
           <div className="flex flex-col gap-1 pointer-events-auto">
             <span className="text-[10px] font-mono text-white/20 uppercase tracking-[0.3em]">
               System Status
