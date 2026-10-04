@@ -1126,24 +1126,6 @@ function MonopolyPage() {
 
           {/* Action + log */}
           <aside className="order-2 flex min-w-0 flex-col gap-3 lg:order-3 lg:min-h-0 lg:overflow-y-auto lg:pb-2">
-            {state.phase === "debt" && state.pendingDebt && (
-              <DebtPanel
-                state={state}
-                debt={state.pendingDebt}
-                sale={state.pendingSale}
-                canResolve={canResolveDebt}
-                canAnswerSale={canAnswerSale}
-                onSellBuilding={(tileIndex) => sendGameAction("SELL_HOUSE", { tileIndex })}
-                onMortgage={(tileIndex) => sendGameAction("TOGGLE_MORTGAGE", { tileIndex })}
-                onProposeSale={(tileIndex, buyerId, price) =>
-                  sendGameAction("PROPOSE_SALE", { tileIndex, targetPlayerId: buyerId, amount: price })
-                }
-                onAcceptSale={() => sendGameAction("ACCEPT_SALE")}
-                onDeclineSale={() => sendGameAction("DECLINE_SALE")}
-                onPay={() => sendGameAction("PAY_DEBT")}
-                onBankrupt={() => sendGameAction("DECLARE_BANKRUPTCY")}
-              />
-            )}
             <ActionBar
               state={state}
               me={seat}
@@ -1245,6 +1227,25 @@ function MonopolyPage() {
                 ? () => sendGameAction("TOGGLE_MORTGAGE", { tileIndex: openTile })
                 : undefined
             }
+          />
+        )}
+
+        {state.phase === "debt" && state.pendingDebt && (
+          <DebtPanel
+            state={state}
+            debt={state.pendingDebt}
+            sale={state.pendingSale}
+            canResolve={canResolveDebt}
+            canAnswerSale={canAnswerSale}
+            onSellBuilding={(tileIndex) => sendGameAction("SELL_HOUSE", { tileIndex })}
+            onMortgage={(tileIndex) => sendGameAction("TOGGLE_MORTGAGE", { tileIndex })}
+            onProposeSale={(tileIndex, buyerId, price) =>
+              sendGameAction("PROPOSE_SALE", { tileIndex, targetPlayerId: buyerId, amount: price })
+            }
+            onAcceptSale={() => sendGameAction("ACCEPT_SALE")}
+            onDeclineSale={() => sendGameAction("DECLINE_SALE")}
+            onPay={() => sendGameAction("PAY_DEBT")}
+            onBankrupt={() => sendGameAction("DECLARE_BANKRUPTCY")}
           />
         )}
 
