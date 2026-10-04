@@ -182,6 +182,8 @@ function isSameUser(
     Boolean(user.username && player.username === user.username)
   );
 }
+
+function resolveRoomPlayerId(
   rawPlayerId: string | null | undefined,
   roomPlayers: Array<{ id?: string; userId?: string }>,
 ) {
