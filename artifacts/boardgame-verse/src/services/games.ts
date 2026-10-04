@@ -1,8 +1,8 @@
 import { api } from "./api";
 
 export const gamesApi = {
-  snapshot: async <T = unknown>(gameId: string): Promise<T> => {
-    const { data } = await api.get<T>(`games/${gameId}`);
+  snapshot: async <T = unknown>(gameId: string, signal?: AbortSignal): Promise<T> => {
+    const { data } = await api.get<T>(`games/${gameId}`, { signal });
     return data;
   },
   log: async <T = unknown>(gameId: string): Promise<T[]> => {

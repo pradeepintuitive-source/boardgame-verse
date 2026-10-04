@@ -443,7 +443,18 @@ function applyCard(
   return { ...next, pendingCard: null };
 }
 
-/* ---------- Purchase / auction ---------- */
+export const AUCTION_BID_STEP = 100;
+export const AUCTION_TURN_SECONDS = 20;
+
+export function minAuctionBid(highestBid: number) {
+  if (highestBid < AUCTION_BID_STEP) return AUCTION_BID_STEP;
+  return highestBid + AUCTION_BID_STEP;
+}
+
+export function snapAuctionBid(amount: number, minBid: number) {
+  const snapped = Math.ceil(amount / AUCTION_BID_STEP) * AUCTION_BID_STEP;
+  return Math.max(minBid, snapped);
+}
 
 export function buyPending(state: MonopolyState): MonopolyState {
   if (state.pendingPurchaseTile == null) return state;
@@ -487,12 +498,15 @@ export function startAuction(state: MonopolyState): MonopolyState {
 export function placeBid(state: MonopolyState, playerId: string, amount: number): MonopolyState {
   if (!state.auction) return state;
   const p = state.players.find((x) => x.id === playerId);
-  if (!p || p.cash < amount || amount <= state.auction.highestBid) return state;
+  const minBid = minAuctionBid(state.auction.highestBid);
+  const bid = snapAuctionBid(amount, minBid);
+  if (!p || p.cash < bid || bid < minBid || bid % AUCTION_BID_STEP !== 0) return state;
   const auction: Auction = {
     ...state.auction,
-    bids: [...state.auction.bids, { playerId, amount }],
-    highestBid: amount,
+    bids: [...state.auction.bids, { playerId, amount: bid }],
+    highestBid: bid,
     highestBidderId: playerId,
+    startedAt: Date.now(),
   };
   return { ...state, auction: advanceAuctionTurn({ ...state, auction }) };
 }
@@ -500,7 +514,7 @@ export function placeBid(state: MonopolyState, playerId: string, amount: number)
 function advanceAuctionTurn(state: MonopolyState): Auction {
   const a = state.auction!;
   const idx = (a.currentBidderIndex + 1) % a.activePlayerIds.length;
-  return { ...a, currentBidderIndex: idx };
+  return { ...a, currentBidderIndex: idx, startedAt: Date.now() };
 }
 
 export function passBid(state: MonopolyState, playerId: string): MonopolyState {
@@ -514,7 +528,10 @@ export function passBid(state: MonopolyState, playerId: string): MonopolyState {
   let nextIdx = a.currentBidderIndex;
   if (removedIdx <= a.currentBidderIndex) nextIdx = Math.max(0, nextIdx - 1);
   nextIdx = nextIdx % active.length;
-  return { ...state, auction: { ...a, activePlayerIds: active, currentBidderIndex: nextIdx } };
+  return {
+    ...state,
+    auction: { ...a, activePlayerIds: active, currentBidderIndex: nextIdx, startedAt: Date.now() },
+  };
 }
 
 export function settleAuction(state: MonopolyState): MonopolyState {
@@ -791,7 +808,8 @@ export function aiAuctionStep(state: MonopolyState): MonopolyState {
   if (!p || !p.isAI) return state;
   const tile = BOARD[a.tileIndex];
   const max = Math.min(p.cash - 50, Math.round((tile.price ?? 0) * (0.7 + Math.random() * 0.5)));
-  const nextBid = a.highestBid + Math.max(10, Math.round((tile.price ?? 0) * 0.05));
-  if (nextBid <= max) return placeBid(state, bidderId, nextBid);
+  const minBid = minAuctionBid(a.highestBid);
+  const affordableMax = Math.floor(Math.min(p.cash, max) / AUCTION_BID_STEP) * AUCTION_BID_STEP;
+  if (affordableMax >= minBid) return placeBid(state, bidderId, minBid);
   return passBid(state, bidderId);
 }

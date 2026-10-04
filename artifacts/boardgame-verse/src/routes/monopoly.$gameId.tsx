@@ -34,7 +34,7 @@ import type {
 } from "../models/monopoly";
 import { toast } from "sonner";
 import { useWebsocketRequestStore } from "../store/requestStore";
-import { formatInr } from "../utils/monopolyEngine";
+import { formatInr, minAuctionBid, snapAuctionBid } from "../utils/monopolyEngine";
 import { useConnectionStore } from "../store/connectionStore";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -312,6 +312,51 @@ function extractSocketState(message: unknown) {
   return message as MonopolyBackendState;
 }
 
+function unwrapBackend(
+  session: MonopolySessionSnapshot | MonopolyBackendState | null | undefined,
+): MonopolyBackendState | null {
+  if (!session) return null;
+  if ("state" in session && session.state && typeof session.state === "object") {
+    return session.state;
+  }
+  return session;
+}
+
+function backendProgress(backend: MonopolyBackendState | null | undefined): number {
+  if (!backend) return -1;
+  const assets = Object.values(backend.assets ?? {});
+  const positions = assets.reduce((sum, asset) => sum + (asset.position ?? 0), 0);
+  const ownedFromAssets = assets.reduce(
+    (sum, asset) => sum + (asset.ownedTilePositions?.length ?? 0),
+    0,
+  );
+  const owners = Object.keys(backend.owners ?? {}).length;
+  return (
+    owners * 1000 +
+    ownedFromAssets * 1000 +
+    positions * 10 +
+    (backend.log?.length ?? 0) +
+    (backend.lastDiceTotal ?? 0)
+  );
+}
+
+function findPlayerAsset(
+  player: RoomPlayerSnapshot,
+  assets: Record<string, MonopolyAssetSnapshot>,
+  claimed: Set<string>,
+): MonopolyAssetSnapshot | null {
+  const keys = [player.id, player.userId, player.username, player.displayName]
+    .filter((value): value is string => Boolean(value))
+    .map(String);
+  for (const key of keys) {
+    if (assets[key] && !claimed.has(key)) {
+      claimed.add(key);
+      return assets[key];
+    }
+  }
+  return null;
+}
+
 function mapSnapshotToState(
   session: MonopolySessionSnapshot,
   room: RoomSnapshotData | null | undefined,
@@ -327,9 +372,9 @@ function mapSnapshotToState(
   const assets: Record<string, MonopolyAssetSnapshot> = backend.assets ?? {};
   const roomPlayers: RoomPlayerSnapshot[] = room?.players ?? [];
 
+  const claimedAssets = new Set<string>();
   const players = roomPlayers.map((p) => {
-    // Asset keys may be room player `id` OR `userId` — try both
-    const asset: MonopolyAssetSnapshot | null = assets[p.id] ?? assets[p.userId] ?? null;
+    const asset = findPlayerAsset(p, assets, claimedAssets);
     const username = p.username ?? p.displayName ?? p.id;
     return {
       id: p.id,
@@ -345,6 +390,25 @@ function mapSnapshotToState(
       bankrupt: asset?.bankrupt ?? false,
     };
   });
+
+  const leftoverAssetKeys = Object.keys(assets).filter((key) => !claimedAssets.has(key));
+  const unmatchedPlayers = players.filter((_, index) => {
+    const roomPlayer = roomPlayers[index];
+    const keys = [roomPlayer?.id, roomPlayer?.userId, roomPlayer?.username, roomPlayer?.displayName]
+      .filter(Boolean)
+      .map(String);
+    return !keys.some((key) => claimedAssets.has(key));
+  });
+  if (unmatchedPlayers.length === 1 && leftoverAssetKeys.length === 1) {
+    const leftover = assets[leftoverAssetKeys[0]];
+    unmatchedPlayers[0].position = leftover?.position ?? unmatchedPlayers[0].position;
+    unmatchedPlayers[0].cash = leftover?.cash ?? unmatchedPlayers[0].cash;
+    unmatchedPlayers[0].inJail = leftover?.inJail ?? unmatchedPlayers[0].inJail;
+    unmatchedPlayers[0].jailTurns = leftover?.jailTurns ?? unmatchedPlayers[0].jailTurns;
+    unmatchedPlayers[0].jailCards =
+      leftover?.jailCards ?? leftover?.getOutOfJailCards ?? unmatchedPlayers[0].jailCards;
+    unmatchedPlayers[0].bankrupt = leftover?.bankrupt ?? unmatchedPlayers[0].bankrupt;
+  }
 
   // Initialise all purchasable tiles to unowned
   const properties: Record<number, PropertyState> = {};
@@ -489,6 +553,7 @@ function MonopolyPage() {
   // Mark seat connected + refresh authoritative snapshot on enter and after STOMP recovery
   const prevWsConnected = useRef(wsConnected);
   const didMountReconnect = useRef(false);
+  const latestBackendRef = useRef<MonopolyBackendState | null>(null);
   useEffect(() => {
     if (!roomId) return;
     const becameConnected = wsConnected && !prevWsConnected.current;
@@ -532,8 +597,15 @@ function MonopolyPage() {
 
   const applyMonopolyState = useCallback(
     (nextState: MonopolyBackendState, nextSessionId?: string) => {
+      const incomingScore = backendProgress(nextState);
+      const liveScore = backendProgress(latestBackendRef.current);
+      const source =
+        incomingScore < liveScore && latestBackendRef.current
+          ? latestBackendRef.current
+          : nextState;
+      if (source === nextState) latestBackendRef.current = nextState;
       const mapped = mapSnapshotToState(
-        { sessionId: nextSessionId ?? nextState?.sessionId ?? sessionId, state: nextState },
+        { sessionId: nextSessionId ?? source?.sessionId ?? sessionId, state: source },
         roomDataRef.current,
         gameId,
       );
@@ -592,6 +664,11 @@ function MonopolyPage() {
   const [openTile, setOpenTile] = useState<number | null>(null);
   const [tradePartner, setTradePartner] = useState<string | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
+
+  useEffect(() => {
+    latestBackendRef.current = null;
+    setHydrated(false);
+  }, [gameId]);
   const aiTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const auctionStartingRef = useRef(false);
 
@@ -633,19 +710,35 @@ function MonopolyPage() {
     [state?.players],
   );
 
-  // Hydrate only when we have snapshot + room info
+  // Hydrate from the latest snapshot, but never let a stale/empty snapshot
+  // overwrite a live STOMP board after refresh or reconnect.
   useEffect(() => {
     if (!snapshot.data || !roomQuery.data) return;
     try {
-      const session = snapshot.data;
-      const room = roomQuery.data;
-      const mapped = mapSnapshotToState(session, room, gameId);
+      roomDataRef.current = roomQuery.data;
+      const backend = unwrapBackend(snapshot.data);
+      if (!backend) return;
+      const snapshotScore = backendProgress(backend);
+      const liveScore = backendProgress(latestBackendRef.current);
+      const source =
+        latestBackendRef.current && liveScore >= snapshotScore
+          ? latestBackendRef.current
+          : backend;
+      if (source === backend) latestBackendRef.current = backend;
+      const mapped = mapSnapshotToState(
+        {
+          sessionId: snapshot.data.sessionId ?? snapshot.data.id ?? source.sessionId ?? sessionId,
+          state: source,
+        },
+        roomQuery.data,
+        gameId,
+      );
       setGame(gameId!, mapped);
       setHydrated(true);
     } catch (e) {
       console.error("Failed to hydrate Monopoly store from snapshot", e);
     }
-  }, [snapshot.data, roomQuery.data, gameId, setGame]);
+  }, [snapshot.dataUpdatedAt, roomQuery.data, gameId, sessionId, setGame]);
 
   // Show loading until snapshot and room are available, store hydrated, and user resolved
   if (
@@ -731,7 +824,13 @@ function MonopolyPage() {
               ...(startTileIndex != null ? { tilePosition: Number(startTileIndex) } : {}),
             }
           : type === "PLACE_BID"
-            ? { action: "PLACE_BID", amount: Number(p.amount ?? 0) }
+            ? {
+                action: "PLACE_BID",
+                amount: snapAuctionBid(
+                  Number(p.amount ?? 0),
+                  minAuctionBid(state.auction?.highestBid ?? 0),
+                ),
+              }
             : { action: "PASS" };
 
       const dest = Topics.send.auction(sessionId);

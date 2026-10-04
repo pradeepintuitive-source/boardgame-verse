@@ -4,8 +4,11 @@ import { gamesApi } from "../services/games";
 export function useGameSnapshot<T = unknown>(gameId: string | undefined) {
   return useQuery({
     queryKey: ["game", gameId],
-    queryFn: () => gamesApi.snapshot<T>(gameId!),
+    queryFn: ({ signal }) => gamesApi.snapshot<T>(gameId!, signal),
     enabled: !!gameId,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnReconnect: "always",
   });
 }
 
