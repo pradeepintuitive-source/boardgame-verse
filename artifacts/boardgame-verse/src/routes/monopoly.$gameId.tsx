@@ -224,6 +224,21 @@ function normalizeMetadata(metadata: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(metadata).map(([key, value]) => [key, String(value)]));
 }
 
+/** Auction updates used to arrive wrapped as `{ payload: auction }`. */
+function readAuctionUpdate(payload: unknown): MonopolyAuctionSnapshot | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as MonopolyAuctionSnapshot & { payload?: unknown };
+  const nested = record.payload;
+  const wrapped =
+    nested !== undefined &&
+    record.tilePosition == null &&
+    record.tileIndex == null &&
+    !Array.isArray(record.activePlayerIds);
+  if (!wrapped) return record;
+  if (!nested || typeof nested !== "object") return null;
+  return nested as MonopolyAuctionSnapshot;
+}
+
 function normalizeAuctionState(
   auction: MonopolyAuctionSnapshot | null | undefined,
   roomPlayers: Array<{ id?: string; userId?: string }>,
@@ -699,7 +714,7 @@ function MonopolyPage() {
         if (envelope?.type === "AUCTION_UPDATE") {
           const current = useMonopolyStore.getState().games[gameId];
           const auction = normalizeAuctionState(
-            (envelope.payload as MonopolyAuctionSnapshot | null | undefined) ?? null,
+            readAuctionUpdate(envelope.payload),
             roomDataRef.current?.players ?? [],
           );
           if (current) {
@@ -707,7 +722,7 @@ function MonopolyPage() {
               ...current,
               auction,
               phase: auction ? "auction" : current.phase,
-              pendingPurchaseTile: auction?.tileIndex ?? current.pendingPurchaseTile,
+              pendingPurchaseTile: auction ? auction.tileIndex : current.pendingPurchaseTile,
             });
           }
           return;
