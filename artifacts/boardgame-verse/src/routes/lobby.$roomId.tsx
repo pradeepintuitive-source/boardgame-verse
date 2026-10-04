@@ -108,8 +108,11 @@ function LobbyPage() {
   }
 
   const isHost = user?.id === room.hostId;
+  const localPlay = room.playMode === "LOCAL";
   const minPlayers = 2;
-  const allReady = room.players.every((p) => p.ready) && room.players.length >= minPlayers;
+  const allReady = localPlay
+    ? room.players.length >= minPlayers
+    : room.players.every((p) => p.ready) && room.players.length >= minPlayers;
 
   const copy = async () => {
     await navigator.clipboard.writeText(room.code);
@@ -185,7 +188,7 @@ function LobbyPage() {
             </h1>
             <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] font-mono uppercase tracking-widest text-white/40">
               <span className="inline-flex items-center gap-1.5">
-                <Wifi className="size-3" /> {room.isLan ? "LAN" : "Online"}
+                <Wifi className="size-3" /> {localPlay ? "Same device" : room.isLan ? "LAN" : "Online"}
               </span>
               <span>·</span>
               <span className="inline-flex items-center gap-1.5">
@@ -203,6 +206,7 @@ function LobbyPage() {
               </span>
             </div>
           </div>
+          {!localPlay && (
           <button
             onClick={copy}
             className="glass-panel border border-[rgba(212,168,67,0.3)] px-5 py-3 hover:border-[#d4a843] hover:bg-[rgba(212,168,67,0.05)] transition-colors text-left group"
@@ -218,6 +222,7 @@ function LobbyPage() {
               {copied ? "COPIED TO CLIPBOARD" : "TAP TO COPY"}
             </div>
           </button>
+          )}
         </header>
 
         <div className="grid lg:grid-cols-[1fr_320px] gap-6">
@@ -252,10 +257,10 @@ function LobbyPage() {
                           p.ready ? "text-[#d4a843]" : "text-[#9baab8]"
                         }`}
                       >
-                        {p.ready ? "READY" : "WAITING"}
+                        {localPlay ? "On this device" : p.ready ? "READY" : "WAITING"}
                       </div>
                     </div>
-                    {isHost && !p.isHost && (
+                    {isHost && !p.isHost && !localPlay && (
                       <button
                         onClick={() => removePlayer(room.id, p.id)}
                         className="size-8 grid place-items-center hover:bg-[#8b2335]/20 hover:text-[#e05060] rounded-sm transition-colors text-white/40"
@@ -264,7 +269,7 @@ function LobbyPage() {
                         <X className="size-4" />
                       </button>
                     )}
-                    {p.userId === user?.id && !p.isAI && (
+                    {p.userId === user?.id && !p.isAI && !localPlay && (
                       <button
                         onClick={handleToggleReady}
                         disabled={pendingReady}
@@ -281,7 +286,8 @@ function LobbyPage() {
                 ))}
               </AnimatePresence>
 
-              {room.players.length < room.maxPlayers &&
+              {!localPlay &&
+              room.players.length < room.maxPlayers &&
                 Array.from({ length: room.maxPlayers - room.players.length }).map((_, i) => (
                   <div
                     key={`empty-${i}`}
@@ -302,6 +308,7 @@ function LobbyPage() {
                 <div className="text-[10px] font-mono uppercase tracking-widest text-[#d4a843] mb-4">
                   Host Command Panel
                 </div>
+                {!localPlay && (
                 <NeonButton
                   variant="ghost"
                   size="sm"
@@ -311,6 +318,7 @@ function LobbyPage() {
                 >
                   <UserPlus className="size-4" /> Add AI Player
                 </NeonButton>
+                )}
                 <NeonButton
                   variant="gold"
                   size="md"
@@ -353,9 +361,9 @@ function LobbyPage() {
             )}
 
             <div className="glass-panel p-5 text-xs font-mono text-white/50 leading-relaxed">
-              Share the room code with friends, or fill seats with AI players. The host starts the
-              match when everyone is ready. You can rejoin any room later from Join Game using the
-              room code.
+              {localPlay
+                ? "Pass this device between players when the turn changes. The match is saved on the server, so the host can resume it later."
+                : "Share the room code with friends, or fill seats with AI players. The host starts the match when everyone is ready. You can rejoin any room later from Join Game using the room code."}
             </div>
           </aside>
         </div>

@@ -1,5 +1,7 @@
 export type GameType = "mafia" | "monopoly";
 
+export type PlayMode = "ONLINE" | "LOCAL";
+
 export interface User {
   id: string;
   username: string;
@@ -29,6 +31,7 @@ export interface Room {
   isPrivate: boolean;
   isLan: boolean;
   hostId: string;
+  playMode: PlayMode;
   state: string;
   currentSessionId?: string | null;
   players: Player[];

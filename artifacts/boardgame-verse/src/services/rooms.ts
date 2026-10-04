@@ -1,6 +1,6 @@
 import { api, API_BASE_URL } from "./api";
 import { pickAvatarColor } from "../utils/ids";
-import type { GameType, Player, Room } from "../models";
+import type { GameType, PlayMode, Player, Room } from "../models";
 
 interface RawPlayerSummary {
   id: string;
@@ -23,6 +23,7 @@ interface RawRoom {
   visibility: string;
   state: string;
   maxPlayers: number;
+  playMode?: PlayMode;
   players: RawPlayerSummary[];
   currentSessionId?: string | null;
 }
@@ -34,6 +35,7 @@ export interface CreateRoomRequest {
   aiPlayerCount?: number;
   isPrivate?: boolean;
   isLan?: boolean;
+  playMode?: PlayMode;
 }
 
 export interface GameSessionResponse {
@@ -67,6 +69,7 @@ function normalizeRoom(raw: RawRoom): Room {
     isPrivate: raw.visibility === "PRIVATE",
     isLan: raw.roomType === "LAN",
     hostId: raw.hostUserId,
+    playMode: raw.playMode === "LOCAL" ? "LOCAL" : "ONLINE",
     state: raw.state ?? "WAITING",
     currentSessionId: raw.currentSessionId ?? null,
     players,
@@ -94,6 +97,7 @@ export const roomsApi = {
       roomType: req.isLan ? "LAN" : "ONLINE",
       visibility: req.isPrivate ? "PRIVATE" : "PUBLIC",
       maxPlayers: req.maxPlayers,
+      playMode: req.playMode ?? "ONLINE",
     });
     console.log(api.defaults.baseURL + "/api/rooms");
     return normalizeRoom(data);
@@ -112,6 +116,10 @@ export const roomsApi = {
   },
   leave: async (roomId: string): Promise<void> => {
     await api.post(`rooms/${roomId}/leave`);
+  },
+  addLocalPlayers: async (roomId: string, players: string[]): Promise<Room> => {
+    const { data } = await api.post<RawRoom>(`rooms/${roomId}/local-players`, { players });
+    return normalizeRoom(data);
   },
   addBot: async (roomId: string): Promise<Room> => {
     const { data } = await api.post<RawRoom>(`rooms/${roomId}/add-bot`);

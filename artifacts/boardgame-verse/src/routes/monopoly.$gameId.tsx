@@ -171,7 +171,17 @@ function mapPhase(phase: string | null | undefined) {
   }
 }
 
-function resolveRoomPlayerId(
+function isSameUser(
+  player: { id?: string; userId?: string; username?: string } | undefined,
+  user: { id?: string; username?: string } | null | undefined,
+) {
+  if (!player || !user?.id) return false;
+  return (
+    player.userId === user.id ||
+    player.id === user.id ||
+    Boolean(user.username && player.username === user.username)
+  );
+}
   rawPlayerId: string | null | undefined,
   roomPlayers: Array<{ id?: string; userId?: string }>,
 ) {
@@ -690,10 +700,9 @@ function MonopolyPage() {
   const me = useMemo(() => {
     if (!state || !user) return undefined;
     return (
-      state.players.find((p) => p.userId === user.id || p.username === user.username) ??
+      state.players.find((p) => p.userId === user.id) ??
       state.players.find((p) => p.id === user.id) ??
-      state.players.find((p) => !p.isAI) ??
-      state.players[0]
+      state.players.find((p) => p.username === user.username)
     );
   }, [state, user]);
 
@@ -799,8 +808,16 @@ function MonopolyPage() {
     );
   }
 
+  const localPlay = roomQuery.data?.playMode === "LOCAL";
   const cur = state.players[state.currentPlayerIndex] ?? state.players[0];
-  const isMyTurn = !cur.isAI && !cur.bankrupt && cur.id === me.id;
+  const seat = localPlay ? cur : me;
+  const auctionBidderId = state.auction
+    ? (state.auction.activePlayerIds[state.auction.currentBidderIndex] ??
+      state.auction.activePlayerIds[0])
+    : undefined;
+  const isMyTurn = localPlay
+    ? Boolean(seat && !seat.isAI && !seat.bankrupt)
+    : Boolean(me && !cur.isAI && !cur.bankrupt && isSameUser(cur, user));
 
   // Normal Monopoly actions are REST-authoritative; auctions remain STOMP-only.
   const sendGameAction = async (type: string, payload: Record<string, unknown> = {}) => {
@@ -862,21 +879,15 @@ function MonopolyPage() {
       return false;
     }
 
-    const requestId = crypto.randomUUID();
-    const requestStore = useWebsocketRequestStore.getState();
-    requestStore.createRequest(requestBody.type, requestId, { sessionId, type });
-
-    const dest = Topics.send.gameAction(sessionId);
-    const sent = stomp.sendMessage(dest, { requestId, ...requestBody }, requestId);
-    if (!sent) {
-      requestStore.failRequest(requestId, "CONNECTION_ERROR", "Unable to contact server");
-      toast.error("Action failed", {
-        description: "Realtime connection is unavailable. Reconnect before retrying the action.",
-      });
+    try {
+      const nextState = await monopolyApi.action<MonopolySessionSnapshot>(sessionId, requestBody);
+      const backend = unwrapBackend(nextState);
+      if (backend) applyMonopolyState(backend, sessionId);
+      return true;
+    } catch (error) {
+      console.error("[monopoly] REST action failed", type, error);
       return false;
     }
-
-    return true;
   };
 
   return (
@@ -889,11 +900,20 @@ function MonopolyPage() {
         <header className="flex items-end justify-between mb-4 shrink-0">
           <div>
             <div className="text-[10px] font-mono uppercase tracking-[0.4em] text-[#d4a843] mb-1">
-              Multiplayer Match
+              {localPlay ? "Same device" : "Multiplayer Match"}
             </div>
             <h1 className="font-display text-4xl md:text-5xl font-bold uppercase gold-text-glow">
               Bharat Business
             </h1>
+            {localPlay && (
+              <p className="mt-2 text-sm font-mono text-[#d4a843]">
+                Pass the device to{" "}
+                {state.phase === "auction"
+                  ? (state.players.find((player) => player.id === auctionBidderId)?.username ??
+                    cur.username)
+                  : cur.username}
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             <NeonButton variant="ghost" size="sm" onClick={() => setBankOpen(true)}>
@@ -956,9 +976,9 @@ function MonopolyPage() {
                   player={p}
                   playerIndex={i}
                   isCurrent={state.players[state.currentPlayerIndex]?.id === p.id}
-                  isMe={p.id === me.id}
+                  isMe={p.id === seat.id}
                   onSelectTile={(i) => setOpenTile(i)}
-                  onProposeTrade={p.id !== me.id ? () => setTradePartner(p.id) : undefined}
+                  onProposeTrade={p.id !== seat.id ? () => setTradePartner(p.id) : undefined}
                 />
               </div>
             ))}
@@ -977,7 +997,7 @@ function MonopolyPage() {
           <aside className="space-y-4 order-3 overflow-y-auto pb-4 flex flex-col">
             <ActionBar
               state={state}
-              me={me}
+              me={seat}
               isMyTurn={isMyTurn}
               onRoll={() => sendGameAction("ROLL")}
               onBuy={() =>
@@ -1034,17 +1054,17 @@ function MonopolyPage() {
             tileIndex={openTile}
             onClose={() => setOpenTile(null)}
             onBuild={
-              state.properties[openTile]?.ownerId === me.id
+              state.properties[openTile]?.ownerId === seat.id
                 ? () => sendGameAction("BUILD_HOUSE", { tileIndex: openTile })
                 : undefined
             }
             onSell={
-              state.properties[openTile]?.ownerId === me.id && state.properties[openTile].houses > 0
+              state.properties[openTile]?.ownerId === seat.id && state.properties[openTile].houses > 0
                 ? () => sendGameAction("SELL_HOUSE", { tileIndex: openTile })
                 : undefined
             }
             onMortgage={
-              state.properties[openTile]?.ownerId === me.id
+              state.properties[openTile]?.ownerId === seat.id
                 ? () => sendGameAction("TOGGLE_MORTGAGE", { tileIndex: openTile })
                 : undefined
             }
@@ -1054,7 +1074,7 @@ function MonopolyPage() {
         {state.phase === "auction" && state.auction && (
           <AuctionPanel
             state={state}
-            meId={me.id}
+            meId={localPlay ? (auctionBidderId ?? seat.id) : me.id}
             onBid={(amount) => sendGameAction("PLACE_BID", { amount })}
             onPass={() => sendGameAction("PASS_BID")}
           />
@@ -1063,7 +1083,7 @@ function MonopolyPage() {
         {tradePartner && (
           <TradePanel
             state={state}
-            meId={me.id}
+            meId={seat.id}
             partnerId={tradePartner}
             onClose={() => setTradePartner(null)}
             onPropose={(offer) => {
@@ -1073,7 +1093,7 @@ function MonopolyPage() {
           />
         )}
 
-        {state.trade && state.trade.toId === me.id && (
+        {state.trade && (localPlay || state.trade.toId === me.id) && (
           <TradePanel
             state={state}
             meId={state.trade.toId}
