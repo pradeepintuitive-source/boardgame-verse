@@ -19,6 +19,7 @@ import { stomp } from "../websocket/stompClient";
 import { useConnectionStore } from "../store/connectionStore";
 import { useWebsocketRequestStore } from "../store/requestStore";
 import { VoiceChatPanel } from "../components/voice/VoiceChatPanel";
+import { roomsApi } from "../services/rooms";
 
 export const Route = createFileRoute("/lobby/$roomId")({
   head: () => ({
@@ -26,6 +27,9 @@ export const Route = createFileRoute("/lobby/$roomId")({
       { title: "Lobby — GameHub" },
       { name: "description", content: "Waiting room before the match starts." },
     ],
+  }),
+  validateSearch: (s: Record<string, unknown>): { mode?: "local" } => ({
+    mode: s.mode === "local" ? "local" : undefined,
   }),
   component: LobbyPage,
 });
@@ -88,6 +92,10 @@ function LobbyPage() {
   }, [wsConnected, roomId, qc]);
 
   const room = roomQuery.data;
+  const requestedLocal = Route.useSearch().mode === "local";
+  const [names, setNames] = useState(["Player 1", "Player 2"]);
+  const [seatError, setSeatError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
   const [copied, setCopied] = useState(false);
   const pendingRequests = useWebsocketRequestStore((s) => s.pendingRequests);
   const pendingReady = pendingRequests.some((req) => req.action === "READY");
@@ -108,10 +116,19 @@ function LobbyPage() {
   }
 
   const isHost = user?.id === room.hostId;
-  const localPlay = room.playMode === "LOCAL";
+  const localPlay = room.playMode === "LOCAL" || requestedLocal;
+
+  const setPlayerCount = (next: number) => {
+    const count = Math.min(6, Math.max(2, next));
+    setNames((current) => {
+      const copy = current.slice(0, count);
+      while (copy.length < count) copy.push(`Player ${copy.length + 1}`);
+      return copy;
+    });
+  };
   const minPlayers = 2;
   const allReady = localPlay
-    ? room.players.length >= minPlayers
+    ? names.length >= minPlayers
     : room.players.every((p) => p.ready) && room.players.length >= minPlayers;
 
   const copy = async () => {
@@ -130,6 +147,12 @@ function LobbyPage() {
 
     if (room.gameType === "monopoly") {
       try {
+        setStarting(true);
+        setSeatError(null);
+        if (localPlay) {
+          const seatedNames = names.map((entry, index) => entry.trim() || `Player ${index + 1}`);
+          await roomsApi.addLocalPlayers(room.id, seatedNames);
+        }
         const response = await startGameMut.mutateAsync(room.id);
         const sessionId = response.sessionId;
         // Poll the games snapshot endpoint until it's available to avoid hydration race
@@ -152,6 +175,9 @@ function LobbyPage() {
         navigate({ to: "/monopoly/$gameId", params: { gameId: sessionId } });
       } catch (error) {
         console.error("Failed to start Monopoly game", error);
+        setSeatError(error instanceof Error ? error.message : "Could not start the match.");
+      } finally {
+        setStarting(false);
       }
     }
   };
@@ -227,6 +253,54 @@ function LobbyPage() {
 
         <div className="grid lg:grid-cols-[1fr_320px] gap-6">
           <section>
+            {localPlay && isHost && (
+              <div className="glass-panel p-6 mb-6 space-y-4">
+                <div className="text-[10px] font-mono uppercase tracking-widest text-[#d4a843]">
+                  Players on this device
+                </div>
+                <div className="flex items-center h-[46px] bg-[#0d0d12] border border-[rgba(212,168,67,0.2)] rounded-sm">
+                  <button
+                    type="button"
+                    onClick={() => setPlayerCount(names.length - 1)}
+                    disabled={names.length <= 2}
+                    className="grid h-full w-12 place-items-center text-white/60 hover:bg-white/5 hover:text-[#d4a843] disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    −
+                  </button>
+                  <div className="flex-1 text-center font-mono text-white">{names.length}</div>
+                  <button
+                    type="button"
+                    onClick={() => setPlayerCount(names.length + 1)}
+                    disabled={names.length >= 6}
+                    className="grid h-full w-12 place-items-center text-white/60 hover:bg-white/5 hover:text-[#d4a843] disabled:cursor-not-allowed disabled:opacity-30"
+                  >
+                    +
+                  </button>
+                </div>
+                {names.map((playerName, index) => (
+                  <label key={index} className="block">
+                    <span className="text-[10px] font-mono uppercase tracking-widest text-[#9baab8] mb-1 block">
+                      Player {index + 1}
+                    </span>
+                    <input
+                      value={playerName}
+                      onChange={(e) =>
+                        setNames((current) =>
+                          current.map((entry, entryIndex) =>
+                            entryIndex === index ? e.target.value : entry,
+                          ),
+                        )
+                      }
+                      placeholder={`Player ${index + 1}`}
+                      className="w-full bg-[#0d0d12] border border-[rgba(212,168,67,0.2)] px-4 py-3 font-mono focus:border-[#d4a843] outline-none text-white rounded-sm transition-colors"
+                    />
+                  </label>
+                ))}
+                {seatError && <p className="text-[#e05060] text-sm font-mono">{seatError}</p>}
+              </div>
+            )}
+            {!localPlay && (
+            <>
             <div className="text-[10px] font-mono uppercase tracking-widest text-[#9baab8] mb-3">
               Connected Players ({room.players.length})
             </div>
@@ -300,6 +374,8 @@ function LobbyPage() {
                   </div>
                 ))}
             </div>
+            </>
+            )}
           </section>
 
           <aside className="space-y-4">
@@ -322,13 +398,15 @@ function LobbyPage() {
                 <NeonButton
                   variant="gold"
                   size="md"
-                  disabled={!allReady}
+                  disabled={!allReady || starting}
                   onClick={start}
                   className="w-full"
                 >
-                  {allReady
-                    ? "Start Match"
-                    : `Need ${Math.max(0, minPlayers - room.players.length)} more`}
+                  {starting
+                    ? "Starting..."
+                    : allReady
+                      ? "Start Match"
+                      : `Need ${Math.max(0, minPlayers - room.players.length)} more`}
                 </NeonButton>
               </div>
             )}

@@ -97,7 +97,6 @@ export const roomsApi = {
       roomType: req.isLan ? "LAN" : "ONLINE",
       visibility: req.isPrivate ? "PRIVATE" : "PUBLIC",
       maxPlayers: req.maxPlayers,
-      playMode: req.playMode ?? "ONLINE",
     });
     console.log(api.defaults.baseURL + "/api/rooms");
     return normalizeRoom(data);
