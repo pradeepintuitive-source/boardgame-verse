@@ -93,7 +93,12 @@ export type MonopolyActionType =
   | "AUCTION"
   | "BANK_ADJUST"
   | "BANK_TRANSFER"
-  | "END_TURN";
+  | "END_TURN"
+  | "PAY_DEBT"
+  | "DECLARE_BANKRUPTCY"
+  | "PROPOSE_SALE"
+  | "ACCEPT_SALE"
+  | "DECLINE_SALE";
 
 export interface MonopolyActionRequest {
   type: MonopolyActionType;
@@ -117,6 +122,7 @@ export type MonopolyPhase =
   | "landed" // awaiting action on landed tile
   | "auction"
   | "trade"
+  | "debt"
   | "paused"
   | "ended";
 
@@ -125,6 +131,20 @@ export interface MonopolyLog {
   text: string;
   ts: number;
   kind: "info" | "money" | "event" | "trade";
+}
+
+export interface PendingDebt {
+  debtorId: string;
+  creditorId: string | null;
+  amount: number;
+  reason: string;
+}
+
+export interface PendingSale {
+  sellerId: string;
+  buyerId: string;
+  tilePosition: number;
+  price: number;
 }
 
 export interface MonopolyState {
@@ -146,4 +166,6 @@ export interface MonopolyState {
   log: MonopolyLog[];
   winnerId: string | null;
   activeEvent: ActiveIndianEvent | null;
+  pendingDebt: PendingDebt | null;
+  pendingSale: PendingSale | null;
 }

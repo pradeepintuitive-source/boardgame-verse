@@ -1,5 +1,5 @@
-import { Dice5, ArrowRight, ShoppingBag, Gavel, Lock, Ticket } from "lucide-react";
-import { BOARD } from "../../data/monopolyBoard";
+import { Dice5, ShoppingBag, Gavel, Lock, Ticket, TrendingUp } from "lucide-react";
+import { BOARD, DEVELOPMENT_LABELS } from "../../data/monopolyBoard";
 import type { MonopolyPlayer, MonopolyState } from "../../models/monopoly";
 import { formatInr, effectiveJailFee } from "../../utils/monopolyEngine";
 import { NeonButton } from "../common/NeonButton";
@@ -12,9 +12,11 @@ interface Props {
   onRoll: () => void;
   onBuy: () => void;
   onAuction: () => void;
-  onEnd: () => void;
+  onEnd?: () => void;
   onPayJail: () => void;
   onJailCard: () => void;
+  upgradeTile?: number | null;
+  onUpgrade?: () => void;
 }
 
 export function ActionBar({
@@ -27,12 +29,18 @@ export function ActionBar({
   onEnd,
   onPayJail,
   onJailCard,
+  upgradeTile = null,
+  onUpgrade,
 }: Props) {
   const cur = state.players[state.currentPlayerIndex] ?? state.players[0];
   const pending = state.pendingPurchaseTile;
   const tile = pending != null ? BOARD[pending] : null;
   const price = tile?.price ?? 0;
   const canAfford = me.cash >= price;
+  const revisit = upgradeTile != null ? BOARD[upgradeTile] : null;
+  const revisitLevel = upgradeTile != null ? (state.properties[upgradeTile]?.houses ?? 0) : 0;
+  const revisitCost = revisit?.housePrice ?? 0;
+  const canAffordUpgrade = me.cash >= revisitCost;
 
   return (
     <div
@@ -60,6 +68,12 @@ export function ActionBar({
         </div>
         <Dice roll={state.lastRoll} />
       </div>
+
+      {state.phase === "debt" && (
+        <div className="text-[11px] font-mono text-[#e05060]">
+          Settle the debt before the turn can continue.
+        </div>
+      )}
 
       {/* ── Rolling phase ── */}
       {state.phase === "rolling" && (
@@ -127,11 +141,37 @@ export function ActionBar({
         </div>
       )}
 
-      {/* ── End turn ── */}
-      {isMyTurn && state.phase === "landed" && pending == null && (
-        <NeonButton onClick={onEnd} icon={<ArrowRight className="size-4" />}>
-          End Turn
-        </NeonButton>
+      {isMyTurn && state.phase === "landed" && pending == null && revisit && onUpgrade && (
+        <div className="rounded-sm border border-[rgba(212,168,67,0.2)] bg-[#1a1508] p-3">
+          <div className="text-[9px] font-mono uppercase tracking-widest text-[#9baab8] mb-1">
+            Landed on your city
+          </div>
+          <div className="font-display text-base font-bold mb-0.5" style={{ color: "#d4a843" }}>
+            {revisit.name}
+          </div>
+          <div className="text-sm font-mono mb-3" style={{ color: "#d4a843" }}>
+            Upgrade to {DEVELOPMENT_LABELS[Math.min(revisitLevel + 1, 5)]} · {formatInr(revisitCost)}
+            {!canAffordUpgrade && (
+              <span className="ml-2 text-[10px] text-[#e05060]">Insufficient funds</span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <NeonButton
+              variant="gold"
+              size="sm"
+              onClick={onUpgrade}
+              disabled={!canAffordUpgrade}
+              icon={<TrendingUp className="size-3.5" />}
+            >
+              Upgrade
+            </NeonButton>
+            {onEnd && (
+              <NeonButton variant="ghost" size="sm" onClick={onEnd}>
+                Skip
+              </NeonButton>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

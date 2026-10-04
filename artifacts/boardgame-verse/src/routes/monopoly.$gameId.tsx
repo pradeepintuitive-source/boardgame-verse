@@ -7,10 +7,12 @@ import { NeonButton } from "../components/common/NeonButton";
 import { ChatDrawer } from "../components/chat/ChatDrawer";
 import { Board } from "../components/monopoly/Board";
 import { ActionBar } from "../components/monopoly/ActionBar";
+import { DebtPanel } from "../components/monopoly/DebtPanel";
 import { PlayerPanel } from "../components/monopoly/PlayerPanel";
 import { PropertyCard } from "../components/monopoly/PropertyCard";
 import { VoiceChatPanel } from "../components/voice/VoiceChatPanel";
 import { AuctionPanel } from "../components/monopoly/AuctionPanel";
+import { UpgradePrompt } from "../components/monopoly/UpgradePrompt";
 import { BOARD } from "../data/monopolyBoard";
 import { TradePanel } from "../components/monopoly/TradePanel";
 import { EventLog } from "../components/monopoly/EventLog";
@@ -34,7 +36,14 @@ import type {
 } from "../models/monopoly";
 import { toast } from "sonner";
 import { useWebsocketRequestStore } from "../store/requestStore";
-import { formatInr, minAuctionBid, snapAuctionBid } from "../utils/monopolyEngine";
+import {
+  formatInr,
+  landingUpgradeOfferKey,
+  landingUpgradeTile,
+  minAuctionBid,
+  snapAuctionBid,
+  upgradeActionFor,
+} from "../utils/monopolyEngine";
 import { useConnectionStore } from "../store/connectionStore";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -86,11 +95,12 @@ type MonopolyBackendState = {
   sessionId?: string;
   phase?: string;
   currentPlayerId?: string;
+  currentTurn?: number;
   lastDiceTotal?: number;
   consecutiveDoubles?: number;
   assets?: Record<string, MonopolyAssetSnapshot>;
   owners?: Record<string, string>;
-  developments?: Record<string, { houses?: number }>;
+  developments?: Record<string, { houses?: number; hotel?: boolean }>;
   mortgagedTiles?: number[];
   board?: {
     chanceDeck?: number[];
@@ -102,6 +112,18 @@ type MonopolyBackendState = {
   trade?: MonopolyState["trade"];
   log?: string[];
   winnerId?: string | null;
+  pendingDebt?: {
+    debtorId?: string;
+    creditorId?: string | null;
+    amount?: number;
+    reason?: string;
+  } | null;
+  pendingSale?: {
+    sellerId?: string;
+    buyerId?: string;
+    tilePosition?: number;
+    price?: number;
+  } | null;
   activeEvent?: {
     id?: string;
     title?: string;
@@ -162,6 +184,8 @@ function mapPhase(phase: string | null | undefined) {
       return "trade";
     case "WAITING_FOR_AUCTION":
       return "auction";
+    case "RAISING_FUNDS":
+      return "debt";
     case "PAUSED":
       return "rolling";
     case "ENDED":
@@ -253,6 +277,21 @@ function buildMonopolyActionRequest(
     case "END_TURN":
       actionType = "END_TURN";
       break;
+    case "PAY_DEBT":
+      actionType = "PAY_DEBT";
+      break;
+    case "DECLARE_BANKRUPTCY":
+      actionType = "DECLARE_BANKRUPTCY";
+      break;
+    case "PROPOSE_SALE":
+      actionType = "PROPOSE_SALE";
+      break;
+    case "ACCEPT_SALE":
+      actionType = "ACCEPT_SALE";
+      break;
+    case "DECLINE_SALE":
+      actionType = "DECLINE_SALE";
+      break;
     case "PAY_JAIL":
       actionType = "PAY_JAIL";
       break;
@@ -261,6 +300,9 @@ function buildMonopolyActionRequest(
       break;
     case "BUILD_HOUSE":
       actionType = "BUILD_HOUSE";
+      break;
+    case "BUILD_HOTEL":
+      actionType = "BUILD_HOTEL";
       break;
     case "SELL_HOUSE":
       actionType = "SELL_HOUSE";
@@ -336,20 +378,11 @@ function unwrapBackend(
 
 function backendProgress(backend: MonopolyBackendState | null | undefined): number {
   if (!backend) return -1;
-  const assets = Object.values(backend.assets ?? {});
-  const positions = assets.reduce((sum, asset) => sum + (asset.position ?? 0), 0);
-  const ownedFromAssets = assets.reduce(
-    (sum, asset) => sum + (asset.ownedTilePositions?.length ?? 0),
-    0,
-  );
-  const owners = Object.keys(backend.owners ?? {}).length;
-  return (
-    owners * 1000 +
-    ownedFromAssets * 1000 +
-    positions * 10 +
-    (backend.log?.length ?? 0) +
-    (backend.lastDiceTotal ?? 0)
-  );
+  // Turn count and log length only move forward. Board position does not:
+  // passing GO drops the position sum, which used to discard the salary
+  // update until a refresh painted the higher balance.
+  const turn = backend.currentTurn ?? 0;
+  return turn * 1_000_000 + (backend.log?.length ?? 0);
 }
 
 function findPlayerAsset(
@@ -451,7 +484,7 @@ function mapSnapshotToState(
     });
   }
 
-  const developments: Record<string, { houses?: number }> = backend.developments ?? {};
+  const developments: Record<string, { houses?: number; hotel?: boolean }> = backend.developments ?? {};
   const mortgaged = new Set<number>(backend.mortgagedTiles ?? []);
 
   Object.keys(owners).forEach((k) => {
@@ -460,7 +493,7 @@ function mapSnapshotToState(
     const dev = developments[pos] ?? null;
     properties[pos] = {
       ownerId,
-      houses: dev ? (dev.houses ?? 0) : 0,
+      houses: dev?.hotel ? 5 : dev ? (dev.houses ?? 0) : 0,
       mortgaged: mortgaged.has(pos),
     };
   });
@@ -536,6 +569,36 @@ function mapSnapshotToState(
           expiresOnTurn: backend.activeEvent.expiresOnTurn ?? 0,
         }
       : null,
+    pendingDebt: mapParty(backend.pendingDebt, roomPlayers),
+    pendingSale: mapSale(backend.pendingSale, roomPlayers),
+  };
+}
+
+function mapParty(
+  debt: MonopolyBackendState["pendingDebt"],
+  roomPlayers: Array<{ id?: string; userId?: string }>,
+) {
+  if (!debt?.debtorId || debt.amount == null) return null;
+  return {
+    debtorId: resolveRoomPlayerId(String(debt.debtorId), roomPlayers) ?? String(debt.debtorId),
+    creditorId: debt.creditorId
+      ? (resolveRoomPlayerId(String(debt.creditorId), roomPlayers) ?? String(debt.creditorId))
+      : null,
+    amount: Number(debt.amount),
+    reason: debt.reason ?? "Debt",
+  };
+}
+
+function mapSale(
+  sale: MonopolyBackendState["pendingSale"],
+  roomPlayers: Array<{ id?: string; userId?: string }>,
+) {
+  if (!sale?.sellerId || !sale.buyerId || sale.tilePosition == null || sale.price == null) return null;
+  return {
+    sellerId: resolveRoomPlayerId(String(sale.sellerId), roomPlayers) ?? String(sale.sellerId),
+    buyerId: resolveRoomPlayerId(String(sale.buyerId), roomPlayers) ?? String(sale.buyerId),
+    tilePosition: Number(sale.tilePosition),
+    price: Number(sale.price),
   };
 }
 
@@ -608,11 +671,11 @@ function MonopolyPage() {
   }, [roomQuery.data]);
 
   const applyMonopolyState = useCallback(
-    (nextState: MonopolyBackendState, nextSessionId?: string) => {
+    (nextState: MonopolyBackendState, nextSessionId?: string, force = false) => {
       const incomingScore = backendProgress(nextState);
       const liveScore = backendProgress(latestBackendRef.current);
       const source =
-        incomingScore < liveScore && latestBackendRef.current
+        !force && incomingScore < liveScore && latestBackendRef.current
           ? latestBackendRef.current
           : nextState;
       if (source === nextState) latestBackendRef.current = nextState;
@@ -676,6 +739,7 @@ function MonopolyPage() {
   const [openTile, setOpenTile] = useState<number | null>(null);
   const [tradePartner, setTradePartner] = useState<string | null>(null);
   const [bankOpen, setBankOpen] = useState(false);
+  const [dismissedUpgradeKey, setDismissedUpgradeKey] = useState<string | null>(null);
 
   useEffect(() => {
     latestBackendRef.current = null;
@@ -751,6 +815,35 @@ function MonopolyPage() {
     }
   }, [snapshot.dataUpdatedAt, roomQuery.data, gameId, sessionId, setGame]);
 
+  // Turns with nothing left to choose (rent, tax, cards, a finished purchase)
+  // are passed on by the server. This covers a board already sitting in that
+  // state, so nobody has to press End Turn.
+  const handoverAttempt = useRef<string | null>(null);
+  useEffect(() => {
+    if (!state || !user || !sessionId || state.phase !== "landed") return;
+    if (state.pendingPurchaseTile != null || state.auction || state.pendingDebt) return;
+    const player = state.players[state.currentPlayerIndex];
+    if (!player || player.isAI || player.bankrupt) return;
+    const localPlay = roomQuery.data?.playMode === "LOCAL";
+    const mine = localPlay || isSameUser(player, user);
+    if (!mine) return;
+    if (landingUpgradeTile(state, player.id) != null) return;
+    const key = `${state.currentPlayerIndex}:${state.log.length}:${player.position}`;
+    if (handoverAttempt.current === key) return;
+    handoverAttempt.current = key;
+    const request = buildMonopolyActionRequest("END_TURN", {}, state);
+    if (!request) return;
+    void monopolyApi
+      .action<MonopolySessionSnapshot>(sessionId, request)
+      .then((next) => {
+        const backend = unwrapBackend(next);
+        if (backend) applyMonopolyState(backend, sessionId, true);
+      })
+      .catch((error) => {
+        console.error("[monopoly] automatic handover failed", error);
+      });
+  }, [state, user, sessionId, roomQuery.data?.playMode, applyMonopolyState]);
+
   // Show loading until snapshot and room are available, store hydrated, and user resolved
   if (
     snapshot.isLoading ||
@@ -811,6 +904,7 @@ function MonopolyPage() {
   }
 
   const localPlay = roomQuery.data?.playMode === "LOCAL";
+  const multiDevice = roomQuery.data?.playMode === "ONLINE";
   const cur = state.players[state.currentPlayerIndex] ?? state.players[0];
   const seat = localPlay ? cur : me;
   const auctionBidderId = state.auction
@@ -820,12 +914,30 @@ function MonopolyPage() {
   const isMyTurn = localPlay
     ? Boolean(seat && !seat.isAI && !seat.bankrupt)
     : Boolean(me && !cur.isAI && !cur.bankrupt && isSameUser(cur, user));
+  const debtor = state.pendingDebt
+    ? state.players.find((player) => player.id === state.pendingDebt?.debtorId)
+    : undefined;
+  const saleBuyer = state.pendingSale
+    ? state.players.find((player) => player.id === state.pendingSale?.buyerId)
+    : undefined;
+  const canResolveDebt =
+    state.phase === "debt" && Boolean(debtor) && (localPlay || isSameUser(debtor, user));
+  const canAnswerSale =
+    state.phase === "debt" && Boolean(saleBuyer) && (localPlay || isSameUser(saleBuyer, user));
+  const revisitUpgrade = isMyTurn && seat ? landingUpgradeTile(state, seat.id) : null;
+  const upgradeOfferKey =
+    multiDevice && isMyTurn && seat ? landingUpgradeOfferKey(state, seat.id) : null;
+  const showUpgradePrompt = upgradeOfferKey != null && upgradeOfferKey !== dismissedUpgradeKey;
 
   // Normal Monopoly actions are REST-authoritative; auctions remain STOMP-only.
   const sendGameAction = async (type: string, payload: Record<string, unknown> = {}) => {
     if (!sessionId) return false;
     const isAuctionAct = type === "PLACE_BID" || type === "PASS_BID";
-    if (!isMyTurn && !isAuctionAct) {
+    const debtAction =
+      canResolveDebt &&
+      ["SELL_HOUSE", "TOGGLE_MORTGAGE", "PAY_DEBT", "DECLARE_BANKRUPTCY", "PROPOSE_SALE"].includes(type);
+    const saleAction = canAnswerSale && (type === "ACCEPT_SALE" || type === "DECLINE_SALE");
+    if (!isMyTurn && !isAuctionAct && !debtAction && !saleAction) {
       console.warn(
         `[game] ignoring "${type}" — it's ${cur.username}'s turn, not yours (${me.username}).`,
       );
@@ -884,7 +996,7 @@ function MonopolyPage() {
     try {
       const nextState = await monopolyApi.action<MonopolySessionSnapshot>(sessionId, requestBody);
       const backend = unwrapBackend(nextState);
-      if (backend) applyMonopolyState(backend, sessionId);
+      if (backend) applyMonopolyState(backend, sessionId, true);
       return true;
     } catch (error) {
       console.error("[monopoly] REST action failed", type, error);
@@ -910,7 +1022,9 @@ function MonopolyPage() {
             {localPlay && (
               <p className="mt-1 text-xs font-mono text-[#d4a843] sm:mt-2 sm:text-sm">
                 Pass the device to{" "}
-                {state.phase === "auction"
+                {state.phase === "debt"
+                  ? (debtor?.username ?? cur.username)
+                  : state.phase === "auction"
                   ? (state.players.find((player) => player.id === auctionBidderId)?.username ??
                     cur.username)
                   : cur.username}
@@ -991,12 +1105,30 @@ function MonopolyPage() {
             <Board
               state={state}
               onTileClick={(i) => setOpenTile(i)}
-              highlightTile={state.pendingPurchaseTile}
+              highlightTile={state.pendingPurchaseTile ?? revisitUpgrade}
             />
           </section>
 
           {/* Action + log */}
           <aside className="order-2 flex min-w-0 flex-col gap-3 lg:order-3 lg:min-h-0 lg:overflow-y-auto lg:pb-2">
+            {state.phase === "debt" && state.pendingDebt && (
+              <DebtPanel
+                state={state}
+                debt={state.pendingDebt}
+                sale={state.pendingSale}
+                canResolve={canResolveDebt}
+                canAnswerSale={canAnswerSale}
+                onSellBuilding={(tileIndex) => sendGameAction("SELL_HOUSE", { tileIndex })}
+                onMortgage={(tileIndex) => sendGameAction("TOGGLE_MORTGAGE", { tileIndex })}
+                onProposeSale={(tileIndex, buyerId, price) =>
+                  sendGameAction("PROPOSE_SALE", { tileIndex, targetPlayerId: buyerId, amount: price })
+                }
+                onAcceptSale={() => sendGameAction("ACCEPT_SALE")}
+                onDeclineSale={() => sendGameAction("DECLINE_SALE")}
+                onPay={() => sendGameAction("PAY_DEBT")}
+                onBankrupt={() => sendGameAction("DECLARE_BANKRUPTCY")}
+              />
+            )}
             <ActionBar
               state={state}
               me={seat}
@@ -1010,9 +1142,20 @@ function MonopolyPage() {
                   tileIndex: state.pendingPurchaseTile ?? undefined,
                 })
               }
-              onEnd={() => sendGameAction("END_TURN")}
+              onEnd={
+                revisitUpgrade != null ? () => sendGameAction("END_TURN") : undefined
+              }
               onPayJail={() => sendGameAction("PAY_JAIL")}
               onJailCard={() => sendGameAction("USE_JAIL_CARD")}
+              upgradeTile={localPlay ? revisitUpgrade : null}
+              onUpgrade={
+                localPlay && revisitUpgrade != null
+                  ? () =>
+                      sendGameAction(upgradeActionFor(state, revisitUpgrade), {
+                        tileIndex: revisitUpgrade,
+                      })
+                  : undefined
+              }
             />
             <EventLog log={state.log} />
           </aside>
@@ -1050,14 +1193,31 @@ function MonopolyPage() {
       </main>
 
       <AnimatePresence>
+        {showUpgradePrompt && revisitUpgrade != null && seat && (
+          <UpgradePrompt
+            state={state}
+            tileIndex={revisitUpgrade}
+            cash={seat.cash}
+            onUpgrade={() =>
+              sendGameAction(upgradeActionFor(state, revisitUpgrade), {
+                tileIndex: revisitUpgrade,
+              })
+            }
+            onCancel={() => {
+              setDismissedUpgradeKey(upgradeOfferKey);
+              void sendGameAction("END_TURN");
+            }}
+          />
+        )}
         {openTile != null && (
           <PropertyCard
             state={state}
             tileIndex={openTile}
             onClose={() => setOpenTile(null)}
             onBuild={
-              state.properties[openTile]?.ownerId === seat.id
-                ? () => sendGameAction("BUILD_HOUSE", { tileIndex: openTile })
+              localPlay && revisitUpgrade === openTile
+                ? () =>
+                    sendGameAction(upgradeActionFor(state, openTile), { tileIndex: openTile })
                 : undefined
             }
             onSell={

@@ -31,6 +31,51 @@ export function formatInr(value: number): string {
   return `₹${value.toLocaleString("en-IN")}`;
 }
 
+/** City the player may upgrade because they just landed on it again. One level per visit. */
+export function landingUpgradeTile(state: MonopolyState, playerId: string): number | null {
+  const player = state.players.find((p) => p.id === playerId);
+  if (!player) return null;
+  const tileIndex = player.position;
+  const tile = BOARD[tileIndex];
+  const prop = state.properties[tileIndex];
+  if (!tile || tile.type !== "property" || !prop) return null;
+  if (prop.ownerId !== playerId || prop.mortgaged || prop.houses >= 5) return null;
+  if (!upgradeOfferedThisVisit(state.log.map((entry) => entry.text), tile.name)) return null;
+  return tileIndex;
+}
+
+export function upgradeActionFor(state: MonopolyState, tileIndex: number): "BUILD_HOUSE" | "BUILD_HOTEL" {
+  return (state.properties[tileIndex]?.houses ?? 0) >= 4 ? "BUILD_HOTEL" : "BUILD_HOUSE";
+}
+
+/** Stable id for one landing, so Cancel hides the prompt until the next visit. */
+export function landingUpgradeOfferKey(state: MonopolyState, playerId: string): string | null {
+  const tileIndex = landingUpgradeTile(state, playerId);
+  if (tileIndex == null) return null;
+  const marker = `Upgrade available on ${BOARD[tileIndex].name}`;
+  let at = -1;
+  for (let i = state.log.length - 1; i >= 0; i--) {
+    if (state.log[i].text === marker) {
+      at = i;
+      break;
+    }
+  }
+  return `${playerId}:${tileIndex}:${at}`;
+}
+
+function upgradeOfferedThisVisit(lines: string[], tileName: string): boolean {
+  const marker = `Upgrade available on ${tileName}`;
+  const built = `House built on ${tileName}`;
+  const hotel = `Hotel built on ${tileName}`;
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i];
+    if (line.startsWith("Turn ended")) return false;
+    if (line.startsWith(built) || line.startsWith(hotel)) return false;
+    if (line === marker) return true;
+  }
+  return false;
+}
+
 function log(state: MonopolyState, text: string, kind: MonopolyLog["kind"] = "info") {
   state.log = [...state.log, { id: uid("ml"), text, ts: Date.now(), kind }].slice(-200);
 }
@@ -81,6 +126,8 @@ export function initMonopolyGame(gameId: string, players: Player[]): MonopolySta
     log: [{ id: uid("ml"), text: "Match begins. Roll the dice!", ts: Date.now(), kind: "event" }],
     winnerId: null,
     activeEvent: null,
+    pendingDebt: null,
+    pendingSale: null,
   };
   return state;
 }
