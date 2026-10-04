@@ -140,6 +140,8 @@ class GameHubStompClient {
 
   subscribe(destination: string, handler: Handler) {
     console.log("subscribe() called:", destination);
+    const existing = this.subs.get(destination);
+    if (existing?.stomp?.unsubscribe) existing.stomp.unsubscribe();
     if (!this.client?.connected) {
       // Queue the handler — onConnect will rebind.
       this.subs.set(destination, { stomp: {} as StompSubscription, handler });

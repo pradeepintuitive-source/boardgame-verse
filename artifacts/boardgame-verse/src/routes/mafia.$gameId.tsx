@@ -10,6 +10,7 @@ import { NightActionPanel } from "../components/mafia/NightActionPanel";
 import { VotingPanel } from "../components/mafia/VotingPanel";
 import { ModeratorPanel } from "../components/mafia/ModeratorPanel";
 import { ChatDrawer } from "../components/chat/ChatDrawer";
+import { VoiceChatPanel } from "../components/voice/VoiceChatPanel";
 import { useGameStore } from "../store/gameStore";
 import { useAuthStore } from "../store/authStore";
 import { beginVoting, castVote, resolveNight, resolveVoting } from "../utils/mafiaEngine";
@@ -142,12 +143,27 @@ function MafiaPage() {
                     : "Match Over"}
             </h1>
           </div>
-          <button
-            onClick={() => setShowRole(true)}
-            className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-medium hover:border-accent-cyan"
-          >
-            My role
-          </button>
+          <div className="flex items-center gap-2">
+            {user?.id && (
+              <VoiceChatPanel
+                compact
+                roomId={gameId}
+                selfUserId={user.id}
+                userLookup={Object.fromEntries(
+                  state.players.map((player) => [
+                    player.userId || player.id,
+                    { username: player.username, avatarColor: player.avatarColor },
+                  ]),
+                )}
+              />
+            )}
+            <button
+              onClick={() => setShowRole(true)}
+              className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs font-medium hover:border-accent-cyan"
+            >
+              My role
+            </button>
+          </div>
         </header>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6">

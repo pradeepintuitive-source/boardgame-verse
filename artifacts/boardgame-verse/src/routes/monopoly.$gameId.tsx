@@ -835,12 +835,12 @@ function MonopolyPage() {
           </div>
         </header>
 
-        {roomId && (
+        {roomId && user?.id && (
           <div className="mb-2">
             <VoiceChatPanel
               compact
               roomId={roomId}
-              selfUserId={user?.id ?? me?.userId ?? ""}
+              selfUserId={user.id}
               userLookup={voiceUserLookup}
             />
           </div>

@@ -38,7 +38,7 @@ type PeerLink = {
   makingOffer: boolean;
   iceRestarted: boolean;
   pendingCandidates: RTCIceCandidateInit[];
-  remoteSource: MediaStreamAudioSourceNode | null;
+  remoteAudio: HTMLAudioElement | null;
 };
 
 type ActiveSession = {
@@ -58,16 +58,6 @@ type ActiveSession = {
 let active: ActiveSession | null = null;
 let joining: Promise<void> | null = null;
 let suppressAutoJoin = false;
-let outputContext: AudioContext | null = null;
-
-function audioOutput() {
-  const Ctx =
-    window.AudioContext ||
-    (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!Ctx) return null;
-  if (!outputContext || outputContext.state === "closed") outputContext = new Ctx();
-  return outputContext;
-}
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value === "string") {
@@ -177,8 +167,15 @@ function shouldOffer(peerId: string) {
 }
 
 function resumeRemotePlayback() {
-  const context = audioOutput();
-  if (context?.state === "suspended") void context.resume();
+  if (!active) return;
+  for (const [peerId, link] of active.peers) {
+    const audio = link.remoteAudio;
+    if (!audio?.srcObject) continue;
+    audio.muted = false;
+    void audio.play().catch((error) => {
+      console.error("[voice] remote audio play() failed", peerId, error);
+    });
+  }
 }
 
 function installAudioUnlock(session: ActiveSession) {
@@ -187,15 +184,24 @@ function installAudioUnlock(session: ActiveSession) {
   session.removeUnlock = () => window.removeEventListener("pointerdown", unlock);
 }
 
+function stopRemoteAudio(link: PeerLink) {
+  if (!link.remoteAudio) return;
+  link.remoteAudio.pause();
+  link.remoteAudio.srcObject = null;
+  link.remoteAudio = null;
+}
+
 function playRemoteStream(link: PeerLink, peerId: string, stream: MediaStream) {
-  const context = audioOutput();
-  if (!context) return;
-  link.remoteSource?.disconnect();
-  const source = context.createMediaStreamSource(stream);
-  source.connect(context.destination);
-  link.remoteSource = source;
-  if (context.state === "suspended") void context.resume();
-  console.info("[voice] receiving audio from", peerId, context.state);
+  stopRemoteAudio(link);
+  const audio = new Audio();
+  audio.srcObject = stream;
+  audio.muted = false;
+  audio.autoplay = true;
+  link.remoteAudio = audio;
+  void audio.play().catch((error) => {
+    console.error("[voice] remote audio play() failed", peerId, error);
+  });
+  console.info("[voice] receiving audio from", peerId, { muted: audio.muted, tracks: stream.getAudioTracks().length });
 }
 
 function attachLocalTracks(pc: RTCPeerConnection) {
@@ -234,8 +240,7 @@ function closePeer(peerId: string) {
   link.pc.ontrack = null;
   link.pc.onconnectionstatechange = null;
   link.pc.close();
-  link.remoteSource?.disconnect();
-  link.remoteSource = null;
+  stopRemoteAudio(link);
   active?.peers.delete(peerId);
 }
 
@@ -270,7 +275,7 @@ function createPeer(peerId: string): PeerLink {
   const session = active;
   const existing = session.peers.get(peerId);
   if (existing && existing.pc.connectionState !== "closed") return existing;
-  existing?.remoteSource?.disconnect();
+  if (existing) stopRemoteAudio(existing);
   existing?.pc.close();
 
   const pc = new RTCPeerConnection(ICE_SERVERS);
@@ -279,7 +284,7 @@ function createPeer(peerId: string): PeerLink {
     makingOffer: false,
     iceRestarted: false,
     pendingCandidates: session.earlyCandidates.get(peerId) ?? [],
-    remoteSource: null,
+    remoteAudio: null,
   };
   session.earlyCandidates.delete(peerId);
   session.peers.set(peerId, link);
@@ -512,11 +517,9 @@ function destroyActive() {
   session.removeUnlock?.();
   session.peers.forEach((link) => {
     link.pc.close();
-    link.remoteSource?.disconnect();
+    stopRemoteAudio(link);
   });
   session.peers.clear();
-  void outputContext?.close();
-  outputContext = null;
   session.stream?.getTracks().forEach((track) => track.stop());
   session.unsubs.forEach((unsubscribe) => unsubscribe());
 
@@ -627,6 +630,16 @@ export async function joinVoiceSession(roomId: string, selfUserId: string) {
     session.unsubs.push(
       stomp.subscribe(Topics.privateVoice, (body) => {
         const signal = normalizeSignal(body);
+        console.info("[voice] /user/queue/voice", {
+          type: signal?.type ?? null,
+          fromUserId: signal?.fromUserId ?? null,
+          toUserId: signal?.toUserId ?? null,
+          selfUserId: session.selfUserId,
+          selfEcho: Boolean(signal?.fromUserId && signal.fromUserId === session.selfUserId),
+        });
+        if (!signal?.fromUserId) {
+          console.warn("[voice] /user/queue/voice missing fromUserId", body);
+        }
         if (signal) handleSignal(signal);
       }),
     );
