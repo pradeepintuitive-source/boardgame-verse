@@ -83,7 +83,12 @@ function Index() {
               </Link>
             ) : null}
             <Link to="/create-room">
-              <NeonButton size="lg">Create Room</NeonButton>
+              <NeonButton size="lg">Online Game</NeonButton>
+            </Link>
+            <Link to="/physical">
+              <NeonButton variant="ghost" size="lg">
+                Physical Board Game
+              </NeonButton>
             </Link>
             <Link to="/join-room">
               <NeonButton variant="ghost" size="lg">

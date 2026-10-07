@@ -13,12 +13,22 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as CreateRoomRouteImport } from './routes/create-room'
 import { Route as JoinRoomRouteImport } from './routes/join-room'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as PhysicalRouteImport } from './routes/physical'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as RegisterRouteImport } from './routes/register'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as LobbyRoomIdRouteImport } from './routes/lobby.$roomId'
 import { Route as MafiaGameIdRouteImport } from './routes/mafia.$gameId'
 import { Route as MonopolyGameIdRouteImport } from './routes/monopoly.$gameId'
+import { Route as PhysicalIndexRouteImport } from './routes/physical.index'
+import { Route as PhysicalGameIdRouteImport } from './routes/physical.$gameId'
+import { Route as PhysicalSetupRouteImport } from './routes/physical.setup'
+import { Route as PhysicalGameIdIndexRouteImport } from './routes/physical.$gameId.index'
+import { Route as PhysicalGameIdBoardRouteImport } from './routes/physical.$gameId.board'
+import { Route as PhysicalGameIdHistoryRouteImport } from './routes/physical.$gameId.history'
+import { Route as PhysicalGameIdMoneyRouteImport } from './routes/physical.$gameId.money'
+import { Route as PhysicalGameIdPlayersRouteImport } from './routes/physical.$gameId.players'
+import { Route as PhysicalGameIdPropertiesRouteImport } from './routes/physical.$gameId.properties'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -38,6 +48,11 @@ const JoinRoomRoute = JoinRoomRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PhysicalRoute = PhysicalRouteImport.update({
+  id: '/physical',
+  path: '/physical',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProfileRoute = ProfileRouteImport.update({
@@ -70,18 +85,74 @@ const MonopolyGameIdRoute = MonopolyGameIdRouteImport.update({
   path: '/monopoly/$gameId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PhysicalIndexRoute = PhysicalIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PhysicalRoute,
+} as any)
+const PhysicalGameIdRoute = PhysicalGameIdRouteImport.update({
+  id: '/$gameId',
+  path: '/$gameId',
+  getParentRoute: () => PhysicalRoute,
+} as any)
+const PhysicalSetupRoute = PhysicalSetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => PhysicalRoute,
+} as any)
+const PhysicalGameIdIndexRoute = PhysicalGameIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => PhysicalGameIdRoute,
+} as any)
+const PhysicalGameIdBoardRoute = PhysicalGameIdBoardRouteImport.update({
+  id: '/board',
+  path: '/board',
+  getParentRoute: () => PhysicalGameIdRoute,
+} as any)
+const PhysicalGameIdHistoryRoute = PhysicalGameIdHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => PhysicalGameIdRoute,
+} as any)
+const PhysicalGameIdMoneyRoute = PhysicalGameIdMoneyRouteImport.update({
+  id: '/money',
+  path: '/money',
+  getParentRoute: () => PhysicalGameIdRoute,
+} as any)
+const PhysicalGameIdPlayersRoute = PhysicalGameIdPlayersRouteImport.update({
+  id: '/players',
+  path: '/players',
+  getParentRoute: () => PhysicalGameIdRoute,
+} as any)
+const PhysicalGameIdPropertiesRoute =
+  PhysicalGameIdPropertiesRouteImport.update({
+    id: '/properties',
+    path: '/properties',
+    getParentRoute: () => PhysicalGameIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/create-room': typeof CreateRoomRoute
   '/join-room': typeof JoinRoomRoute
   '/login': typeof LoginRoute
+  '/physical': typeof PhysicalRouteWithChildren
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
   '/lobby/$roomId': typeof LobbyRoomIdRoute
   '/mafia/$gameId': typeof MafiaGameIdRoute
   '/monopoly/$gameId': typeof MonopolyGameIdRoute
+  '/physical/$gameId': typeof PhysicalGameIdRouteWithChildren
+  '/physical/setup': typeof PhysicalSetupRoute
+  '/physical/': typeof PhysicalIndexRoute
+  '/physical/$gameId/board': typeof PhysicalGameIdBoardRoute
+  '/physical/$gameId/history': typeof PhysicalGameIdHistoryRoute
+  '/physical/$gameId/money': typeof PhysicalGameIdMoneyRoute
+  '/physical/$gameId/players': typeof PhysicalGameIdPlayersRoute
+  '/physical/$gameId/properties': typeof PhysicalGameIdPropertiesRoute
+  '/physical/$gameId/': typeof PhysicalGameIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -94,6 +165,14 @@ export interface FileRoutesByTo {
   '/lobby/$roomId': typeof LobbyRoomIdRoute
   '/mafia/$gameId': typeof MafiaGameIdRoute
   '/monopoly/$gameId': typeof MonopolyGameIdRoute
+  '/physical/setup': typeof PhysicalSetupRoute
+  '/physical': typeof PhysicalIndexRoute
+  '/physical/$gameId/board': typeof PhysicalGameIdBoardRoute
+  '/physical/$gameId/history': typeof PhysicalGameIdHistoryRoute
+  '/physical/$gameId/money': typeof PhysicalGameIdMoneyRoute
+  '/physical/$gameId/players': typeof PhysicalGameIdPlayersRoute
+  '/physical/$gameId/properties': typeof PhysicalGameIdPropertiesRoute
+  '/physical/$gameId': typeof PhysicalGameIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -101,12 +180,22 @@ export interface FileRoutesById {
   '/create-room': typeof CreateRoomRoute
   '/join-room': typeof JoinRoomRoute
   '/login': typeof LoginRoute
+  '/physical': typeof PhysicalRouteWithChildren
   '/profile': typeof ProfileRoute
   '/register': typeof RegisterRoute
   '/settings': typeof SettingsRoute
   '/lobby/$roomId': typeof LobbyRoomIdRoute
   '/mafia/$gameId': typeof MafiaGameIdRoute
   '/monopoly/$gameId': typeof MonopolyGameIdRoute
+  '/physical/$gameId': typeof PhysicalGameIdRouteWithChildren
+  '/physical/setup': typeof PhysicalSetupRoute
+  '/physical/': typeof PhysicalIndexRoute
+  '/physical/$gameId/board': typeof PhysicalGameIdBoardRoute
+  '/physical/$gameId/history': typeof PhysicalGameIdHistoryRoute
+  '/physical/$gameId/money': typeof PhysicalGameIdMoneyRoute
+  '/physical/$gameId/players': typeof PhysicalGameIdPlayersRoute
+  '/physical/$gameId/properties': typeof PhysicalGameIdPropertiesRoute
+  '/physical/$gameId/': typeof PhysicalGameIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -115,12 +204,22 @@ export interface FileRouteTypes {
     | '/create-room'
     | '/join-room'
     | '/login'
+    | '/physical'
     | '/profile'
     | '/register'
     | '/settings'
     | '/lobby/$roomId'
     | '/mafia/$gameId'
     | '/monopoly/$gameId'
+    | '/physical/$gameId'
+    | '/physical/setup'
+    | '/physical/'
+    | '/physical/$gameId/board'
+    | '/physical/$gameId/history'
+    | '/physical/$gameId/money'
+    | '/physical/$gameId/players'
+    | '/physical/$gameId/properties'
+    | '/physical/$gameId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -133,18 +232,36 @@ export interface FileRouteTypes {
     | '/lobby/$roomId'
     | '/mafia/$gameId'
     | '/monopoly/$gameId'
+    | '/physical/setup'
+    | '/physical'
+    | '/physical/$gameId/board'
+    | '/physical/$gameId/history'
+    | '/physical/$gameId/money'
+    | '/physical/$gameId/players'
+    | '/physical/$gameId/properties'
+    | '/physical/$gameId'
   id:
     | '__root__'
     | '/'
     | '/create-room'
     | '/join-room'
     | '/login'
+    | '/physical'
     | '/profile'
     | '/register'
     | '/settings'
     | '/lobby/$roomId'
     | '/mafia/$gameId'
     | '/monopoly/$gameId'
+    | '/physical/$gameId'
+    | '/physical/setup'
+    | '/physical/'
+    | '/physical/$gameId/board'
+    | '/physical/$gameId/history'
+    | '/physical/$gameId/money'
+    | '/physical/$gameId/players'
+    | '/physical/$gameId/properties'
+    | '/physical/$gameId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -152,6 +269,7 @@ export interface RootRouteChildren {
   CreateRoomRoute: typeof CreateRoomRoute
   JoinRoomRoute: typeof JoinRoomRoute
   LoginRoute: typeof LoginRoute
+  PhysicalRoute: typeof PhysicalRouteWithChildren
   ProfileRoute: typeof ProfileRoute
   RegisterRoute: typeof RegisterRoute
   SettingsRoute: typeof SettingsRoute
@@ -188,6 +306,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/physical': {
+      id: '/physical'
+      path: '/physical'
+      fullPath: '/physical'
+      preLoaderRoute: typeof PhysicalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/profile': {
@@ -232,14 +357,116 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MonopolyGameIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/physical/': {
+      id: '/physical/'
+      path: '/'
+      fullPath: '/physical/'
+      preLoaderRoute: typeof PhysicalIndexRouteImport
+      parentRoute: typeof PhysicalRoute
+    }
+    '/physical/$gameId': {
+      id: '/physical/$gameId'
+      path: '/$gameId'
+      fullPath: '/physical/$gameId'
+      preLoaderRoute: typeof PhysicalGameIdRouteImport
+      parentRoute: typeof PhysicalRoute
+    }
+    '/physical/setup': {
+      id: '/physical/setup'
+      path: '/setup'
+      fullPath: '/physical/setup'
+      preLoaderRoute: typeof PhysicalSetupRouteImport
+      parentRoute: typeof PhysicalRoute
+    }
+    '/physical/$gameId/': {
+      id: '/physical/$gameId/'
+      path: '/'
+      fullPath: '/physical/$gameId/'
+      preLoaderRoute: typeof PhysicalGameIdIndexRouteImport
+      parentRoute: typeof PhysicalGameIdRoute
+    }
+    '/physical/$gameId/board': {
+      id: '/physical/$gameId/board'
+      path: '/board'
+      fullPath: '/physical/$gameId/board'
+      preLoaderRoute: typeof PhysicalGameIdBoardRouteImport
+      parentRoute: typeof PhysicalGameIdRoute
+    }
+    '/physical/$gameId/history': {
+      id: '/physical/$gameId/history'
+      path: '/history'
+      fullPath: '/physical/$gameId/history'
+      preLoaderRoute: typeof PhysicalGameIdHistoryRouteImport
+      parentRoute: typeof PhysicalGameIdRoute
+    }
+    '/physical/$gameId/money': {
+      id: '/physical/$gameId/money'
+      path: '/money'
+      fullPath: '/physical/$gameId/money'
+      preLoaderRoute: typeof PhysicalGameIdMoneyRouteImport
+      parentRoute: typeof PhysicalGameIdRoute
+    }
+    '/physical/$gameId/players': {
+      id: '/physical/$gameId/players'
+      path: '/players'
+      fullPath: '/physical/$gameId/players'
+      preLoaderRoute: typeof PhysicalGameIdPlayersRouteImport
+      parentRoute: typeof PhysicalGameIdRoute
+    }
+    '/physical/$gameId/properties': {
+      id: '/physical/$gameId/properties'
+      path: '/properties'
+      fullPath: '/physical/$gameId/properties'
+      preLoaderRoute: typeof PhysicalGameIdPropertiesRouteImport
+      parentRoute: typeof PhysicalGameIdRoute
+    }
   }
 }
+
+interface PhysicalGameIdRouteChildren {
+  PhysicalGameIdBoardRoute: typeof PhysicalGameIdBoardRoute
+  PhysicalGameIdHistoryRoute: typeof PhysicalGameIdHistoryRoute
+  PhysicalGameIdMoneyRoute: typeof PhysicalGameIdMoneyRoute
+  PhysicalGameIdPlayersRoute: typeof PhysicalGameIdPlayersRoute
+  PhysicalGameIdPropertiesRoute: typeof PhysicalGameIdPropertiesRoute
+  PhysicalGameIdIndexRoute: typeof PhysicalGameIdIndexRoute
+}
+
+const PhysicalGameIdRouteChildren: PhysicalGameIdRouteChildren = {
+  PhysicalGameIdBoardRoute: PhysicalGameIdBoardRoute,
+  PhysicalGameIdHistoryRoute: PhysicalGameIdHistoryRoute,
+  PhysicalGameIdMoneyRoute: PhysicalGameIdMoneyRoute,
+  PhysicalGameIdPlayersRoute: PhysicalGameIdPlayersRoute,
+  PhysicalGameIdPropertiesRoute: PhysicalGameIdPropertiesRoute,
+  PhysicalGameIdIndexRoute: PhysicalGameIdIndexRoute,
+}
+
+const PhysicalGameIdRouteWithChildren = PhysicalGameIdRoute._addFileChildren(
+  PhysicalGameIdRouteChildren,
+)
+
+interface PhysicalRouteChildren {
+  PhysicalGameIdRoute: typeof PhysicalGameIdRouteWithChildren
+  PhysicalSetupRoute: typeof PhysicalSetupRoute
+  PhysicalIndexRoute: typeof PhysicalIndexRoute
+}
+
+const PhysicalRouteChildren: PhysicalRouteChildren = {
+  PhysicalGameIdRoute: PhysicalGameIdRouteWithChildren,
+  PhysicalSetupRoute: PhysicalSetupRoute,
+  PhysicalIndexRoute: PhysicalIndexRoute,
+}
+
+const PhysicalRouteWithChildren = PhysicalRoute._addFileChildren(
+  PhysicalRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CreateRoomRoute: CreateRoomRoute,
   JoinRoomRoute: JoinRoomRoute,
   LoginRoute: LoginRoute,
+  PhysicalRoute: PhysicalRouteWithChildren,
   ProfileRoute: ProfileRoute,
   RegisterRoute: RegisterRoute,
   SettingsRoute: SettingsRoute,

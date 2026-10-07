@@ -1,0 +1,45 @@
+.physical-app {
+  min-height: 100dvh;
+  background:
+    radial-gradient(1200px 500px at 50% -10%, rgba(230, 179, 37, 0.16), transparent 55%),
+    #07140f;
+  color: #f6f1e6;
+  font-family: Inter, sans-serif;
+}
+
+.physical-app h1,
+.physical-app h2,
+.physical-app .display {
+  font-family: Anton, Inter, sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.pb-nav {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 40;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  background: #10241c;
+  border-top: 1px solid rgba(246, 241, 230, 0.12);
+  border-radius: 1.25rem 1.25rem 0 0;
+  padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom));
+  max-height: 88dvh;
+  overflow: auto;
+}
+
+.die-btn {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
